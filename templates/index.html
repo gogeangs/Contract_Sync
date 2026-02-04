@@ -1,0 +1,518 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Contract Sync</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script src="/static/js/main.js"></script>
+    <script defer src="https://cdn.jsdelivr.net/npm/alpinejs@3.x.x/dist/cdn.min.js"></script>
+    <link rel="stylesheet" href="/static/css/styles.css">
+    <style>[x-cloak] { display: none !important; }</style>
+</head>
+<body class="bg-gray-100 min-h-screen">
+    <!-- 네비게이션 바 -->
+    <nav x-data="authState()" x-init="init()" class="bg-white shadow-sm">
+        <div class="container mx-auto px-4 py-3 flex justify-between items-center">
+            <a href="/" class="text-xl font-bold text-gray-800">Contract Sync</a>
+            <div class="flex items-center gap-4">
+                <!-- 로그인 상태 -->
+                <div x-show="user" class="flex items-center gap-3">
+                    <img x-show="user?.picture" :src="user?.picture" class="w-8 h-8 rounded-full" alt="프로필">
+                    <span class="text-gray-700" x-text="user?.name || user?.email"></span>
+                    <button @click="logout()" class="text-gray-500 hover:text-gray-700">
+                        로그아웃
+                    </button>
+                </div>
+                <!-- 로그인/회원가입 버튼 -->
+                <div x-show="!user" class="flex items-center gap-2">
+                    <button @click="openLogin()"
+                            class="px-4 py-2 text-gray-700 hover:text-gray-900 transition-colors">
+                        로그인
+                    </button>
+                    <button @click="openSignup()"
+                            class="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors">
+                        회원가입
+                    </button>
+                </div>
+            </div>
+        </div>
+
+        <!-- 로그인/회원가입 모달 -->
+        <div x-show="showModal" x-cloak
+             class="fixed inset-0 z-50 flex items-center justify-center bg-black bg-opacity-50"
+             @click.self="closeModal()">
+            <div class="bg-white rounded-xl shadow-xl w-full max-w-md mx-4 p-6" @click.stop>
+                <!-- 모달 헤더 -->
+                <div class="flex justify-between items-center mb-6">
+                    <h2 class="text-xl font-bold text-gray-800"
+                        x-text="modalMode === 'login' ? '로그인' : (modalMode === 'verify' ? '이메일 인증' : '회원가입')"></h2>
+                    <button @click="closeModal()" class="text-gray-400 hover:text-gray-600">
+                        <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"></path>
+                        </svg>
+                    </button>
+                </div>
+
+                <!-- 에러/성공 메시지 -->
+                <div x-show="formError" class="mb-4 p-3 bg-red-100 text-red-700 rounded-lg text-sm" x-text="formError"></div>
+                <div x-show="formSuccess" class="mb-4 p-3 bg-green-100 text-green-700 rounded-lg text-sm" x-text="formSuccess"></div>
+
+                <!-- 로그인 폼 -->
+                <form x-show="modalMode === 'login'" @submit.prevent="login()" class="space-y-4">
+                    <div>
+                        <label class="block text-sm font-medium text-gray-700 mb-1">이메일</label>
+                        <input type="email" x-model="email" required
+                               class="w-full px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+                               placeholder="email@example.com">
+                    </div>
+                    <div>
+                        <label class="block text-sm font-medium text-gray-700 mb-1">비밀번호</label>
+                        <input type="password" x-model="password" required
+                               class="w-full px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+                               placeholder="비밀번호">
+                    </div>
+                    <button type="submit" :disabled="formLoading"
+                            class="w-full py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 disabled:bg-gray-400 transition-colors">
+                        <span x-show="!formLoading">로그인</span>
+                        <span x-show="formLoading">처리 중...</span>
+                    </button>
+                </form>
+
+                <!-- 회원가입 폼 (이메일 인증 전) -->
+                <form x-show="modalMode === 'signup' && !emailVerified" @submit.prevent="sendVerificationCode()" class="space-y-4">
+                    <div>
+                        <label class="block text-sm font-medium text-gray-700 mb-1">이메일</label>
+                        <input type="email" x-model="email" required
+                               class="w-full px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+                               placeholder="email@example.com">
+                    </div>
+                    <button type="submit" :disabled="formLoading"
+                            class="w-full py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 disabled:bg-gray-400 transition-colors">
+                        <span x-show="!formLoading">인증코드 발송</span>
+                        <span x-show="formLoading">발송 중...</span>
+                    </button>
+                </form>
+
+                <!-- 이메일 인증 폼 -->
+                <form x-show="modalMode === 'verify'" @submit.prevent="verifyCode()" class="space-y-4">
+                    <p class="text-sm text-gray-600 mb-4">
+                        <span x-text="email"></span>으로 발송된 6자리 인증코드를 입력하세요.
+                    </p>
+                    <div>
+                        <label class="block text-sm font-medium text-gray-700 mb-1">인증코드</label>
+                        <input type="text" x-model="verificationCode" required maxlength="6"
+                               class="w-full px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 text-center text-2xl tracking-widest"
+                               placeholder="000000">
+                    </div>
+                    <button type="submit" :disabled="formLoading"
+                            class="w-full py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 disabled:bg-gray-400 transition-colors">
+                        <span x-show="!formLoading">인증 확인</span>
+                        <span x-show="formLoading">확인 중...</span>
+                    </button>
+                    <button type="button" @click="sendVerificationCode()" :disabled="formLoading"
+                            class="w-full py-2 text-blue-600 hover:text-blue-800">
+                        인증코드 재발송
+                    </button>
+                </form>
+
+                <!-- 비밀번호 설정 폼 (이메일 인증 후) -->
+                <form x-show="modalMode === 'signup' && emailVerified" @submit.prevent="signup()" class="space-y-4">
+                    <div class="p-3 bg-green-50 text-green-700 rounded-lg text-sm flex items-center gap-2">
+                        <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7"></path>
+                        </svg>
+                        <span x-text="email"></span> 인증 완료
+                    </div>
+                    <div>
+                        <label class="block text-sm font-medium text-gray-700 mb-1">비밀번호</label>
+                        <input type="password" x-model="password" required minlength="6"
+                               class="w-full px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+                               placeholder="6자 이상 입력">
+                    </div>
+                    <div>
+                        <label class="block text-sm font-medium text-gray-700 mb-1">비밀번호 확인</label>
+                        <input type="password" x-model="passwordConfirm" required minlength="6"
+                               class="w-full px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+                               placeholder="비밀번호 재입력">
+                    </div>
+                    <button type="submit" :disabled="formLoading"
+                            class="w-full py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 disabled:bg-gray-400 transition-colors">
+                        <span x-show="!formLoading">회원가입 완료</span>
+                        <span x-show="formLoading">처리 중...</span>
+                    </button>
+                </form>
+
+                <!-- 구분선 -->
+                <div class="my-6 flex items-center">
+                    <div class="flex-1 border-t border-gray-300"></div>
+                    <span class="px-4 text-sm text-gray-500">또는</span>
+                    <div class="flex-1 border-t border-gray-300"></div>
+                </div>
+
+                <!-- Google 로그인 -->
+                <a href="/api/v1/auth/login/google"
+                   class="w-full flex items-center justify-center gap-2 py-2 border border-gray-300 rounded-lg hover:bg-gray-50 transition-colors">
+                    <svg class="w-5 h-5" viewBox="0 0 24 24">
+                        <path fill="#4285F4" d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92c-.26 1.37-1.04 2.53-2.21 3.31v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.09z"/>
+                        <path fill="#34A853" d="M12 23c2.97 0 5.46-.98 7.28-2.66l-3.57-2.77c-.98.66-2.23 1.06-3.71 1.06-2.86 0-5.29-1.93-6.16-4.53H2.18v2.84C3.99 20.53 7.7 23 12 23z"/>
+                        <path fill="#FBBC05" d="M5.84 14.09c-.22-.66-.35-1.36-.35-2.09s.13-1.43.35-2.09V7.07H2.18C1.43 8.55 1 10.22 1 12s.43 3.45 1.18 4.93l2.85-2.22.81-.62z"/>
+                        <path fill="#EA4335" d="M12 5.38c1.62 0 3.06.56 4.21 1.64l3.15-3.15C17.45 2.09 14.97 1 12 1 7.7 1 3.99 3.47 2.18 7.07l3.66 2.84c.87-2.6 3.3-4.53 6.16-4.53z"/>
+                    </svg>
+                    Google로 계속하기
+                </a>
+
+                <!-- 모드 전환 -->
+                <div class="mt-4 text-center text-sm text-gray-600">
+                    <template x-if="modalMode === 'login'">
+                        <p>계정이 없으신가요? <button @click="openSignup()" class="text-blue-600 hover:underline">회원가입</button></p>
+                    </template>
+                    <template x-if="modalMode !== 'login'">
+                        <p>이미 계정이 있으신가요? <button @click="openLogin()" class="text-blue-600 hover:underline">로그인</button></p>
+                    </template>
+                </div>
+            </div>
+        </div>
+    </nav>
+
+    <div x-data="scheduleExtractor()" class="container mx-auto px-4 py-8">
+
+        <!-- 헤더 -->
+        <header class="text-center mb-10">
+            <h1 class="text-3xl font-bold text-gray-800">Contract Sync</h1>
+            <p class="text-gray-600 mt-2">PDF, Word, 한글 파일을 업로드하면 추진 일정을 자동으로 추출합니다</p>
+        </header>
+
+        <!-- 파일 업로드 영역 -->
+        <section class="max-w-2xl mx-auto">
+            <div
+                class="border-2 border-dashed rounded-lg p-10 text-center transition-colors cursor-pointer"
+                :class="dragover ? 'border-blue-500 bg-blue-50' : 'border-gray-300 hover:border-blue-400'"
+                @drop.prevent="handleDrop($event)"
+                @dragover.prevent="dragover = true"
+                @dragleave.prevent="dragover = false"
+                @click="$refs.fileInput.click()">
+
+                <input
+                    type="file"
+                    x-ref="fileInput"
+                    @change="handleFileSelect($event)"
+                    accept=".pdf,.docx,.doc,.hwp,.hwpx"
+                    class="hidden">
+
+                <div x-show="!file">
+                    <svg class="mx-auto h-12 w-12 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                              d="M7 16a4 4 0 01-.88-7.903A5 5 0 1115.9 6L16 6a5 5 0 011 9.9M15 13l-3-3m0 0l-3 3m3-3v12"></path>
+                    </svg>
+                    <p class="mt-4 text-lg text-gray-600">
+                        파일을 드래그하거나 클릭하여 업로드
+                    </p>
+                    <p class="mt-2 text-sm text-gray-500">
+                        지원 형식: PDF, DOCX, HWP (최대 50MB)
+                    </p>
+                </div>
+
+                <div x-show="file" class="text-left">
+                    <div class="flex items-center justify-between bg-white p-4 rounded-lg shadow-sm">
+                        <div class="flex items-center gap-3">
+                            <svg class="h-8 w-8 text-blue-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                                      d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"></path>
+                            </svg>
+                            <div>
+                                <p class="font-medium text-gray-700" x-text="file?.name"></p>
+                                <p class="text-sm text-gray-500" x-text="formatFileSize(file?.size)"></p>
+                            </div>
+                        </div>
+                        <button @click.stop="clearFile()" class="text-red-500 hover:text-red-700">
+                            <svg class="h-5 w-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"></path>
+                            </svg>
+                        </button>
+                    </div>
+                </div>
+            </div>
+
+            <button
+                @click="extractSchedule()"
+                :disabled="!file || loading"
+                class="w-full mt-6 py-3 bg-blue-600 text-white rounded-lg font-medium
+                       hover:bg-blue-700 disabled:bg-gray-400 disabled:cursor-not-allowed
+                       transition-colors flex items-center justify-center gap-2">
+                <svg x-show="loading" class="animate-spin h-5 w-5" fill="none" viewBox="0 0 24 24">
+                    <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
+                    <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+                </svg>
+                <span x-show="!loading">일정 추출하기</span>
+                <span x-show="loading">분석 중...</span>
+            </button>
+        </section>
+
+        <!-- 에러 메시지 -->
+        <div x-show="error" x-transition class="mt-6 max-w-2xl mx-auto">
+            <div class="bg-red-100 border border-red-400 text-red-700 px-4 py-3 rounded-lg flex items-center gap-2">
+                <svg class="h-5 w-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8v4m0 4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"></path>
+                </svg>
+                <span x-text="error"></span>
+            </div>
+        </div>
+
+        <!-- 결과 표시 영역 -->
+        <section x-show="result" x-transition class="mt-10 max-w-4xl mx-auto space-y-6">
+
+            <!-- 계약 기본 정보 -->
+            <div class="bg-white rounded-lg shadow-md p-6">
+                <div class="flex justify-between items-center mb-4">
+                    <h2 class="text-xl font-bold text-gray-800 flex items-center gap-2">
+                        <svg class="h-6 w-6 text-blue-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"></path>
+                        </svg>
+                        계약 기본 정보
+                    </h2>
+                    <button @click="editMode = !editMode"
+                            class="px-3 py-1 text-sm rounded-lg transition-colors"
+                            :class="editMode ? 'bg-green-600 text-white hover:bg-green-700' : 'bg-gray-200 text-gray-700 hover:bg-gray-300'">
+                        <span x-text="editMode ? '편집 완료' : '편집'"></span>
+                    </button>
+                </div>
+                <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+                    <div class="p-3 bg-gray-50 rounded-lg">
+                        <span class="text-sm text-gray-500">계약명</span>
+                        <p x-show="!editMode" class="font-medium text-gray-800" x-text="result?.contract_schedule?.contract_name || '-'"></p>
+                        <input x-show="editMode" type="text" x-model="result.contract_schedule.contract_name"
+                               class="w-full mt-1 px-2 py-1 border border-gray-300 rounded focus:outline-none focus:ring-2 focus:ring-blue-500">
+                    </div>
+                    <div class="p-3 bg-gray-50 rounded-lg">
+                        <span class="text-sm text-gray-500">총 기간 (일)</span>
+                        <p x-show="!editMode" class="font-medium text-gray-800" x-text="result?.contract_schedule?.total_duration_days ? result.contract_schedule.total_duration_days + '일' : '-'"></p>
+                        <input x-show="editMode" type="number" x-model="result.contract_schedule.total_duration_days"
+                               class="w-full mt-1 px-2 py-1 border border-gray-300 rounded focus:outline-none focus:ring-2 focus:ring-blue-500">
+                    </div>
+                    <div class="p-3 bg-gray-50 rounded-lg">
+                        <span class="text-sm text-gray-500">착수일</span>
+                        <p x-show="!editMode" class="font-medium text-gray-800" x-text="result?.contract_schedule?.contract_start_date || '-'"></p>
+                        <input x-show="editMode" type="date" x-model="result.contract_schedule.contract_start_date"
+                               class="w-full mt-1 px-2 py-1 border border-gray-300 rounded focus:outline-none focus:ring-2 focus:ring-blue-500">
+                    </div>
+                    <div class="p-3 bg-gray-50 rounded-lg">
+                        <span class="text-sm text-gray-500">완료일</span>
+                        <p x-show="!editMode" class="font-medium text-gray-800" x-text="result?.contract_schedule?.contract_end_date || '-'"></p>
+                        <input x-show="editMode" type="date" x-model="result.contract_schedule.contract_end_date"
+                               class="w-full mt-1 px-2 py-1 border border-gray-300 rounded focus:outline-none focus:ring-2 focus:ring-blue-500">
+                    </div>
+                </div>
+            </div>
+
+            <!-- 추진 일정 타임라인 -->
+            <div class="bg-white rounded-lg shadow-md p-6" x-show="result?.contract_schedule?.schedules?.length > 0 || editMode">
+                <div class="flex justify-between items-center mb-4">
+                    <h2 class="text-xl font-bold text-gray-800 flex items-center gap-2">
+                        <svg class="h-6 w-6 text-green-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z"></path>
+                        </svg>
+                        추진 일정
+                    </h2>
+                    <button x-show="editMode" @click="addSchedule()"
+                            class="px-3 py-1 text-sm bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors">
+                        + 일정 추가
+                    </button>
+                </div>
+                <div class="space-y-3">
+                    <template x-for="(schedule, index) in result?.contract_schedule?.schedules" :key="index">
+                        <div class="flex items-start border-l-4 border-blue-500 pl-4 py-3 bg-gray-50 rounded-r-lg">
+                            <!-- 보기 모드 -->
+                            <template x-if="!editMode">
+                                <div class="flex-1 flex justify-between items-start">
+                                    <div>
+                                        <div class="flex items-center gap-2 mb-1">
+                                            <span class="font-semibold text-gray-800" x-text="schedule.phase"></span>
+                                            <span class="px-2 py-0.5 text-xs rounded-full"
+                                                  :class="getScheduleTypeClass(schedule.schedule_type)"
+                                                  x-text="schedule.schedule_type"></span>
+                                        </div>
+                                        <p class="text-sm text-gray-600" x-show="schedule.description" x-text="schedule.description"></p>
+                                        <div class="text-sm text-gray-500 mt-1" x-show="schedule.deliverables?.length > 0">
+                                            <span class="font-medium">산출물:</span>
+                                            <span x-text="schedule.deliverables?.join(', ')"></span>
+                                        </div>
+                                    </div>
+                                    <div class="text-right text-sm text-gray-600">
+                                        <span x-text="schedule.start_date || ''"></span>
+                                        <span x-show="schedule.start_date && schedule.end_date"> ~ </span>
+                                        <span x-text="schedule.end_date || ''"></span>
+                                    </div>
+                                </div>
+                            </template>
+                            <!-- 편집 모드 -->
+                            <template x-if="editMode">
+                                <div class="flex-1">
+                                    <div class="grid grid-cols-1 md:grid-cols-2 gap-3">
+                                        <div>
+                                            <label class="text-xs text-gray-500">단계명</label>
+                                            <input type="text" x-model="schedule.phase"
+                                                   class="w-full px-2 py-1 border border-gray-300 rounded text-sm">
+                                        </div>
+                                        <div>
+                                            <label class="text-xs text-gray-500">일정 유형</label>
+                                            <select x-model="schedule.schedule_type"
+                                                    class="w-full px-2 py-1 border border-gray-300 rounded text-sm">
+                                                <option value="착수">착수</option>
+                                                <option value="설계">설계</option>
+                                                <option value="개발">개발</option>
+                                                <option value="테스트">테스트</option>
+                                                <option value="중간보고">중간보고</option>
+                                                <option value="최종보고">최종보고</option>
+                                                <option value="납품">납품</option>
+                                                <option value="검수">검수</option>
+                                                <option value="인도">인도</option>
+                                                <option value="완료">완료</option>
+                                                <option value="기타">기타</option>
+                                            </select>
+                                        </div>
+                                        <div>
+                                            <label class="text-xs text-gray-500">시작일</label>
+                                            <input type="date" x-model="schedule.start_date"
+                                                   class="w-full px-2 py-1 border border-gray-300 rounded text-sm">
+                                        </div>
+                                        <div>
+                                            <label class="text-xs text-gray-500">종료일</label>
+                                            <input type="date" x-model="schedule.end_date"
+                                                   class="w-full px-2 py-1 border border-gray-300 rounded text-sm">
+                                        </div>
+                                        <div class="md:col-span-2">
+                                            <label class="text-xs text-gray-500">설명</label>
+                                            <input type="text" x-model="schedule.description"
+                                                   class="w-full px-2 py-1 border border-gray-300 rounded text-sm">
+                                        </div>
+                                    </div>
+                                    <button @click="deleteSchedule(index)" class="mt-2 text-red-500 hover:text-red-700 text-sm flex items-center gap-1">
+                                        <svg class="h-4 w-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"></path>
+                                        </svg>
+                                        삭제
+                                    </button>
+                                </div>
+                            </template>
+                        </div>
+                    </template>
+                </div>
+            </div>
+
+            <!-- 업무 목록 테이블 -->
+            <div class="bg-white rounded-lg shadow-md p-6" x-show="result?.task_list?.length > 0 || editMode">
+                <div class="flex justify-between items-center mb-4">
+                    <h2 class="text-xl font-bold text-gray-800 flex items-center gap-2">
+                        <svg class="h-6 w-6 text-purple-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2m-6 9l2 2 4-4"></path>
+                        </svg>
+                        생성된 업무 목록
+                        <span class="text-sm font-normal text-gray-500" x-text="'(' + (result?.task_list?.length || 0) + '개)'"></span>
+                    </h2>
+                    <button x-show="editMode" @click="addTask()"
+                            class="px-3 py-1 text-sm bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors">
+                        + 업무 추가
+                    </button>
+                </div>
+                <div class="overflow-x-auto">
+                    <table class="w-full">
+                        <thead class="bg-gray-50">
+                            <tr>
+                                <th class="px-4 py-3 text-left text-sm font-medium text-gray-600">ID</th>
+                                <th class="px-4 py-3 text-left text-sm font-medium text-gray-600">업무명</th>
+                                <th class="px-4 py-3 text-left text-sm font-medium text-gray-600">단계</th>
+                                <th class="px-4 py-3 text-left text-sm font-medium text-gray-600">마감일</th>
+                                <th class="px-4 py-3 text-left text-sm font-medium text-gray-600">우선순위</th>
+                                <th class="px-4 py-3 text-left text-sm font-medium text-gray-600">상태</th>
+                                <th x-show="editMode" class="px-4 py-3 text-left text-sm font-medium text-gray-600">삭제</th>
+                            </tr>
+                        </thead>
+                        <tbody class="divide-y divide-gray-200">
+                            <template x-for="(task, index) in result?.task_list" :key="index">
+                                <tr class="hover:bg-gray-50">
+                                    <td class="px-4 py-3 text-sm text-gray-500">
+                                        <span x-show="!editMode" x-text="task.task_id"></span>
+                                        <input x-show="editMode" type="text" x-model="task.task_id"
+                                               class="w-20 px-2 py-1 border border-gray-300 rounded text-sm">
+                                    </td>
+                                    <td class="px-4 py-3 text-sm font-medium text-gray-800">
+                                        <span x-show="!editMode" x-text="task.task_name"></span>
+                                        <input x-show="editMode" type="text" x-model="task.task_name"
+                                               class="w-full px-2 py-1 border border-gray-300 rounded text-sm">
+                                    </td>
+                                    <td class="px-4 py-3 text-sm text-gray-600">
+                                        <span x-show="!editMode" x-text="task.phase"></span>
+                                        <input x-show="editMode" type="text" x-model="task.phase"
+                                               class="w-24 px-2 py-1 border border-gray-300 rounded text-sm">
+                                    </td>
+                                    <td class="px-4 py-3 text-sm text-gray-600">
+                                        <span x-show="!editMode" x-text="task.due_date || '-'"></span>
+                                        <input x-show="editMode" type="date" x-model="task.due_date"
+                                               class="px-2 py-1 border border-gray-300 rounded text-sm">
+                                    </td>
+                                    <td class="px-4 py-3">
+                                        <span x-show="!editMode" class="px-2 py-1 text-xs rounded-full"
+                                              :class="getPriorityClass(task.priority)"
+                                              x-text="task.priority"></span>
+                                        <select x-show="editMode" x-model="task.priority"
+                                                class="px-2 py-1 border border-gray-300 rounded text-sm">
+                                            <option value="긴급">긴급</option>
+                                            <option value="높음">높음</option>
+                                            <option value="보통">보통</option>
+                                            <option value="낮음">낮음</option>
+                                        </select>
+                                    </td>
+                                    <td class="px-4 py-3 text-sm text-gray-600">
+                                        <span x-show="!editMode" x-text="task.status"></span>
+                                        <select x-show="editMode" x-model="task.status"
+                                                class="px-2 py-1 border border-gray-300 rounded text-sm">
+                                            <option value="대기">대기</option>
+                                            <option value="진행중">진행중</option>
+                                            <option value="완료">완료</option>
+                                            <option value="보류">보류</option>
+                                        </select>
+                                    </td>
+                                    <td x-show="editMode" class="px-4 py-3">
+                                        <button @click="deleteTask(index)" class="text-red-500 hover:text-red-700">
+                                            <svg class="h-5 w-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"></path>
+                                            </svg>
+                                        </button>
+                                    </td>
+                                </tr>
+                            </template>
+                        </tbody>
+                    </table>
+                </div>
+
+                <!-- 내보내기 버튼 -->
+                <div class="mt-6 flex gap-4">
+                    <button @click="exportCSV()"
+                            class="px-4 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 transition-colors flex items-center gap-2">
+                        <svg class="h-4 w-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 10v6m0 0l-3-3m3 3l3-3m2 8H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"></path>
+                        </svg>
+                        CSV 내보내기
+                    </button>
+                    <button @click="exportJSON()"
+                            class="px-4 py-2 bg-gray-600 text-white rounded-lg hover:bg-gray-700 transition-colors flex items-center gap-2">
+                        <svg class="h-4 w-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 10v6m0 0l-3-3m3 3l3-3m2 8H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"></path>
+                        </svg>
+                        JSON 내보내기
+                    </button>
+                </div>
+            </div>
+
+        </section>
+
+        <!-- 푸터 -->
+        <footer class="mt-16 text-center text-gray-500 text-sm">
+            <p>Contract Sync v1.0</p>
+        </footer>
+
+    </div>
+
+</body>
+</html>

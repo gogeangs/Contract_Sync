@@ -1,0 +1,51 @@
+/* 추가 커스텀 스타일 */
+
+/* 로딩 애니메이션 */
+@keyframes spin {
+    from {
+        transform: rotate(0deg);
+    }
+    to {
+        transform: rotate(360deg);
+    }
+}
+
+.animate-spin {
+    animation: spin 1s linear infinite;
+}
+
+/* 부드러운 전환 효과 */
+[x-cloak] {
+    display: none !important;
+}
+
+/* 테이블 스타일 */
+table {
+    border-collapse: collapse;
+}
+
+/* 드래그 앤 드롭 영역 */
+.drop-zone-active {
+    border-color: #3b82f6;
+    background-color: #eff6ff;
+}
+
+/* 스크롤바 스타일 */
+::-webkit-scrollbar {
+    width: 8px;
+    height: 8px;
+}
+
+::-webkit-scrollbar-track {
+    background: #f1f1f1;
+    border-radius: 4px;
+}
+
+::-webkit-scrollbar-thumb {
+    background: #c1c1c1;
+    border-radius: 4px;
+}
+
+::-webkit-scrollbar-thumb:hover {
+    background: #a1a1a1;
+}
