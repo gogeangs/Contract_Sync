@@ -189,7 +189,7 @@
     </nav>
 
     <div x-data="scheduleExtractor()" x-init="init()"
-         @toggle-mypage.window="showMyPage = !showMyPage; showDashboard = false; if(showMyPage) loadMyContracts()"
+         @toggle-mypage.window="showMyPage = true; showDashboard = false; loadMyContracts()"
          @toggle-dashboard.window="showDashboard = true; showMyPage = false; loadDashboard()"
          @load-contract.window="loadContractData($event.detail); showDashboard = false"
          @user-logged-in.window="isLoggedIn = true; showDashboard = true; loadDashboard()"
