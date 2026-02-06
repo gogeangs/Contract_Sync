@@ -6,22 +6,24 @@ from xml.etree import ElementTree as ET
 
 import olefile
 
-from app.parsers.base import BaseParser
+from app.parsers.base import BaseParser, ParseResult
 
 
 class HWPParser(BaseParser):
     """HWP 파일 파서 (한글 문서)"""
 
-    async def parse(self, file_path: str) -> str:
+    async def parse(self, file_path: str) -> ParseResult:
         """HWP에서 텍스트 추출 - 여러 방법 시도"""
 
         # 방법 1: HWPX 형식 (ZIP 기반, 한글 2010+ 신형식)
         if self._is_hwpx(file_path):
-            return await self._parse_hwpx(file_path)
+            text = await self._parse_hwpx(file_path)
+            return ParseResult(text=text)
 
         # 방법 2: OLE 기반 HWP 파싱
         try:
-            return await self._parse_hwp_ole(file_path)
+            text = await self._parse_hwp_ole(file_path)
+            return ParseResult(text=text)
         except Exception as e:
             raise ValueError(f"HWP 파싱 실패: {str(e)}")
 

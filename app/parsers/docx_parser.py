@@ -1,11 +1,11 @@
 from docx import Document
-from app.parsers.base import BaseParser
+from app.parsers.base import BaseParser, ParseResult
 
 
 class DocxParser(BaseParser):
     """DOCX 파일 파서"""
 
-    async def parse(self, file_path: str) -> str:
+    async def parse(self, file_path: str) -> ParseResult:
         """DOCX에서 텍스트 추출"""
         doc = Document(file_path)
         text_content = []
@@ -21,7 +21,7 @@ class DocxParser(BaseParser):
             if table_text.strip():
                 text_content.append(f"\n[표]\n{table_text}")
 
-        return "\n\n".join(text_content)
+        return ParseResult(text="\n\n".join(text_content))
 
     def _extract_table(self, table) -> str:
         """표에서 텍스트 추출"""

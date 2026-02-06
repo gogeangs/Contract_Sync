@@ -5,8 +5,8 @@ from functools import lru_cache
 class Settings(BaseSettings):
     """애플리케이션 설정"""
 
-    # OpenAI
-    openai_api_key: str = ""
+    # Google Gemini
+    gemini_api_key: str = ""
 
     # App
     debug: bool = True

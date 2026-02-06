@@ -1,7 +1,7 @@
 from fastapi import APIRouter, UploadFile, File, HTTPException
 
 from app.services.file_service import FileService
-from app.services.openai_service import OpenAIService
+from app.services.gemini_service import GeminiService
 from app.schemas.schedule import ScheduleResponse
 
 router = APIRouter()
@@ -27,25 +27,28 @@ async def upload_and_extract_schedule(
         # 1. 파일 저장
         saved_path = await file_service.save_upload_file(file)
 
-        # 2. 파일 파싱
-        text_content = await file_service.parse_file(saved_path)
+        # 2. 파일 파싱 (텍스트 또는 이미지)
+        parse_result = await file_service.parse_file(saved_path)
 
-        if not text_content or not text_content.strip():
+        if not parse_result.has_text and not parse_result.has_images:
             raise HTTPException(
                 status_code=400, detail="파일에서 텍스트를 추출할 수 없습니다."
             )
 
-        # 3. OpenAI로 일정 추출
-        openai_service = OpenAIService()
-        contract_schedule, task_list = await openai_service.extract_schedule(text_content)
+        # 3. Gemini로 일정 추출
+        gemini_service = GeminiService()
+        contract_schedule, task_list = await gemini_service.extract_schedule(
+            text=parse_result.text,
+            images=parse_result.images if parse_result.has_images else None,
+        )
 
         return ScheduleResponse(
             success=True,
             message="일정 추출 완료",
             contract_schedule=contract_schedule,
             task_list=task_list,
-            raw_text_preview=text_content[:500] if text_content else None,
-            raw_text=text_content,
+            raw_text_preview=parse_result.text[:500] if parse_result.text else None,
+            raw_text=parse_result.text,
         )
 
     except ValueError as e:

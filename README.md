@@ -4,7 +4,7 @@
 
 ## 주요 기능
 - PDF, DOCX, HWP 계약서 파일 업로드
-- OpenAI를 활용한 일정 자동 추출
+- Google Gemini를 활용한 일정 자동 추출 (이미지 PDF 직접 인식)
 - 업무 목록 생성 및 관리
 - 대시보드에서 전체 업무 현황 확인
 - 워드 파일로 내보내기
@@ -23,7 +23,7 @@
 
 | 변수명 | 설명 |
 |--------|------|
-| `OPENAI_API_KEY` | OpenAI API 키 |
+| `GEMINI_API_KEY` | Google Gemini API 키 |
 | `SECRET_KEY` | 세션 암호화 키 |
 | `GOOGLE_CLIENT_ID` | Google OAuth 클라이언트 ID |
 | `GOOGLE_CLIENT_SECRET` | Google OAuth 시크릿 |
@@ -49,5 +49,5 @@ uvicorn app.main:app --reload
 ## 기술 스택
 - FastAPI
 - SQLAlchemy (SQLite)
-- OpenAI API
+- Google Gemini API
 - Alpine.js + Tailwind CSS

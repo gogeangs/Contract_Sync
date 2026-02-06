@@ -1,4 +1,4 @@
-from app.parsers.base import BaseParser
+from app.parsers.base import BaseParser, ParseResult
 from app.parsers.pdf_parser import PDFParser
 from app.parsers.docx_parser import DocxParser
 from app.parsers.hwp_parser import HWPParser

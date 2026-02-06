@@ -4,7 +4,7 @@ from pathlib import Path
 from fastapi import UploadFile
 
 from app.config import settings
-from app.parsers import ParserFactory
+from app.parsers import ParserFactory, ParseResult
 
 
 class FileService:
@@ -43,8 +43,8 @@ class FileService:
 
         return file_path
 
-    async def parse_file(self, file_path: Path) -> str:
-        """파일을 파싱하여 텍스트 추출"""
+    async def parse_file(self, file_path: Path) -> ParseResult:
+        """파일을 파싱하여 텍스트/이미지 추출"""
         extension = file_path.suffix.lower()
         parser = ParserFactory.get_parser(extension)
         return await parser.parse(str(file_path))
