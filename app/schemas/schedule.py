@@ -61,3 +61,4 @@ class ScheduleResponse(BaseModel):
     contract_schedule: Optional[ContractSchedule] = None
     task_list: Optional[list[TaskItem]] = None
     raw_text_preview: Optional[str] = Field(None, description="추출된 텍스트 미리보기")
+    raw_text: Optional[str] = Field(None, description="추출된 전체 텍스트")

@@ -45,6 +45,7 @@ async def upload_and_extract_schedule(
             contract_schedule=contract_schedule,
             task_list=task_list,
             raw_text_preview=text_content[:500] if text_content else None,
+            raw_text=text_content,
         )
 
     except ValueError as e:

@@ -28,9 +28,13 @@ function authState() {
 
                 if (data.logged_in && data.user) {
                     this.user = data.user;
+                    window.dispatchEvent(new CustomEvent('user-logged-in'));
+                } else {
+                    window.dispatchEvent(new CustomEvent('user-not-logged-in'));
                 }
             } catch (err) {
                 console.error('인증 확인 실패:', err);
+                window.dispatchEvent(new CustomEvent('user-not-logged-in'));
             } finally {
                 this.loading = false;
             }
@@ -239,6 +243,67 @@ function scheduleExtractor() {
         error: null,
         dragover: false,
         editMode: false,
+        saveLoading: false,
+        showMyPage: false,
+        myContracts: [],
+        myContractsLoading: false,
+
+        // 로그인 상태
+        isLoggedIn: false,
+
+        // 대시보드 상태
+        showDashboard: false,
+        dashboard: null,
+        dashboardLoading: false,
+        taskFilter: 'all', // all, pending, in_progress, completed
+
+        // 업무 추가 폼
+        showAddTask: false,
+        newTask: {
+            contract_id: null,
+            task_name: '',
+            phase: '',
+            due_date: '',
+            priority: '보통',
+            status: '대기'
+        },
+        addTaskLoading: false,
+
+        init() {
+            // 이벤트 리스너는 HTML에서 처리
+        },
+
+        async loadDashboard() {
+            this.dashboardLoading = true;
+            try {
+                const response = await fetch('/api/v1/contracts/dashboard/summary');
+                if (response.ok) {
+                    this.dashboard = await response.json();
+                } else if (response.status === 401) {
+                    this.dashboard = null;
+                }
+            } catch (err) {
+                console.error('대시보드 로드 실패:', err);
+            } finally {
+                this.dashboardLoading = false;
+            }
+        },
+
+        get filteredTasks() {
+            if (!this.dashboard?.tasks) return [];
+            if (this.taskFilter === 'all') return this.dashboard.tasks;
+            const statusMap = {
+                'pending': '대기',
+                'in_progress': '진행중',
+                'completed': '완료'
+            };
+            return this.dashboard.tasks.filter(t => t.status === statusMap[this.taskFilter]);
+        },
+
+        goToUpload() {
+            this.showDashboard = false;
+            this.showMyPage = false;
+        },
 
         handleFileSelect(event) {
             const file = event.target.files[0];
@@ -367,6 +432,58 @@ function scheduleExtractor() {
             this.downloadFile(jsonContent, 'schedule.json', 'application/json');
         },
 
+        exportWord() {
+            if (!this.result?.raw_text) {
+                alert('워드로 저장할 텍스트가 없습니다.');
+                return;
+            }
+
+            try {
+                const contractName = this.result.contract_schedule?.contract_name || '계약서';
+
+                // HTML 기반 Word 파일 생성 (MS Word에서 열 수 있음)
+                const htmlContent = `
+                    <html xmlns:o="urn:schemas-microsoft-com:office:office"
+                          xmlns:w="urn:schemas-microsoft-com:office:word"
+                          xmlns="http://www.w3.org/TR/REC-html40">
+                    <head>
+                        <meta charset="utf-8">
+                        <title>${contractName}</title>
+                        <style>
+                            body { font-family: '맑은 고딕', 'Malgun Gothic', sans-serif; font-size: 11pt; line-height: 1.6; }
+                            h1 { font-size: 18pt; font-weight: bold; margin-bottom: 20pt; }
+                            p { margin: 6pt 0; }
+                        </style>
+                    </head>
+                    <body>
+                        <h1>${contractName}</h1>
+                        ${this.result.raw_text.split('\n').map(line =>
+                            line.trim() ? `<p>${line.replace(/</g, '&lt;').replace(/>/g, '&gt;')}</p>` : '<p>&nbsp;</p>'
+                        ).join('\n')}
+                    </body>
+                    </html>
+                `;
+
+                const blob = new Blob(['\ufeff' + htmlContent], {
+                    type: 'application/msword;charset=utf-8'
+                });
+                const fileName = `${contractName.replace(/[^a-zA-Z0-9가-힣\s]/g, '_')}.doc`;
+
+                const url = URL.createObjectURL(blob);
+                const a = document.createElement('a');
+                a.href = url;
+                a.download = fileName;
+                document.body.appendChild(a);
+                a.click();
+                document.body.removeChild(a);
+                URL.revokeObjectURL(url);
+
+            } catch (err) {
+                console.error('워드 파일 생성 실패:', err);
+                alert('워드 파일 생성에 실패했습니다: ' + err.message);
+            }
+        },
+
         downloadFile(content, filename, mimeType) {
             const blob = new Blob([content], { type: mimeType });
             const url = URL.createObjectURL(blob);
@@ -416,6 +533,207 @@ function scheduleExtractor() {
         deleteSchedule(index) {
             if (!this.result?.contract_schedule?.schedules) return;
             this.result.contract_schedule.schedules.splice(index, 1);
+        },
+
+        async saveContract() {
+            if (!this.result) {
+                alert('저장할 계약 정보가 없습니다.');
+                return;
+            }
+
+            this.saveLoading = true;
+
+            try {
+                const contractData = {
+                    contract_name: this.result.contract_schedule?.contract_name || '제목 없음',
+                    file_name: this.file?.name || null,
+                    contractor: this.result.contract_schedule?.contractor || null,
+                    client: this.result.contract_schedule?.client || null,
+                    contract_start_date: this.result.contract_schedule?.contract_start_date || null,
+                    contract_end_date: this.result.contract_schedule?.contract_end_date || null,
+                    total_duration_days: this.result.contract_schedule?.total_duration_days || null,
+                    schedules: this.result.contract_schedule?.schedules || [],
+                    tasks: this.result.task_list || [],
+                    milestones: this.result.contract_schedule?.milestones || [],
+                    raw_text: this.result.raw_text || null
+                };
+
+                const response = await fetch('/api/v1/contracts/save', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify(contractData)
+                });
+
+                if (response.ok) {
+                    alert('계약이 저장되었습니다.');
+                } else if (response.status === 401) {
+                    alert('로그인이 필요합니다.');
+                } else if (response.status === 409) {
+                    alert('동일한 이름의 계약서가 이미 존재합니다.');
+                } else {
+                    const text = await response.text();
+                    try {
+                        const data = JSON.parse(text);
+                        throw new Error(data.detail || '저장 실패');
+                    } catch {
+                        throw new Error(`서버 오류 (${response.status})`);
+                    }
+                }
+            } catch (err) {
+                alert('저장 실패: ' + err.message);
+            } finally {
+                this.saveLoading = false;
+            }
+        },
+
+        loadContractData(contract) {
+            // 저장된 계약 데이터를 result 형식으로 변환
+            this.result = {
+                contract_schedule: {
+                    contract_name: contract.contract_name,
+                    contractor: contract.contractor,
+                    client: contract.client,
+                    contract_start_date: contract.contract_start_date,
+                    contract_end_date: contract.contract_end_date,
+                    total_duration_days: contract.total_duration_days,
+                    schedules: contract.schedules || [],
+                    milestones: contract.milestones || []
+                },
+                task_list: contract.tasks || [],
+                raw_text: contract.raw_text || null
+            };
+            this.file = null;
+            this.error = null;
+
+            // 페이지 상단으로 스크롤
+            window.scrollTo({ top: 0, behavior: 'smooth' });
+        },
+
+        async loadMyContracts() {
+            this.myContractsLoading = true;
+            try {
+                const response = await fetch('/api/v1/contracts/list');
+                if (response.ok) {
+                    this.myContracts = await response.json();
+                }
+            } catch (err) {
+                console.error('계약 목록 로드 실패:', err);
+            } finally {
+                this.myContractsLoading = false;
+            }
+        },
+
+        async deleteContract(contractId) {
+            if (!confirm('이 계약을 삭제하시겠습니까?')) return;
+
+            try {
+                const response = await fetch(`/api/v1/contracts/${contractId}`, {
+                    method: 'DELETE'
+                });
+                if (response.ok) {
+                    this.myContracts = this.myContracts.filter(c => c.id !== contractId);
+                }
+            } catch (err) {
+                console.error('계약 삭제 실패:', err);
+            }
+        },
+
+        loadContract(contract) {
+            this.loadContractData(contract);
+            this.showMyPage = false;
+        },
+
+        openAddTask() {
+            this.newTask = {
+                contract_id: this.dashboard?.contracts?.[0]?.id || null,
+                task_name: '',
+                phase: '',
+                due_date: '',
+                priority: '보통',
+                status: '대기'
+            };
+            this.showAddTask = true;
+        },
+
+        async submitNewTask() {
+            if (!this.newTask.contract_id) {
+                alert('계약을 선택해주세요.');
+                return;
+            }
+            if (!this.newTask.task_name.trim()) {
+                alert('업무명을 입력해주세요.');
+                return;
+            }
+
+            this.addTaskLoading = true;
+            try {
+                const response = await fetch(`/api/v1/contracts/${this.newTask.contract_id}/tasks`, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({
+                        task_name: this.newTask.task_name,
+                        phase: this.newTask.phase,
+                        due_date: this.newTask.due_date,
+                        priority: this.newTask.priority,
+                        status: this.newTask.status
+                    })
+                });
+
+                if (!response.ok) {
+                    const data = await response.json();
+                    const detail = data.detail;
+                    throw new Error(typeof detail === 'string' ? detail : JSON.stringify(detail));
+                }
+
+                const data = await response.json();
+
+                // 대시보드에 새 업무 추가
+                if (this.dashboard?.tasks) {
+                    this.dashboard.tasks.push(data.task);
+                    this.dashboard.total_tasks = this.dashboard.tasks.length;
+                    this.dashboard.pending_tasks = this.dashboard.tasks.filter(t => t.status === '대기').length;
+                    this.dashboard.in_progress_tasks = this.dashboard.tasks.filter(t => t.status === '진행중').length;
+                    this.dashboard.completed_tasks = this.dashboard.tasks.filter(t => t.status === '완료').length;
+                }
+
+                this.showAddTask = false;
+            } catch (err) {
+                alert('업무 추가 실패: ' + err.message);
+            } finally {
+                this.addTaskLoading = false;
+            }
+        },
+
+        async updateTaskStatus(contractId, taskId, newStatus) {
+            try {
+                const response = await fetch(`/api/v1/contracts/${contractId}/tasks/status`, {
+                    method: 'PATCH',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ task_id: String(taskId), status: newStatus })
+                });
+
+                if (!response.ok) {
+                    const data = await response.json();
+                    const detail = data.detail;
+                    const msg = typeof detail === 'string' ? detail : JSON.stringify(detail);
+                    throw new Error(msg || '상태 변경 실패');
+                }
+
+                // 대시보드 데이터 갱신
+                if (this.dashboard?.tasks) {
+                    const task = this.dashboard.tasks.find(
+                        t => t.contract_id === contractId && t.task_id === taskId
+                    );
+                    if (task) task.status = newStatus;
+
+                    // 통계 재계산
+                    this.dashboard.pending_tasks = this.dashboard.tasks.filter(t => t.status === '대기').length;
+                    this.dashboard.in_progress_tasks = this.dashboard.tasks.filter(t => t.status === '진행중').length;
+                    this.dashboard.completed_tasks = this.dashboard.tasks.filter(t => t.status === '완료').length;
+                }
+            } catch (err) {
+                alert('상태 변경 실패: ' + err.message);
+            }
         }
     };
 }

@@ -18,7 +18,20 @@
             <div class="flex items-center gap-4">
                 <!-- 로그인 상태 -->
                 <div x-show="user" class="flex items-center gap-3">
-                    <img x-show="user?.picture" :src="user?.picture" class="w-8 h-8 rounded-full" alt="프로필">
+                    <button @click="window.dispatchEvent(new CustomEvent('toggle-dashboard'))"
+                            class="px-3 py-1 text-gray-700 hover:text-indigo-600 transition-colors">
+                        대시보드
+                    </button>
+                    <button @click="window.dispatchEvent(new CustomEvent('toggle-mypage'))"
+                            class="px-3 py-1 text-gray-700 hover:text-blue-600 transition-colors">
+                        마이페이지
+                    </button>
+                    <template x-if="user?.picture">
+                        <img :src="user.picture" class="w-8 h-8 rounded-full" alt="프로필">
+                    </template>
+                    <template x-if="!user?.picture">
+                        <div class="w-8 h-8 rounded-full bg-indigo-500 flex items-center justify-center text-white text-sm font-bold" x-text="(user?.name || user?.email || '?')[0].toUpperCase()"></div>
+                    </template>
                     <span class="text-gray-700" x-text="user?.name || user?.email"></span>
                     <button @click="logout()" class="text-gray-500 hover:text-gray-700">
                         로그아웃
@@ -175,16 +188,292 @@
         </div>
     </nav>
 
-    <div x-data="scheduleExtractor()" class="container mx-auto px-4 py-8">
+    <div x-data="scheduleExtractor()" x-init="init()"
+         @toggle-mypage.window="showMyPage = !showMyPage; showDashboard = false; if(showMyPage) loadMyContracts()"
+         @toggle-dashboard.window="showDashboard = true; showMyPage = false; loadDashboard()"
+         @load-contract.window="loadContractData($event.detail); showDashboard = false"
+         @user-logged-in.window="isLoggedIn = true; showDashboard = true; loadDashboard()"
+         @user-not-logged-in.window="isLoggedIn = false"
+         class="container mx-auto px-4 py-8">
 
-        <!-- 헤더 -->
-        <header class="text-center mb-10">
-            <h1 class="text-3xl font-bold text-gray-800">Contract Sync</h1>
-            <p class="text-gray-600 mt-2">PDF, Word, 한글 파일을 업로드하면 추진 일정을 자동으로 추출합니다</p>
-        </header>
+        <!-- 비로그인 시 랜딩 페이지 -->
+        <div x-show="!isLoggedIn" x-transition class="max-w-2xl mx-auto text-center py-20">
+            <svg class="h-24 w-24 mx-auto text-indigo-500 mb-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"></path>
+            </svg>
+            <h1 class="text-4xl font-bold text-gray-800 mb-4">Contract Sync</h1>
+            <p class="text-lg text-gray-600 mb-8">계약서를 업로드하면 추진 일정을 자동으로 추출하고<br>업무를 대시보드에서 관리할 수 있습니다.</p>
+            <div class="flex justify-center gap-4">
+                <button onclick="document.querySelector('[x-data=&quot;authState()&quot;]').__x.$data.openLogin()"
+                        class="px-8 py-3 bg-indigo-600 text-white rounded-lg hover:bg-indigo-700 transition-colors text-lg font-medium">
+                    로그인
+                </button>
+                <button onclick="document.querySelector('[x-data=&quot;authState()&quot;]').__x.$data.openSignup()"
+                        class="px-8 py-3 border-2 border-indigo-600 text-indigo-600 rounded-lg hover:bg-indigo-50 transition-colors text-lg font-medium">
+                    회원가입
+                </button>
+            </div>
+            <div class="mt-12 grid grid-cols-1 md:grid-cols-3 gap-6 text-left">
+                <div class="bg-white rounded-lg shadow p-6">
+                    <div class="text-indigo-500 mb-3">
+                        <svg class="h-8 w-8" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M7 16a4 4 0 01-.88-7.903A5 5 0 1115.9 6L16 6a5 5 0 011 9.9M15 13l-3-3m0 0l-3 3m3-3v12"></path></svg>
+                    </div>
+                    <h3 class="font-semibold text-gray-800 mb-1">계약서 업로드</h3>
+                    <p class="text-sm text-gray-500">PDF, Word, 한글 파일을 지원합니다.</p>
+                </div>
+                <div class="bg-white rounded-lg shadow p-6">
+                    <div class="text-indigo-500 mb-3">
+                        <svg class="h-8 w-8" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z"></path></svg>
+                    </div>
+                    <h3 class="font-semibold text-gray-800 mb-1">일정 자동 추출</h3>
+                    <p class="text-sm text-gray-500">AI가 계약서에서 일정을 분석합니다.</p>
+                </div>
+                <div class="bg-white rounded-lg shadow p-6">
+                    <div class="text-indigo-500 mb-3">
+                        <svg class="h-8 w-8" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z"></path></svg>
+                    </div>
+                    <h3 class="font-semibold text-gray-800 mb-1">대시보드 관리</h3>
+                    <p class="text-sm text-gray-500">업무와 일정을 한눈에 확인합니다.</p>
+                </div>
+            </div>
+        </div>
 
-        <!-- 파일 업로드 영역 -->
-        <section class="max-w-2xl mx-auto">
+        <!-- 대시보드 (로그인 후 기본 화면) -->
+        <section x-show="isLoggedIn && showDashboard" x-transition class="max-w-6xl mx-auto">
+            <div class="mb-6 flex justify-between items-center">
+                <h1 class="text-2xl font-bold text-gray-800 flex items-center gap-2">
+                    <svg class="h-7 w-7 text-indigo-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z"></path>
+                    </svg>
+                    대시보드
+                </h1>
+                <button @click="goToUpload()" class="px-4 py-2 bg-indigo-600 text-white rounded-lg hover:bg-indigo-700 transition-colors flex items-center gap-2">
+                    <svg class="h-5 w-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4"></path>
+                    </svg>
+                    새 계약서 분석
+                </button>
+            </div>
+
+            <!-- 로딩 -->
+            <div x-show="dashboardLoading" class="text-center py-12">
+                <svg class="animate-spin h-10 w-10 mx-auto text-indigo-500" fill="none" viewBox="0 0 24 24">
+                    <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
+                    <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+                </svg>
+                <p class="mt-3 text-gray-500">대시보드 로딩 중...</p>
+            </div>
+
+            <!-- 대시보드 콘텐츠 -->
+            <div x-show="!dashboardLoading && dashboard">
+                <!-- 통계 카드 -->
+                <div class="grid grid-cols-2 md:grid-cols-4 gap-4 mb-6">
+                    <div class="bg-white rounded-lg shadow p-4">
+                        <p class="text-sm text-gray-500">총 계약</p>
+                        <p class="text-2xl font-bold text-gray-800" x-text="dashboard?.total_contracts || 0"></p>
+                    </div>
+                    <div class="bg-white rounded-lg shadow p-4">
+                        <p class="text-sm text-gray-500">대기 업무</p>
+                        <p class="text-2xl font-bold text-yellow-600" x-text="dashboard?.pending_tasks || 0"></p>
+                    </div>
+                    <div class="bg-white rounded-lg shadow p-4">
+                        <p class="text-sm text-gray-500">진행중 업무</p>
+                        <p class="text-2xl font-bold text-blue-600" x-text="dashboard?.in_progress_tasks || 0"></p>
+                    </div>
+                    <div class="bg-white rounded-lg shadow p-4">
+                        <p class="text-sm text-gray-500">완료 업무</p>
+                        <p class="text-2xl font-bold text-green-600" x-text="dashboard?.completed_tasks || 0"></p>
+                    </div>
+                </div>
+
+                <!-- 업무 추가 폼 -->
+                <div x-show="showAddTask" x-transition class="bg-white rounded-lg shadow p-6 mb-6 border-2 border-indigo-200">
+                    <div class="flex justify-between items-center mb-4">
+                        <h2 class="text-lg font-semibold text-gray-800">업무 추가</h2>
+                        <button @click="showAddTask = false" class="text-gray-400 hover:text-gray-600">
+                            <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"></path>
+                            </svg>
+                        </button>
+                    </div>
+                    <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+                        <div>
+                            <label class="block text-sm font-medium text-gray-700 mb-1">계약 선택</label>
+                            <select x-model="newTask.contract_id" class="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500">
+                                <template x-for="c in dashboard?.contracts || []" :key="c.id">
+                                    <option :value="c.id" x-text="c.contract_name"></option>
+                                </template>
+                            </select>
+                        </div>
+                        <div>
+                            <label class="block text-sm font-medium text-gray-700 mb-1">업무명 *</label>
+                            <input type="text" x-model="newTask.task_name" placeholder="업무명을 입력하세요"
+                                   class="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500">
+                        </div>
+                        <div>
+                            <label class="block text-sm font-medium text-gray-700 mb-1">단계</label>
+                            <input type="text" x-model="newTask.phase" placeholder="예: 설계, 개발, 테스트"
+                                   class="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500">
+                        </div>
+                        <div>
+                            <label class="block text-sm font-medium text-gray-700 mb-1">마감일</label>
+                            <input type="date" x-model="newTask.due_date"
+                                   class="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500">
+                        </div>
+                        <div>
+                            <label class="block text-sm font-medium text-gray-700 mb-1">우선순위</label>
+                            <select x-model="newTask.priority" class="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500">
+                                <option value="긴급">긴급</option>
+                                <option value="높음">높음</option>
+                                <option value="보통">보통</option>
+                                <option value="낮음">낮음</option>
+                            </select>
+                        </div>
+                        <div>
+                            <label class="block text-sm font-medium text-gray-700 mb-1">상태</label>
+                            <select x-model="newTask.status" class="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500">
+                                <option value="대기">대기</option>
+                                <option value="진행중">진행중</option>
+                                <option value="완료">완료</option>
+                                <option value="보류">보류</option>
+                            </select>
+                        </div>
+                    </div>
+                    <div class="mt-4 flex gap-3">
+                        <button @click="submitNewTask()" :disabled="addTaskLoading"
+                                class="px-4 py-2 bg-indigo-600 text-white rounded-lg hover:bg-indigo-700 disabled:bg-gray-400 transition-colors text-sm flex items-center gap-2">
+                            <svg x-show="addTaskLoading" class="animate-spin h-4 w-4" fill="none" viewBox="0 0 24 24">
+                                <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
+                                <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+                            </svg>
+                            <span x-text="addTaskLoading ? '추가 중...' : '업무 추가'"></span>
+                        </button>
+                        <button @click="showAddTask = false" class="px-4 py-2 border border-gray-300 text-gray-700 rounded-lg hover:bg-gray-50 transition-colors text-sm">
+                            취소
+                        </button>
+                    </div>
+                </div>
+
+                <!-- 업무 목록 -->
+                <div class="bg-white rounded-lg shadow p-6 mb-6">
+                    <div class="flex justify-between items-center mb-4">
+                        <h2 class="text-lg font-semibold text-gray-800">업무 목록</h2>
+                        <div class="flex gap-2">
+                            <button @click="openAddTask()" class="px-3 py-1 bg-indigo-600 text-white rounded text-sm hover:bg-indigo-700 transition-colors">+ 업무 추가</button>
+                            <button @click="taskFilter = 'all'" :class="taskFilter === 'all' ? 'bg-indigo-600 text-white' : 'bg-gray-200 text-gray-700'" class="px-3 py-1 rounded text-sm">전체</button>
+                            <button @click="taskFilter = 'pending'" :class="taskFilter === 'pending' ? 'bg-yellow-500 text-white' : 'bg-gray-200 text-gray-700'" class="px-3 py-1 rounded text-sm">대기</button>
+                            <button @click="taskFilter = 'in_progress'" :class="taskFilter === 'in_progress' ? 'bg-blue-500 text-white' : 'bg-gray-200 text-gray-700'" class="px-3 py-1 rounded text-sm">진행중</button>
+                            <button @click="taskFilter = 'completed'" :class="taskFilter === 'completed' ? 'bg-green-500 text-white' : 'bg-gray-200 text-gray-700'" class="px-3 py-1 rounded text-sm">완료</button>
+                        </div>
+                    </div>
+
+                    <div x-show="filteredTasks.length === 0" class="text-center py-8 text-gray-500">
+                        <p>표시할 업무가 없습니다.</p>
+                    </div>
+
+                    <div x-show="filteredTasks.length > 0" class="space-y-3">
+                        <template x-for="task in filteredTasks" :key="task.task_id + '-' + task.contract_id">
+                            <div class="border border-gray-200 rounded-lg p-4 hover:shadow-md transition-shadow">
+                                <div class="flex justify-between items-start">
+                                    <div class="flex-1">
+                                        <div class="flex items-center gap-2">
+                                            <h3 class="font-medium text-gray-800" x-text="task.task_name"></h3>
+                                            <select @change="updateTaskStatus(task.contract_id, task.task_id, $event.target.value)"
+                                                    :value="task.status"
+                                                    class="text-xs px-2 py-0.5 rounded border-0 cursor-pointer appearance-auto"
+                                                    :class="{
+                                                        'bg-yellow-100 text-yellow-800': task.status === '대기',
+                                                        'bg-blue-100 text-blue-800': task.status === '진행중',
+                                                        'bg-green-100 text-green-800': task.status === '완료',
+                                                        'bg-gray-100 text-gray-800': task.status === '보류'
+                                                    }">
+                                                <option value="대기">대기</option>
+                                                <option value="진행중">진행중</option>
+                                                <option value="완료">완료</option>
+                                                <option value="보류">보류</option>
+                                            </select>
+                                            <span class="text-xs px-2 py-0.5 rounded"
+                                                  :class="{
+                                                      'bg-red-100 text-red-800': task.priority === '긴급',
+                                                      'bg-orange-100 text-orange-800': task.priority === '높음',
+                                                      'bg-blue-100 text-blue-800': task.priority === '보통',
+                                                      'bg-gray-100 text-gray-800': task.priority === '낮음'
+                                                  }"
+                                                  x-text="task.priority"></span>
+                                        </div>
+                                        <p class="text-sm text-gray-500 mt-1">
+                                            <span class="text-indigo-600" x-text="task.contract_name"></span>
+                                            <span class="mx-2">|</span>
+                                            <span x-text="task.phase"></span>
+                                        </p>
+                                    </div>
+                                    <div class="text-right">
+                                        <p class="text-sm text-gray-600" x-text="task.due_date || '마감일 미정'"></p>
+                                    </div>
+                                </div>
+                            </div>
+                        </template>
+                    </div>
+                </div>
+
+                <!-- 계약 목록 -->
+                <div class="bg-white rounded-lg shadow p-6">
+                    <h2 class="text-lg font-semibold text-gray-800 mb-4">계약 현황</h2>
+                    <div x-show="dashboard?.contracts?.length === 0" class="text-center py-8 text-gray-500">
+                        <p>저장된 계약이 없습니다.</p>
+                    </div>
+                    <div class="grid md:grid-cols-2 lg:grid-cols-3 gap-4">
+                        <template x-for="contract in dashboard?.contracts || []" :key="contract.id">
+                            <div class="border border-gray-200 rounded-lg p-4 hover:shadow-md transition-shadow cursor-pointer"
+                                 @click="window.dispatchEvent(new CustomEvent('toggle-mypage'))">
+                                <h3 class="font-medium text-gray-800 truncate" x-text="contract.contract_name"></h3>
+                                <p class="text-sm text-gray-500 mt-1">
+                                    <span x-text="(contract.contract_start_date || '미정') + ' ~ ' + (contract.contract_end_date || '미정')"></span>
+                                </p>
+                                <div class="flex gap-4 mt-2 text-sm">
+                                    <span class="text-indigo-600">일정 <span x-text="contract.schedule_count"></span>개</span>
+                                    <span class="text-green-600">업무 <span x-text="contract.task_count"></span>개</span>
+                                </div>
+                            </div>
+                        </template>
+                    </div>
+                </div>
+            </div>
+
+            <!-- 빈 상태 -->
+            <div x-show="!dashboardLoading && (!dashboard || dashboard?.total_contracts === 0)" class="text-center py-16">
+                <svg class="h-20 w-20 mx-auto text-gray-300" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"></path>
+                </svg>
+                <h3 class="mt-4 text-xl font-medium text-gray-600">아직 저장된 계약이 없습니다</h3>
+                <p class="mt-2 text-gray-500">계약서를 업로드하고 분석 결과를 저장해보세요.</p>
+                <button @click="goToUpload()" class="mt-6 px-6 py-3 bg-indigo-600 text-white rounded-lg hover:bg-indigo-700 transition-colors">
+                    계약서 분석 시작하기
+                </button>
+            </div>
+        </section>
+
+        <!-- 메인 콘텐츠 (파일 업로드 - 대시보드와 마이페이지가 아닐 때 표시) -->
+        <div x-show="isLoggedIn && !showMyPage && !showDashboard" x-transition>
+            <!-- 헤더 (파일 업로드 시) -->
+            <header x-show="!result || file" class="text-center mb-10">
+                <h1 class="text-3xl font-bold text-gray-800">Contract Sync</h1>
+                <p class="text-gray-600 mt-2">PDF, Word, 한글 파일을 업로드하면 추진 일정을 자동으로 추출합니다</p>
+            </header>
+
+            <!-- 헤더 (저장된 계약 불러왔을 때) -->
+            <header x-show="result && !file" class="mb-6 flex justify-between items-center max-w-4xl mx-auto">
+                <h1 class="text-2xl font-bold text-gray-800" x-text="result?.contract_schedule?.contract_name || '계약서'"></h1>
+                <button @click="result = null; file = null; error = null;" class="px-4 py-2 bg-indigo-600 text-white rounded-lg hover:bg-indigo-700 transition-colors flex items-center gap-2">
+                    <svg class="h-5 w-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4"></path>
+                    </svg>
+                    새 계약서 분석
+                </button>
+            </header>
+
+            <!-- 파일 업로드 영역 (저장된 계약 불러왔을 때는 숨김) -->
+            <section x-show="!result || file" class="max-w-2xl mx-auto">
             <div
                 class="border-2 border-dashed rounded-lg p-10 text-center transition-colors cursor-pointer"
                 :class="dragover ? 'border-blue-500 bg-blue-50' : 'border-gray-300 hover:border-blue-400'"
@@ -245,7 +534,7 @@
                     <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
                 </svg>
                 <span x-show="!loading">일정 추출하기</span>
-                <span x-show="loading">분석 중...</span>
+                <span x-show="loading">일정 추출 중...</span>
             </button>
         </section>
 
@@ -463,10 +752,15 @@
                                             <option value="낮음">낮음</option>
                                         </select>
                                     </td>
-                                    <td class="px-4 py-3 text-sm text-gray-600">
-                                        <span x-show="!editMode" x-text="task.status"></span>
-                                        <select x-show="editMode" x-model="task.status"
-                                                class="px-2 py-1 border border-gray-300 rounded text-sm">
+                                    <td class="px-4 py-3">
+                                        <select x-model="task.status"
+                                                class="px-2 py-1 text-xs rounded-full border-0 cursor-pointer"
+                                                :class="{
+                                                    'bg-yellow-100 text-yellow-800': task.status === '대기',
+                                                    'bg-blue-100 text-blue-800': task.status === '진행중',
+                                                    'bg-green-100 text-green-800': task.status === '완료',
+                                                    'bg-gray-100 text-gray-800': task.status === '보류'
+                                                }">
                                             <option value="대기">대기</option>
                                             <option value="진행중">진행중</option>
                                             <option value="완료">완료</option>
@@ -486,8 +780,22 @@
                     </table>
                 </div>
 
-                <!-- 내보내기 버튼 -->
-                <div class="mt-6 flex gap-4">
+                <!-- 내보내기/저장 버튼 -->
+                <div class="mt-6 flex flex-wrap gap-4">
+                    <button @click="saveContract()"
+                            class="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors flex items-center gap-2">
+                        <svg class="h-4 w-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 7H5a2 2 0 00-2 2v9a2 2 0 002 2h14a2 2 0 002-2V9a2 2 0 00-2-2h-3m-1 4l-3 3m0 0l-3-3m3 3V4"></path>
+                        </svg>
+                        <span x-text="saveLoading ? '저장 중...' : '계약 저장'"></span>
+                    </button>
+                    <button @click="exportWord()"
+                            class="px-4 py-2 bg-indigo-600 text-white rounded-lg hover:bg-indigo-700 transition-colors flex items-center gap-2">
+                        <svg class="h-4 w-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"></path>
+                        </svg>
+                        워드로 저장
+                    </button>
                     <button @click="exportCSV()"
                             class="px-4 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 transition-colors flex items-center gap-2">
                         <svg class="h-4 w-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -505,6 +813,87 @@
                 </div>
             </div>
 
+        </section>
+        </div>
+
+        <!-- 마이페이지 (저장된 계약 목록) -->
+        <section x-show="isLoggedIn && showMyPage" x-transition class="mt-10 max-w-4xl mx-auto">
+            <div class="bg-white rounded-lg shadow-md p-6">
+                <div class="flex justify-between items-center mb-6">
+                    <h2 class="text-xl font-bold text-gray-800 flex items-center gap-2">
+                        <svg class="h-6 w-6 text-indigo-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 11H5m14 0a2 2 0 012 2v6a2 2 0 01-2 2H5a2 2 0 01-2-2v-6a2 2 0 012-2m14 0V9a2 2 0 00-2-2M5 11V9a2 2 0 012-2m0 0V5a2 2 0 012-2h6a2 2 0 012 2v2M7 7h10"></path>
+                        </svg>
+                        저장된 계약 목록
+                    </h2>
+                    <button @click="showMyPage = false" class="text-gray-400 hover:text-gray-600">
+                        <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"></path>
+                        </svg>
+                    </button>
+                </div>
+
+                <!-- 로딩 상태 -->
+                <div x-show="myContractsLoading" class="text-center py-8">
+                    <svg class="animate-spin h-8 w-8 mx-auto text-blue-500" fill="none" viewBox="0 0 24 24">
+                        <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
+                        <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+                    </svg>
+                    <p class="mt-2 text-gray-500">불러오는 중...</p>
+                </div>
+
+                <!-- 계약 목록 -->
+                <div x-show="!myContractsLoading && myContracts.length > 0" class="space-y-4">
+                    <template x-for="contract in myContracts" :key="contract.id">
+                        <div class="border border-gray-200 rounded-lg p-4 hover:shadow-md transition-shadow">
+                            <div class="flex justify-between items-start">
+                                <div class="flex-1">
+                                    <h3 class="font-semibold text-gray-800" x-text="contract.contract_name"></h3>
+                                    <div class="mt-2 text-sm text-gray-600 space-y-1">
+                                        <p x-show="contract.file_name">
+                                            <span class="text-gray-500">파일:</span>
+                                            <span x-text="contract.file_name"></span>
+                                        </p>
+                                        <p>
+                                            <span class="text-gray-500">기간:</span>
+                                            <span x-text="(contract.contract_start_date || '미정') + ' ~ ' + (contract.contract_end_date || '미정')"></span>
+                                        </p>
+                                        <p>
+                                            <span class="text-gray-500">일정:</span>
+                                            <span x-text="(contract.schedules?.length || 0) + '개'"></span>
+                                            <span class="mx-2">|</span>
+                                            <span class="text-gray-500">업무:</span>
+                                            <span x-text="(contract.tasks?.length || 0) + '개'"></span>
+                                        </p>
+                                        <p class="text-xs text-gray-400">
+                                            저장일: <span x-text="new Date(contract.created_at).toLocaleString('ko-KR')"></span>
+                                        </p>
+                                    </div>
+                                </div>
+                                <div class="flex gap-2 ml-4">
+                                    <button @click="loadContract(contract)"
+                                            class="px-3 py-1 text-sm bg-blue-100 text-blue-700 rounded hover:bg-blue-200 transition-colors">
+                                        불러오기
+                                    </button>
+                                    <button @click="deleteContract(contract.id)"
+                                            class="px-3 py-1 text-sm bg-red-100 text-red-700 rounded hover:bg-red-200 transition-colors">
+                                        삭제
+                                    </button>
+                                </div>
+                            </div>
+                        </div>
+                    </template>
+                </div>
+
+                <!-- 빈 상태 -->
+                <div x-show="!myContractsLoading && myContracts.length === 0" class="text-center py-12">
+                    <svg class="h-16 w-16 mx-auto text-gray-300" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"></path>
+                    </svg>
+                    <p class="mt-4 text-gray-500">저장된 계약이 없습니다.</p>
+                    <p class="text-sm text-gray-400">계약서를 업로드하고 분석 결과를 저장해보세요.</p>
+                </div>
+            </div>
         </section>
 
         <!-- 푸터 -->
