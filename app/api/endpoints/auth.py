@@ -226,7 +226,10 @@ async def google_login(request: Request):
     if not settings.google_client_id:
         raise HTTPException(status_code=400, detail="Google OAuth가 설정되지 않았습니다.")
 
-    redirect_uri = request.url_for('google_callback')
+    redirect_uri = str(request.url_for('google_callback'))
+    # Railway 프록시 뒤에서 http -> https 변환
+    if redirect_uri.startswith('http://') and 'railway.app' in redirect_uri:
+        redirect_uri = redirect_uri.replace('http://', 'https://', 1)
     return await oauth.google.authorize_redirect(request, redirect_uri)
 
 
