@@ -303,6 +303,10 @@ function scheduleExtractor() {
         goToUpload() {
             this.showDashboard = false;
             this.showMyPage = false;
+            this.result = null;
+            this.file = null;
+            this.error = null;
+            this.editMode = false;
         },
 
         handleFileSelect(event) {
