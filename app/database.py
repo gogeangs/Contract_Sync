@@ -2,8 +2,13 @@ from sqlalchemy.ext.asyncio import create_async_engine, AsyncSession, async_sess
 from sqlalchemy.orm import DeclarativeBase, relationship
 from sqlalchemy import Column, Integer, String, Boolean, DateTime, Text, ForeignKey, JSON
 from datetime import datetime
+from pathlib import Path
+import os
 
-DATABASE_URL = "sqlite+aiosqlite:///./contract_sync.db"
+# Railway에서는 /app 디렉토리 사용
+BASE_DIR = Path(__file__).resolve().parent.parent
+DB_PATH = BASE_DIR / "contract_sync.db"
+DATABASE_URL = f"sqlite+aiosqlite:///{DB_PATH}"
 
 engine = create_async_engine(DATABASE_URL, echo=False)
 async_session = async_sessionmaker(engine, class_=AsyncSession, expire_on_commit=False)

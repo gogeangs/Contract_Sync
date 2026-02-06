@@ -5,6 +5,18 @@ from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import HTMLResponse
 from starlette.middleware.sessions import SessionMiddleware
 from pathlib import Path
+import logging
+import sys
+
+# 로깅 설정
+logging.basicConfig(
+    level=logging.INFO,
+    format='%(asctime)s - %(name)s - %(levelname)s - %(message)s',
+    stream=sys.stdout
+)
+logger = logging.getLogger(__name__)
+
+logger.info("Starting Contract Sync application...")
 
 from app.api.router import api_router
 from app.config import settings
@@ -13,6 +25,11 @@ from app.database import init_db
 # 앱 루트 디렉토리
 BASE_DIR = Path(__file__).resolve().parent.parent
 
+# uploads 디렉토리 생성
+uploads_dir = BASE_DIR / "uploads"
+uploads_dir.mkdir(parents=True, exist_ok=True)
+logger.info(f"Uploads directory: {uploads_dir}")
+
 app = FastAPI(
     title="Contract Sync",
     description="외주용역 계약서에서 추진 일정을 추출하고 업무 목록을 생성하는 API",
@@ -20,7 +37,9 @@ app = FastAPI(
 )
 
 # 세션 미들웨어 (Google OAuth에 필요)
-app.add_middleware(SessionMiddleware, secret_key=settings.secret_key)
+secret_key = settings.secret_key or "default-secret-key-for-railway"
+app.add_middleware(SessionMiddleware, secret_key=secret_key)
+logger.info("Session middleware configured")
 
 # CORS 설정
 app.add_middleware(
@@ -44,7 +63,13 @@ app.include_router(api_router, prefix="/api/v1")
 @app.on_event("startup")
 async def startup_event():
     """앱 시작시 데이터베이스 초기화"""
-    await init_db()
+    logger.info("Initializing database...")
+    try:
+        await init_db()
+        logger.info("Database initialized successfully")
+    except Exception as e:
+        logger.error(f"Database initialization failed: {e}")
+        raise
 
 
 @app.get("/", response_class=HTMLResponse)
