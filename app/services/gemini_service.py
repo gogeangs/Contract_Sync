@@ -25,8 +25,12 @@ class GeminiService:
         self,
         text: str = "",
         images: list[bytes] | None = None,
-    ) -> tuple[ContractSchedule, list[TaskItem]]:
-        """계약서에서 일정 정보와 업무 목록 추출 (텍스트 또는 이미지)"""
+    ) -> tuple[ContractSchedule, list[TaskItem], str]:
+        """계약서에서 일정 정보와 업무 목록 추출 (텍스트 또는 이미지)
+
+        Returns:
+            tuple: (contract_schedule, task_list, raw_text)
+        """
 
         system_prompt = self._build_system_prompt()
 
@@ -50,7 +54,10 @@ class GeminiService:
         logger.info(f"파싱된 업무 목록: {len(task_data)}개")
         task_list = [TaskItem(**task) for task in task_data]
 
-        return contract_schedule, task_list
+        # 원문 텍스트 (이미지 기반 추출 시 Gemini가 OCR한 텍스트)
+        extracted_text = result.get("raw_text", "")
+
+        return contract_schedule, task_list, extracted_text
 
     async def _extract_from_text(self, system_prompt: str, text: str) -> str:
         """텍스트 기반 추출 (DOCX, HWP, 텍스트 PDF)"""
@@ -98,7 +105,10 @@ class GeminiService:
                 f"\n\n추가로 추출된 텍스트 (참고용):\n{supplementary_text[:4000]}"
             )
 
-        parts.append("\n\n" + self._build_json_format())
+        parts.append(
+            "\n\n중요: 이미지에 보이는 계약서의 전체 텍스트를 raw_text 필드에 그대로 옮겨 적어주세요.\n\n"
+            + self._build_json_format()
+        )
 
         response = await self.model.generate_content_async(parts)
         return response.text
@@ -168,5 +178,6 @@ class GeminiService:
             "priority": "긴급/높음/보통/낮음",
             "status": "대기"
         }
-    ]
+    ],
+    "raw_text": "계약서 원문 전체 텍스트 (이미지인 경우 OCR하여 원문을 그대로 옮겨 적기, 텍스트인 경우 빈 문자열)"
 }"""

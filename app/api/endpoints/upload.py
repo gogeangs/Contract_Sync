@@ -37,18 +37,21 @@ async def upload_and_extract_schedule(
 
         # 3. Gemini로 일정 추출
         gemini_service = GeminiService()
-        contract_schedule, task_list = await gemini_service.extract_schedule(
+        contract_schedule, task_list, extracted_text = await gemini_service.extract_schedule(
             text=parse_result.text,
             images=parse_result.images if parse_result.has_images else None,
         )
+
+        # 원문 텍스트: 파서 추출 텍스트 우선, 없으면 Gemini OCR 텍스트 사용
+        raw_text = parse_result.text if parse_result.has_text else extracted_text
 
         return ScheduleResponse(
             success=True,
             message="일정 추출 완료",
             contract_schedule=contract_schedule,
             task_list=task_list,
-            raw_text_preview=parse_result.text[:500] if parse_result.text else None,
-            raw_text=parse_result.text,
+            raw_text_preview=raw_text[:500] if raw_text else None,
+            raw_text=raw_text,
         )
 
     except ValueError as e:
