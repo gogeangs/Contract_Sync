@@ -437,15 +437,65 @@ function scheduleExtractor() {
         },
 
         exportWord() {
-            if (!this.result?.raw_text) {
-                alert('워드로 저장할 텍스트가 없습니다.');
+            if (!this.result) {
+                alert('저장할 데이터가 없습니다.');
                 return;
             }
 
             try {
-                const contractName = this.result.contract_schedule?.contract_name || '계약서';
+                const cs = this.result.contract_schedule;
+                const contractName = cs?.contract_name || '계약서';
+                let bodyHtml = '';
 
-                // HTML 기반 Word 파일 생성 (MS Word에서 열 수 있음)
+                if (this.result.raw_text) {
+                    // 원문 텍스트가 있는 경우
+                    bodyHtml = this.result.raw_text.split('\n').map(line =>
+                        line.trim() ? `<p>${line.replace(/</g, '&lt;').replace(/>/g, '&gt;')}</p>` : '<p>&nbsp;</p>'
+                    ).join('\n');
+                } else {
+                    // 원문 없음 (스캔 PDF 등) — 구조화된 데이터로 문서 생성
+                    bodyHtml = `<h2>계약 개요</h2>
+                        <table border="1" cellpadding="6" cellspacing="0" style="border-collapse:collapse; width:100%;">
+                            <tr><td style="background:#f3f4f6; width:30%;"><b>계약명</b></td><td>${contractName}</td></tr>
+                            <tr><td style="background:#f3f4f6;"><b>발주처</b></td><td>${cs?.client || '-'}</td></tr>
+                            <tr><td style="background:#f3f4f6;"><b>수급자</b></td><td>${cs?.contractor || '-'}</td></tr>
+                            <tr><td style="background:#f3f4f6;"><b>계약 기간</b></td><td>${cs?.contract_start_date || '미정'} ~ ${cs?.contract_end_date || '미정'}</td></tr>
+                            <tr><td style="background:#f3f4f6;"><b>총 기간</b></td><td>${cs?.total_duration_days ? cs.total_duration_days + '일' : '-'}</td></tr>
+                        </table>`;
+
+                    if (cs?.schedules?.length) {
+                        bodyHtml += `<h2 style="margin-top:20pt;">일정</h2>
+                            <table border="1" cellpadding="6" cellspacing="0" style="border-collapse:collapse; width:100%;">
+                                <tr style="background:#f3f4f6;">
+                                    <th>단계</th><th>유형</th><th>시작일</th><th>종료일</th><th>설명</th>
+                                </tr>
+                                ${cs.schedules.map(s => `<tr>
+                                    <td>${s.phase || '-'}</td>
+                                    <td>${s.schedule_type || '-'}</td>
+                                    <td>${s.start_date || '-'}</td>
+                                    <td>${s.end_date || '-'}</td>
+                                    <td>${s.description || '-'}</td>
+                                </tr>`).join('')}
+                            </table>`;
+                    }
+
+                    if (this.result.task_list?.length) {
+                        bodyHtml += `<h2 style="margin-top:20pt;">업무 목록</h2>
+                            <table border="1" cellpadding="6" cellspacing="0" style="border-collapse:collapse; width:100%;">
+                                <tr style="background:#f3f4f6;">
+                                    <th>업무명</th><th>단계</th><th>마감일</th><th>우선순위</th><th>상태</th>
+                                </tr>
+                                ${this.result.task_list.map(t => `<tr>
+                                    <td>${t.task_name || '-'}</td>
+                                    <td>${t.phase || '-'}</td>
+                                    <td>${t.due_date || '-'}</td>
+                                    <td>${t.priority || '-'}</td>
+                                    <td>${t.status || '-'}</td>
+                                </tr>`).join('')}
+                            </table>`;
+                    }
+                }
+
                 const htmlContent = `
                     <html xmlns:o="urn:schemas-microsoft-com:office:office"
                           xmlns:w="urn:schemas-microsoft-com:office:word"
@@ -456,14 +506,15 @@ function scheduleExtractor() {
                         <style>
                             body { font-family: '맑은 고딕', 'Malgun Gothic', sans-serif; font-size: 11pt; line-height: 1.6; }
                             h1 { font-size: 18pt; font-weight: bold; margin-bottom: 20pt; }
+                            h2 { font-size: 14pt; font-weight: bold; margin-top: 16pt; margin-bottom: 8pt; }
                             p { margin: 6pt 0; }
+                            table { font-size: 10pt; }
+                            th { text-align: left; }
                         </style>
                     </head>
                     <body>
                         <h1>${contractName}</h1>
-                        ${this.result.raw_text.split('\n').map(line =>
-                            line.trim() ? `<p>${line.replace(/</g, '&lt;').replace(/>/g, '&gt;')}</p>` : '<p>&nbsp;</p>'
-                        ).join('\n')}
+                        ${bodyHtml}
                     </body>
                     </html>
                 `;
