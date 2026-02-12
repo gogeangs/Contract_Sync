@@ -338,6 +338,59 @@ function scheduleExtractor() {
             return this.dashboard.tasks.filter(t => t.status === statusMap[this.taskFilter]);
         },
 
+        // D-day 계산 헬퍼
+        getDaysUntil(dateStr) {
+            if (!dateStr) return null;
+            const due = new Date(dateStr + 'T23:59:59');
+            if (isNaN(due.getTime())) return null;
+            const today = new Date();
+            today.setHours(0, 0, 0, 0);
+            return Math.ceil((due - today) / (1000 * 60 * 60 * 24));
+        },
+
+        getDdayLabel(dateStr) {
+            const days = this.getDaysUntil(dateStr);
+            if (days === null) return '';
+            if (days < 0) return `D+${Math.abs(days)}`;
+            if (days === 0) return 'D-Day';
+            return `D-${days}`;
+        },
+
+        getDdayClass(dateStr) {
+            const days = this.getDaysUntil(dateStr);
+            if (days === null) return '';
+            if (days < 0) return 'bg-red-600 text-white';
+            if (days === 0) return 'bg-red-500 text-white';
+            if (days <= 3) return 'bg-red-100 text-red-700';
+            if (days <= 7) return 'bg-orange-100 text-orange-700';
+            return 'bg-gray-100 text-gray-600';
+        },
+
+        getTaskBorderClass(task) {
+            if (task.status === '완료') return 'border-gray-200';
+            const days = this.getDaysUntil(task.due_date);
+            if (days === null) return 'border-gray-200';
+            if (days < 0) return 'border-red-400 border-l-4';
+            if (days <= 3) return 'border-red-300 border-l-4';
+            if (days <= 7) return 'border-orange-300 border-l-4';
+            return 'border-gray-200';
+        },
+
+        // 업무 진행률
+        get taskProgressPercent() {
+            const total = this.dashboard?.total_tasks || 0;
+            if (total === 0) return { pending: 0, inProgress: 0, completed: 0 };
+            return {
+                pending: Math.round((this.dashboard.pending_tasks / total) * 100),
+                inProgress: Math.round((this.dashboard.in_progress_tasks / total) * 100),
+                completed: Math.round((this.dashboard.completed_tasks / total) * 100),
+            };
+        },
+
+        _dispatchPage(page) {
+            window.dispatchEvent(new CustomEvent('active-page', { detail: page }));
+        },
+
         goToUpload() {
             this.showDashboard = false;
             this.showMyPage = false;
@@ -345,6 +398,7 @@ function scheduleExtractor() {
             this.file = null;
             this.error = null;
             this.editMode = false;
+            this._dispatchPage('upload');
         },
 
         handleFileSelect(event) {

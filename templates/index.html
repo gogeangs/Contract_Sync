@@ -72,9 +72,10 @@
     </div>
 
     <!-- 네비게이션 바 -->
-    <nav x-data="authState()" x-init="init()"
+    <nav x-data="{ ...authState(), activePage: 'dashboard' }" x-init="init()"
          @open-login.window="openLogin()"
          @open-signup.window="openSignup()"
+         @active-page.window="activePage = $event.detail"
          class="bg-white shadow-sm">
         <div class="container mx-auto px-4 py-3 flex justify-between items-center">
             <a href="/" class="text-xl font-bold text-gray-800">Contract Sync</a>
@@ -82,11 +83,13 @@
                 <!-- 로그인 상태 -->
                 <div x-show="user" class="flex items-center gap-3">
                     <button @click="window.dispatchEvent(new CustomEvent('toggle-dashboard'))"
-                            class="px-3 py-1 text-gray-700 hover:text-indigo-600 transition-colors">
+                            class="px-3 py-1.5 rounded-lg text-sm font-medium transition-colors"
+                            :class="activePage === 'dashboard' ? 'bg-indigo-100 text-indigo-700' : 'text-gray-600 hover:text-indigo-600 hover:bg-gray-50'">
                         대시보드
                     </button>
                     <button @click="window.dispatchEvent(new CustomEvent('toggle-mypage'))"
-                            class="px-3 py-1 text-gray-700 hover:text-blue-600 transition-colors">
+                            class="px-3 py-1.5 rounded-lg text-sm font-medium transition-colors"
+                            :class="activePage === 'mypage' ? 'bg-indigo-100 text-indigo-700' : 'text-gray-600 hover:text-indigo-600 hover:bg-gray-50'">
                         마이페이지
                     </button>
                     <template x-if="user?.picture">
@@ -252,10 +255,10 @@
     </nav>
 
     <div x-data="scheduleExtractor()" x-init="init()"
-         @toggle-mypage.window="showMyPage = true; showDashboard = false; loadMyContracts()"
-         @toggle-dashboard.window="showDashboard = true; showMyPage = false; loadDashboard()"
-         @load-contract.window="loadContractData($event.detail); showDashboard = false"
-         @user-logged-in.window="isLoggedIn = true; showDashboard = true; loadDashboard()"
+         @toggle-mypage.window="showMyPage = true; showDashboard = false; loadMyContracts(); _dispatchPage('mypage')"
+         @toggle-dashboard.window="showDashboard = true; showMyPage = false; loadDashboard(); _dispatchPage('dashboard')"
+         @load-contract.window="loadContractData($event.detail); showDashboard = false; _dispatchPage('upload')"
+         @user-logged-in.window="isLoggedIn = true; showDashboard = true; loadDashboard(); _dispatchPage('dashboard')"
          @user-not-logged-in.window="isLoggedIn = false"
          class="container mx-auto px-4 py-8">
 
@@ -349,6 +352,30 @@
                     </div>
                 </div>
 
+                <!-- 업무 진행률 프로그레스바 -->
+                <div x-show="dashboard?.total_tasks > 0" class="bg-white rounded-lg shadow p-4 mb-6">
+                    <div class="flex justify-between items-center mb-2">
+                        <span class="text-sm font-medium text-gray-700">업무 진행률</span>
+                        <span class="text-sm text-gray-500" x-text="taskProgressPercent.completed + '%'"></span>
+                    </div>
+                    <div class="w-full h-3 bg-gray-100 rounded-full overflow-hidden flex">
+                        <div class="h-full bg-green-500 transition-all duration-500"
+                             :style="'width:' + taskProgressPercent.completed + '%'"
+                             :title="'완료 ' + taskProgressPercent.completed + '%'"></div>
+                        <div class="h-full bg-blue-500 transition-all duration-500"
+                             :style="'width:' + taskProgressPercent.inProgress + '%'"
+                             :title="'진행중 ' + taskProgressPercent.inProgress + '%'"></div>
+                        <div class="h-full bg-yellow-400 transition-all duration-500"
+                             :style="'width:' + taskProgressPercent.pending + '%'"
+                             :title="'대기 ' + taskProgressPercent.pending + '%'"></div>
+                    </div>
+                    <div class="flex gap-4 mt-2 text-xs text-gray-500">
+                        <span class="flex items-center gap-1"><span class="w-2.5 h-2.5 rounded-full bg-green-500 inline-block"></span> 완료</span>
+                        <span class="flex items-center gap-1"><span class="w-2.5 h-2.5 rounded-full bg-blue-500 inline-block"></span> 진행중</span>
+                        <span class="flex items-center gap-1"><span class="w-2.5 h-2.5 rounded-full bg-yellow-400 inline-block"></span> 대기</span>
+                    </div>
+                </div>
+
                 <!-- 업무 추가 폼 -->
                 <div x-show="showAddTask" x-transition class="bg-white rounded-lg shadow p-6 mb-6 border-2 border-indigo-200">
                     <div class="flex justify-between items-center mb-4">
@@ -437,7 +464,8 @@
 
                     <div x-show="filteredTasks.length > 0" class="space-y-3">
                         <template x-for="task in filteredTasks" :key="task.task_id + '-' + task.contract_id">
-                            <div class="border border-gray-200 rounded-lg p-4 hover:shadow-md transition-shadow"
+                            <div class="border rounded-lg p-4 hover:shadow-md transition-shadow"
+                                 :class="getTaskBorderClass(task)"
                                  x-data="{ expanded: false }">
                                 <div class="flex justify-between items-start cursor-pointer" @click="expanded = !expanded">
                                     <div class="flex-1">
@@ -479,7 +507,11 @@
                                             <span x-text="task.phase"></span>
                                         </p>
                                     </div>
-                                    <div class="text-right flex items-center gap-2">
+                                    <div class="text-right flex items-center gap-2 flex-shrink-0">
+                                        <span x-show="task.due_date && task.status !== '완료' && getDdayLabel(task.due_date)"
+                                              class="text-xs font-bold px-1.5 py-0.5 rounded"
+                                              :class="getDdayClass(task.due_date)"
+                                              x-text="getDdayLabel(task.due_date)"></span>
                                         <p class="text-sm text-gray-600" x-text="task.due_date || '마감일 미정'"></p>
                                         <svg class="w-4 h-4 text-gray-400 transition-transform" :class="expanded ? 'rotate-180' : ''" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                                             <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7"></path>
