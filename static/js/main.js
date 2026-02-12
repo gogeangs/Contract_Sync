@@ -1,3 +1,39 @@
+// Toast 알림 시스템
+function toastManager() {
+    return {
+        toasts: [],
+        _id: 0,
+
+        show(message, type = 'info', duration = 3000) {
+            const id = ++this._id;
+            this.toasts.push({ id, message, type, visible: true });
+            setTimeout(() => this.dismiss(id), duration);
+        },
+
+        success(message) { this.show(message, 'success', 3000); },
+        error(message) { this.show(message, 'error', 5000); },
+        warning(message) { this.show(message, 'warning', 4000); },
+        info(message) { this.show(message, 'info', 3000); },
+
+        dismiss(id) {
+            const t = this.toasts.find(t => t.id === id);
+            if (t) t.visible = false;
+            setTimeout(() => {
+                this.toasts = this.toasts.filter(t => t.id !== id);
+            }, 300);
+        }
+    };
+}
+
+// 전역 toast 함수 (Alpine 외부에서도 호출 가능)
+window._toast = { _queue: [], ready: false };
+window.toast = {
+    success(msg) { window._toast.ready ? window.dispatchEvent(new CustomEvent('toast', { detail: { message: msg, type: 'success' } })) : window._toast._queue.push({ message: msg, type: 'success' }); },
+    error(msg) { window._toast.ready ? window.dispatchEvent(new CustomEvent('toast', { detail: { message: msg, type: 'error' } })) : window._toast._queue.push({ message: msg, type: 'error' }); },
+    warning(msg) { window._toast.ready ? window.dispatchEvent(new CustomEvent('toast', { detail: { message: msg, type: 'warning' } })) : window._toast._queue.push({ message: msg, type: 'warning' }); },
+    info(msg) { window._toast.ready ? window.dispatchEvent(new CustomEvent('toast', { detail: { message: msg, type: 'info' } })) : window._toast._queue.push({ message: msg, type: 'info' }); },
+};
+
 function authState() {
     return {
         user: null,
@@ -440,7 +476,7 @@ function scheduleExtractor() {
 
         exportWord() {
             if (!this.result) {
-                alert('저장할 데이터가 없습니다.');
+                window.toast.warning('저장할 데이터가 없습니다.');
                 return;
             }
 
@@ -537,7 +573,7 @@ function scheduleExtractor() {
 
             } catch (err) {
                 console.error('워드 파일 생성 실패:', err);
-                alert('워드 파일 생성에 실패했습니다: ' + err.message);
+                window.toast.error('워드 파일 생성에 실패했습니다: ' + err.message);
             }
         },
 
@@ -594,7 +630,7 @@ function scheduleExtractor() {
 
         async saveContract() {
             if (!this.result) {
-                alert('저장할 계약 정보가 없습니다.');
+                window.toast.warning('저장할 계약 정보가 없습니다.');
                 return;
             }
 
@@ -628,17 +664,17 @@ function scheduleExtractor() {
                 });
 
                 if (response.ok) {
-                    alert('계약이 저장되었습니다.');
+                    window.toast.success('계약이 저장되었습니다.');
                 } else if (response.status === 401) {
-                    alert('로그인이 필요합니다.');
+                    window.toast.warning('로그인이 필요합니다.');
                 } else if (response.status === 409) {
-                    alert('동일한 이름의 계약서가 이미 존재합니다.');
+                    window.toast.warning('동일한 이름의 계약서가 이미 존재합니다.');
                 } else {
                     const data = await response.json().catch(() => null);
                     throw new Error(data?.detail || `서버 오류 (${response.status})`);
                 }
             } catch (err) {
-                alert('저장 실패: ' + err.message);
+                window.toast.error('저장 실패: ' + err.message);
             } finally {
                 this.saveLoading = false;
             }
@@ -751,7 +787,7 @@ function scheduleExtractor() {
 
         async submitNewTask() {
             if (!this.newTask.task_name.trim()) {
-                alert('업무명을 입력해주세요.');
+                window.toast.warning('업무명을 입력해주세요.');
                 return;
             }
 
@@ -790,7 +826,7 @@ function scheduleExtractor() {
 
                 this.showAddTask = false;
             } catch (err) {
-                alert('업무 추가 실패: ' + err.message);
+                window.toast.error('업무 추가 실패: ' + err.message);
             } finally {
                 this.addTaskLoading = false;
             }
@@ -824,7 +860,7 @@ function scheduleExtractor() {
                     this.dashboard.completed_tasks = this.dashboard.tasks.filter(t => t.status === '완료').length;
                 }
             } catch (err) {
-                alert('상태 변경 실패: ' + err.message);
+                window.toast.error('상태 변경 실패: ' + err.message);
             }
         },
 
@@ -849,7 +885,7 @@ function scheduleExtractor() {
                     if (task) task.note = note;
                 }
             } catch (err) {
-                alert('처리 내용 저장 실패: ' + err.message);
+                window.toast.error('처리 내용 저장 실패: ' + err.message);
             }
         },
 
@@ -858,7 +894,7 @@ function scheduleExtractor() {
             if (!file) return;
 
             if (file.size > 20 * 1024 * 1024) {
-                alert('파일 크기는 20MB를 초과할 수 없습니다.');
+                window.toast.warning('파일 크기는 20MB를 초과할 수 없습니다.');
                 return;
             }
 
@@ -890,7 +926,7 @@ function scheduleExtractor() {
                     }
                 }
             } catch (err) {
-                alert('파일 업로드 실패: ' + err.message);
+                window.toast.error('파일 업로드 실패: ' + err.message);
             }
 
             // input 초기화
@@ -921,7 +957,7 @@ function scheduleExtractor() {
                     }
                 }
             } catch (err) {
-                alert('파일 삭제 실패: ' + err.message);
+                window.toast.error('파일 삭제 실패: ' + err.message);
             }
         }
     };
