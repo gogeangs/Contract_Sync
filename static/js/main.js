@@ -247,6 +247,8 @@ function scheduleExtractor() {
         showMyPage: false,
         myContracts: [],
         myContractsLoading: false,
+        contractFilterYear: '',
+        contractFilterMonth: '',
 
         // 로그인 상태
         isLoggedIn: false,
@@ -599,17 +601,23 @@ function scheduleExtractor() {
             this.saveLoading = true;
 
             try {
+                const cs = this.result.contract_schedule;
                 const contractData = {
-                    contract_name: this.result.contract_schedule?.contract_name || '제목 없음',
+                    contract_name: cs?.contract_name || '제목 없음',
                     file_name: this.file?.name || null,
-                    contractor: this.result.contract_schedule?.contractor || null,
-                    client: this.result.contract_schedule?.client || null,
-                    contract_start_date: this.result.contract_schedule?.contract_start_date || null,
-                    contract_end_date: this.result.contract_schedule?.contract_end_date || null,
-                    total_duration_days: this.result.contract_schedule?.total_duration_days || null,
-                    schedules: this.result.contract_schedule?.schedules || [],
+                    company_name: cs?.company_name || null,
+                    contractor: cs?.contractor || null,
+                    client: cs?.client || null,
+                    contract_date: cs?.contract_date || null,
+                    contract_start_date: cs?.contract_start_date || null,
+                    contract_end_date: cs?.contract_end_date || null,
+                    total_duration_days: cs?.total_duration_days || null,
+                    contract_amount: cs?.contract_amount || null,
+                    payment_method: cs?.payment_method || null,
+                    payment_due_date: cs?.payment_due_date || null,
+                    schedules: cs?.schedules || [],
                     tasks: this.result.task_list || [],
-                    milestones: this.result.contract_schedule?.milestones || [],
+                    milestones: cs?.milestones || [],
                     raw_text: this.result.raw_text || null
                 };
 
@@ -646,11 +654,16 @@ function scheduleExtractor() {
             this.result = {
                 contract_schedule: {
                     contract_name: contract.contract_name,
+                    company_name: contract.company_name,
                     contractor: contract.contractor,
                     client: contract.client,
+                    contract_date: contract.contract_date,
                     contract_start_date: contract.contract_start_date,
                     contract_end_date: contract.contract_end_date,
                     total_duration_days: contract.total_duration_days,
+                    contract_amount: contract.contract_amount,
+                    payment_method: contract.payment_method,
+                    payment_due_date: contract.payment_due_date,
                     schedules: contract.schedules || [],
                     milestones: contract.milestones || []
                 },
@@ -666,6 +679,8 @@ function scheduleExtractor() {
 
         async loadMyContracts() {
             this.myContractsLoading = true;
+            this.contractFilterYear = '';
+            this.contractFilterMonth = '';
             try {
                 const response = await fetch('/api/v1/contracts/list');
                 if (response.ok) {
@@ -676,6 +691,35 @@ function scheduleExtractor() {
             } finally {
                 this.myContractsLoading = false;
             }
+        },
+
+        get contractYears() {
+            const years = new Set();
+            this.myContracts.forEach(c => {
+                if (c.created_at) years.add(new Date(c.created_at).getFullYear());
+            });
+            return [...years].sort((a, b) => b - a);
+        },
+
+        get contractMonths() {
+            const months = new Set();
+            this.myContracts.forEach(c => {
+                if (!c.created_at) return;
+                const d = new Date(c.created_at);
+                if (this.contractFilterYear && d.getFullYear() !== parseInt(this.contractFilterYear)) return;
+                months.add(d.getMonth() + 1);
+            });
+            return [...months].sort((a, b) => a - b);
+        },
+
+        get filteredContracts() {
+            return this.myContracts.filter(c => {
+                if (!c.created_at) return true;
+                const d = new Date(c.created_at);
+                if (this.contractFilterYear && d.getFullYear() !== parseInt(this.contractFilterYear)) return false;
+                if (this.contractFilterMonth && (d.getMonth() + 1) !== parseInt(this.contractFilterMonth)) return false;
+                return true;
+            });
         },
 
         async deleteContract(contractId) {
@@ -786,6 +830,103 @@ function scheduleExtractor() {
                 }
             } catch (err) {
                 alert('상태 변경 실패: ' + err.message);
+            }
+        },
+
+        async saveTaskNote(contractId, taskId, note) {
+            try {
+                const response = await fetch(`/api/v1/contracts/${contractId}/tasks/note`, {
+                    method: 'PATCH',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ task_id: String(taskId), note })
+                });
+
+                if (!response.ok) {
+                    const data = await response.json();
+                    throw new Error(data.detail || '저장 실패');
+                }
+
+                // 로컬 데이터 업데이트
+                if (this.dashboard?.tasks) {
+                    const task = this.dashboard.tasks.find(
+                        t => t.contract_id === contractId && t.task_id === taskId
+                    );
+                    if (task) task.note = note;
+                }
+            } catch (err) {
+                alert('처리 내용 저장 실패: ' + err.message);
+            }
+        },
+
+        async uploadAttachment(contractId, taskId, event) {
+            const file = event.target.files[0];
+            if (!file) return;
+
+            if (file.size > 20 * 1024 * 1024) {
+                alert('파일 크기는 20MB를 초과할 수 없습니다.');
+                return;
+            }
+
+            const formData = new FormData();
+            formData.append('task_id', String(taskId));
+            formData.append('file', file);
+
+            try {
+                const response = await fetch(`/api/v1/contracts/${contractId}/tasks/attachment`, {
+                    method: 'POST',
+                    body: formData
+                });
+
+                if (!response.ok) {
+                    const data = await response.json();
+                    throw new Error(data.detail || '업로드 실패');
+                }
+
+                const data = await response.json();
+
+                // 로컬 데이터 업데이트
+                if (this.dashboard?.tasks) {
+                    const task = this.dashboard.tasks.find(
+                        t => t.contract_id === contractId && t.task_id === taskId
+                    );
+                    if (task) {
+                        if (!task.attachments) task.attachments = [];
+                        task.attachments.push(data.attachment);
+                    }
+                }
+            } catch (err) {
+                alert('파일 업로드 실패: ' + err.message);
+            }
+
+            // input 초기화
+            event.target.value = '';
+        },
+
+        async deleteAttachment(contractId, taskId, filename) {
+            if (!confirm('이 파일을 삭제하시겠습니까?')) return;
+
+            try {
+                const response = await fetch(
+                    `/api/v1/contracts/${contractId}/tasks/attachment?task_id=${taskId}&filename=${filename}`,
+                    { method: 'DELETE' }
+                );
+
+                if (!response.ok) {
+                    const data = await response.json();
+                    throw new Error(data.detail || '삭제 실패');
+                }
+
+                // 로컬 데이터 업데이트
+                if (this.dashboard?.tasks) {
+                    const task = this.dashboard.tasks.find(
+                        t => t.contract_id === contractId && t.task_id === taskId
+                    );
+                    if (task?.attachments) {
+                        task.attachments = task.attachments.filter(a => a.filename !== filename);
+                    }
+                }
+            } catch (err) {
+                alert('파일 삭제 실패: ' + err.message);
             }
         }
     };

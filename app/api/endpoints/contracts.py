@@ -1,14 +1,21 @@
-from fastapi import APIRouter, Depends, HTTPException, Request
+from fastapi import APIRouter, Depends, HTTPException, Request, UploadFile, File, Form
+from fastapi.responses import FileResponse
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy import select, desc
 from pydantic import BaseModel
 from typing import Optional, List
 from datetime import datetime
+from pathlib import Path
+import uuid
 
 from sqlalchemy.orm.attributes import flag_modified
 
 from app.database import get_db, Contract, User
 from app.api.endpoints.auth import sessions
+
+# 증빙 파일 저장 경로
+EVIDENCE_DIR = Path(__file__).resolve().parent.parent.parent / "uploads" / "evidence"
+EVIDENCE_DIR.mkdir(parents=True, exist_ok=True)
 
 router = APIRouter()
 
@@ -32,11 +39,16 @@ class TaskItem(BaseModel):
 class ContractCreate(BaseModel):
     contract_name: str
     file_name: Optional[str] = None
+    company_name: Optional[str] = None
     contractor: Optional[str] = None
     client: Optional[str] = None
+    contract_date: Optional[str] = None
     contract_start_date: Optional[str] = None
     contract_end_date: Optional[str] = None
     total_duration_days: Optional[int] = None
+    contract_amount: Optional[str] = None
+    payment_method: Optional[str] = None
+    payment_due_date: Optional[str] = None
     schedules: Optional[List[dict]] = None
     tasks: Optional[List[dict]] = None
     milestones: Optional[List[str]] = None
@@ -47,11 +59,16 @@ class ContractResponse(BaseModel):
     id: int
     contract_name: str
     file_name: Optional[str]
+    company_name: Optional[str]
     contractor: Optional[str]
     client: Optional[str]
+    contract_date: Optional[str]
     contract_start_date: Optional[str]
     contract_end_date: Optional[str]
     total_duration_days: Optional[int]
+    contract_amount: Optional[str]
+    payment_method: Optional[str]
+    payment_due_date: Optional[str]
     schedules: Optional[List[dict]]
     tasks: Optional[List[dict]]
     milestones: Optional[List[str]]
@@ -108,11 +125,16 @@ async def save_contract(
             user_id=user.id,
             contract_name=contract_data.contract_name,
             file_name=contract_data.file_name,
+            company_name=contract_data.company_name,
             contractor=contract_data.contractor,
             client=contract_data.client,
+            contract_date=contract_data.contract_date,
             contract_start_date=contract_data.contract_start_date,
             contract_end_date=contract_data.contract_end_date,
             total_duration_days=contract_data.total_duration_days,
+            contract_amount=contract_data.contract_amount,
+            payment_method=contract_data.payment_method,
+            payment_due_date=contract_data.payment_due_date,
             schedules=contract_data.schedules,
             tasks=contract_data.tasks,
             milestones=contract_data.milestones,
@@ -276,6 +298,11 @@ class TaskStatusUpdate(BaseModel):
     status: str  # 대기, 진행중, 완료, 보류
 
 
+class TaskNoteUpdate(BaseModel):
+    task_id: str
+    note: str
+
+
 @router.post("/tasks/add")
 async def add_standalone_task(
     task_data: StandaloneTaskCreate,
@@ -414,6 +441,147 @@ async def update_task_status(
     await db.commit()
 
     return {"message": "상태가 변경되었습니다", "task_id": update.task_id, "status": update.status}
+
+
+@router.patch("/{contract_id}/tasks/note")
+async def update_task_note(
+    contract_id: int,
+    update: TaskNoteUpdate,
+    request: Request,
+    db: AsyncSession = Depends(get_db)
+):
+    """업무 처리 내용 저장"""
+    user = await get_current_user(request, db)
+
+    result = await db.execute(
+        select(Contract)
+        .where(Contract.id == contract_id, Contract.user_id == user.id)
+    )
+    contract = result.scalar_one_or_none()
+
+    if not contract or not contract.tasks:
+        raise HTTPException(status_code=404, detail="업무를 찾을 수 없습니다")
+
+    updated = False
+    for task in contract.tasks:
+        if str(task.get("task_id")) == str(update.task_id):
+            task["note"] = update.note
+            updated = True
+            break
+
+    if not updated:
+        raise HTTPException(status_code=404, detail="해당 업무를 찾을 수 없습니다")
+
+    flag_modified(contract, "tasks")
+    await db.commit()
+
+    return {"message": "처리 내용이 저장되었습니다"}
+
+
+@router.post("/{contract_id}/tasks/attachment")
+async def upload_task_attachment(
+    contract_id: int,
+    task_id: str = Form(...),
+    file: UploadFile = File(...),
+    request: Request = None,
+    db: AsyncSession = Depends(get_db)
+):
+    """업무 증빙 파일 업로드"""
+    user = await get_current_user(request, db)
+
+    result = await db.execute(
+        select(Contract)
+        .where(Contract.id == contract_id, Contract.user_id == user.id)
+    )
+    contract = result.scalar_one_or_none()
+
+    if not contract or not contract.tasks:
+        raise HTTPException(status_code=404, detail="업무를 찾을 수 없습니다")
+
+    # 파일 크기 제한 (20MB)
+    contents = await file.read()
+    if len(contents) > 20 * 1024 * 1024:
+        raise HTTPException(status_code=400, detail="파일 크기는 20MB를 초과할 수 없습니다")
+
+    # 파일 저장
+    ext = Path(file.filename).suffix
+    saved_name = f"{uuid.uuid4().hex}{ext}"
+    save_dir = EVIDENCE_DIR / str(contract_id) / str(task_id)
+    save_dir.mkdir(parents=True, exist_ok=True)
+    save_path = save_dir / saved_name
+
+    with open(save_path, "wb") as f:
+        f.write(contents)
+
+    # 업무에 첨부파일 정보 추가
+    attachment = {
+        "filename": saved_name,
+        "original_name": file.filename,
+        "uploaded_at": datetime.utcnow().strftime("%Y-%m-%d %H:%M"),
+    }
+
+    updated = False
+    for task in contract.tasks:
+        if str(task.get("task_id")) == str(task_id):
+            if "attachments" not in task:
+                task["attachments"] = []
+            task["attachments"].append(attachment)
+            updated = True
+            break
+
+    if not updated:
+        save_path.unlink(missing_ok=True)
+        raise HTTPException(status_code=404, detail="해당 업무를 찾을 수 없습니다")
+
+    flag_modified(contract, "tasks")
+    await db.commit()
+
+    return {"message": "파일이 업로드되었습니다", "attachment": attachment}
+
+
+@router.delete("/{contract_id}/tasks/attachment")
+async def delete_task_attachment(
+    contract_id: int,
+    task_id: str,
+    filename: str,
+    request: Request,
+    db: AsyncSession = Depends(get_db)
+):
+    """업무 증빙 파일 삭제"""
+    user = await get_current_user(request, db)
+
+    result = await db.execute(
+        select(Contract)
+        .where(Contract.id == contract_id, Contract.user_id == user.id)
+    )
+    contract = result.scalar_one_or_none()
+
+    if not contract or not contract.tasks:
+        raise HTTPException(status_code=404, detail="업무를 찾을 수 없습니다")
+
+    for task in contract.tasks:
+        if str(task.get("task_id")) == str(task_id):
+            attachments = task.get("attachments", [])
+            task["attachments"] = [a for a in attachments if a["filename"] != filename]
+            break
+
+    # 파일 삭제
+    file_path = EVIDENCE_DIR / str(contract_id) / str(task_id) / filename
+    file_path.unlink(missing_ok=True)
+
+    flag_modified(contract, "tasks")
+    await db.commit()
+
+    return {"message": "파일이 삭제되었습니다"}
+
+
+@router.get("/attachment/{contract_id}/{task_id}/{filename}")
+async def get_attachment(contract_id: int, task_id: str, filename: str):
+    """증빙 파일 다운로드"""
+    file_path = EVIDENCE_DIR / str(contract_id) / str(task_id) / filename
+    if not file_path.exists():
+        raise HTTPException(status_code=404, detail="파일을 찾을 수 없습니다")
+    return FileResponse(file_path, filename=filename)
 
 
 @router.delete("/{contract_id}")

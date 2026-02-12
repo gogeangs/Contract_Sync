@@ -377,12 +377,14 @@
 
                     <div x-show="filteredTasks.length > 0" class="space-y-3">
                         <template x-for="task in filteredTasks" :key="task.task_id + '-' + task.contract_id">
-                            <div class="border border-gray-200 rounded-lg p-4 hover:shadow-md transition-shadow">
-                                <div class="flex justify-between items-start">
+                            <div class="border border-gray-200 rounded-lg p-4 hover:shadow-md transition-shadow"
+                                 x-data="{ expanded: false }">
+                                <div class="flex justify-between items-start cursor-pointer" @click="expanded = !expanded">
                                     <div class="flex-1">
                                         <div class="flex items-center gap-2">
                                             <h3 class="font-medium text-gray-800" x-text="task.task_name"></h3>
                                             <select @change="updateTaskStatus(task.contract_id, task.task_id, $event.target.value)"
+                                                    @click.stop
                                                     :value="task.status"
                                                     class="text-xs px-2 py-0.5 rounded border-0 cursor-pointer appearance-auto"
                                                     :class="{
@@ -404,6 +406,12 @@
                                                       'bg-gray-100 text-gray-800': task.priority === '낮음'
                                                   }"
                                                   x-text="task.priority"></span>
+                                            <span x-show="task.note" class="text-xs text-gray-400" title="처리 내용 있음">
+                                                <svg class="w-3.5 h-3.5 inline" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z"></path>
+                                                </svg>
+                                            </span>
+                                            <span x-show="task.attachments?.length" class="text-xs text-gray-400" x-text="task.attachments?.length + '개 파일'" title="증빙 파일"></span>
                                         </div>
                                         <p class="text-sm text-gray-500 mt-1">
                                             <span class="text-indigo-600" x-text="task.contract_name"></span>
@@ -411,8 +419,55 @@
                                             <span x-text="task.phase"></span>
                                         </p>
                                     </div>
-                                    <div class="text-right">
+                                    <div class="text-right flex items-center gap-2">
                                         <p class="text-sm text-gray-600" x-text="task.due_date || '마감일 미정'"></p>
+                                        <svg class="w-4 h-4 text-gray-400 transition-transform" :class="expanded ? 'rotate-180' : ''" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7"></path>
+                                        </svg>
+                                    </div>
+                                </div>
+
+                                <!-- 확장 영역: 처리 내용 + 증빙 파일 -->
+                                <div x-show="expanded" x-transition @click.stop class="mt-3 pt-3 border-t border-gray-100">
+                                    <!-- 처리 내용 -->
+                                    <div class="mb-3">
+                                        <label class="block text-xs font-medium text-gray-500 mb-1">처리 내용</label>
+                                        <textarea
+                                            :value="task.note || ''"
+                                            @blur="saveTaskNote(task.contract_id, task.task_id, $event.target.value)"
+                                            placeholder="업무 처리 내용을 기록하세요..."
+                                            rows="2"
+                                            class="w-full px-3 py-2 text-sm border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-indigo-500 resize-none"></textarea>
+                                    </div>
+
+                                    <!-- 증빙 파일 -->
+                                    <div>
+                                        <div class="flex items-center justify-between mb-1">
+                                            <label class="block text-xs font-medium text-gray-500">증빙 파일</label>
+                                            <label class="px-2 py-1 text-xs bg-gray-100 text-gray-700 rounded cursor-pointer hover:bg-gray-200 transition-colors">
+                                                + 파일 추가
+                                                <input type="file" class="hidden" @change="uploadAttachment(task.contract_id, task.task_id, $event)">
+                                            </label>
+                                        </div>
+                                        <div x-show="task.attachments?.length > 0" class="space-y-1">
+                                            <template x-for="att in task.attachments || []" :key="att.filename">
+                                                <div class="flex items-center justify-between px-2 py-1 bg-gray-50 rounded text-sm">
+                                                    <a :href="`/api/v1/contracts/attachment/${task.contract_id}/${task.task_id}/${att.filename}`"
+                                                       class="text-indigo-600 hover:underline truncate flex-1"
+                                                       x-text="att.original_name" target="_blank"></a>
+                                                    <div class="flex items-center gap-2 ml-2 flex-shrink-0">
+                                                        <span class="text-xs text-gray-400" x-text="att.uploaded_at"></span>
+                                                        <button @click="deleteAttachment(task.contract_id, task.task_id, att.filename)"
+                                                                class="text-red-400 hover:text-red-600">
+                                                            <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"></path>
+                                                            </svg>
+                                                        </button>
+                                                    </div>
+                                                </div>
+                                            </template>
+                                        </div>
+                                        <p x-show="!task.attachments?.length" class="text-xs text-gray-400">첨부된 파일이 없습니다.</p>
                                     </div>
                                 </div>
                             </div>
@@ -567,7 +622,7 @@
                         <span x-text="editMode ? '편집 완료' : '편집'"></span>
                     </button>
                 </div>
-                <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+                <div class="grid grid-cols-1 md:grid-cols-3 gap-4">
                     <div class="p-3 bg-gray-50 rounded-lg">
                         <span class="text-sm text-gray-500">계약명</span>
                         <p x-show="!editMode" class="font-medium text-gray-800" x-text="result?.contract_schedule?.contract_name || '-'"></p>
@@ -575,9 +630,21 @@
                                class="w-full mt-1 px-2 py-1 border border-gray-300 rounded focus:outline-none focus:ring-2 focus:ring-blue-500">
                     </div>
                     <div class="p-3 bg-gray-50 rounded-lg">
-                        <span class="text-sm text-gray-500">총 기간 (일)</span>
-                        <p x-show="!editMode" class="font-medium text-gray-800" x-text="result?.contract_schedule?.total_duration_days ? result.contract_schedule.total_duration_days + '일' : '-'"></p>
-                        <input x-show="editMode" type="number" x-model="result.contract_schedule.total_duration_days"
+                        <span class="text-sm text-gray-500">기업명</span>
+                        <p x-show="!editMode" class="font-medium text-gray-800" x-text="result?.contract_schedule?.company_name || '-'"></p>
+                        <input x-show="editMode" type="text" x-model="result.contract_schedule.company_name"
+                               class="w-full mt-1 px-2 py-1 border border-gray-300 rounded focus:outline-none focus:ring-2 focus:ring-blue-500">
+                    </div>
+                    <div class="p-3 bg-gray-50 rounded-lg">
+                        <span class="text-sm text-gray-500">계약 금액</span>
+                        <p x-show="!editMode" class="font-medium text-gray-800" x-text="result?.contract_schedule?.contract_amount || '-'"></p>
+                        <input x-show="editMode" type="text" x-model="result.contract_schedule.contract_amount"
+                               class="w-full mt-1 px-2 py-1 border border-gray-300 rounded focus:outline-none focus:ring-2 focus:ring-blue-500">
+                    </div>
+                    <div class="p-3 bg-gray-50 rounded-lg">
+                        <span class="text-sm text-gray-500">계약일</span>
+                        <p x-show="!editMode" class="font-medium text-gray-800" x-text="result?.contract_schedule?.contract_date || '-'"></p>
+                        <input x-show="editMode" type="date" x-model="result.contract_schedule.contract_date"
                                class="w-full mt-1 px-2 py-1 border border-gray-300 rounded focus:outline-none focus:ring-2 focus:ring-blue-500">
                     </div>
                     <div class="p-3 bg-gray-50 rounded-lg">
@@ -587,9 +654,27 @@
                                class="w-full mt-1 px-2 py-1 border border-gray-300 rounded focus:outline-none focus:ring-2 focus:ring-blue-500">
                     </div>
                     <div class="p-3 bg-gray-50 rounded-lg">
-                        <span class="text-sm text-gray-500">완료일</span>
+                        <span class="text-sm text-gray-500">완수일</span>
                         <p x-show="!editMode" class="font-medium text-gray-800" x-text="result?.contract_schedule?.contract_end_date || '-'"></p>
                         <input x-show="editMode" type="date" x-model="result.contract_schedule.contract_end_date"
+                               class="w-full mt-1 px-2 py-1 border border-gray-300 rounded focus:outline-none focus:ring-2 focus:ring-blue-500">
+                    </div>
+                    <div class="p-3 bg-gray-50 rounded-lg">
+                        <span class="text-sm text-gray-500">총 기간 (일)</span>
+                        <p x-show="!editMode" class="font-medium text-gray-800" x-text="result?.contract_schedule?.total_duration_days ? result.contract_schedule.total_duration_days + '일' : '-'"></p>
+                        <input x-show="editMode" type="number" x-model="result.contract_schedule.total_duration_days"
+                               class="w-full mt-1 px-2 py-1 border border-gray-300 rounded focus:outline-none focus:ring-2 focus:ring-blue-500">
+                    </div>
+                    <div class="p-3 bg-gray-50 rounded-lg">
+                        <span class="text-sm text-gray-500">계약금 지급 방식</span>
+                        <p x-show="!editMode" class="font-medium text-gray-800" x-text="result?.contract_schedule?.payment_method || '-'"></p>
+                        <input x-show="editMode" type="text" x-model="result.contract_schedule.payment_method"
+                               class="w-full mt-1 px-2 py-1 border border-gray-300 rounded focus:outline-none focus:ring-2 focus:ring-blue-500">
+                    </div>
+                    <div class="p-3 bg-gray-50 rounded-lg">
+                        <span class="text-sm text-gray-500">입금예정일</span>
+                        <p x-show="!editMode" class="font-medium text-gray-800" x-text="result?.contract_schedule?.payment_due_date || '-'"></p>
+                        <input x-show="editMode" type="date" x-model="result.contract_schedule.payment_due_date"
                                class="w-full mt-1 px-2 py-1 border border-gray-300 rounded focus:outline-none focus:ring-2 focus:ring-blue-500">
                     </div>
                 </div>
@@ -834,6 +919,25 @@
                     </button>
                 </div>
 
+                <!-- 필터 -->
+                <div x-show="!myContractsLoading && myContracts.length > 0" class="flex items-center gap-3 mb-4">
+                    <select x-model="contractFilterYear" @change="contractFilterMonth = ''"
+                            class="px-3 py-1.5 border border-gray-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500">
+                        <option value="">전체 연도</option>
+                        <template x-for="y in contractYears" :key="y">
+                            <option :value="y" x-text="y + '년'"></option>
+                        </template>
+                    </select>
+                    <select x-model="contractFilterMonth" :disabled="!contractFilterYear"
+                            class="px-3 py-1.5 border border-gray-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500 disabled:bg-gray-100 disabled:text-gray-400">
+                        <option value="">전체 월</option>
+                        <template x-for="m in contractMonths" :key="m">
+                            <option :value="m" x-text="m + '월'"></option>
+                        </template>
+                    </select>
+                    <span class="text-sm text-gray-500" x-text="filteredContracts.length + '건'"></span>
+                </div>
+
                 <!-- 로딩 상태 -->
                 <div x-show="myContractsLoading" class="text-center py-8">
                     <svg class="animate-spin h-8 w-8 mx-auto text-blue-500" fill="none" viewBox="0 0 24 24">
@@ -845,7 +949,7 @@
 
                 <!-- 계약 목록 -->
                 <div x-show="!myContractsLoading && myContracts.length > 0" class="space-y-4">
-                    <template x-for="contract in myContracts" :key="contract.id">
+                    <template x-for="contract in filteredContracts" :key="contract.id">
                         <div class="border border-gray-200 rounded-lg p-4 hover:shadow-md transition-shadow">
                             <div class="flex justify-between items-start">
                                 <div class="flex-1">
@@ -884,6 +988,11 @@
                             </div>
                         </div>
                     </template>
+                </div>
+
+                <!-- 필터 결과 없음 -->
+                <div x-show="!myContractsLoading && myContracts.length > 0 && filteredContracts.length === 0" class="text-center py-8">
+                    <p class="text-gray-500">해당 기간에 저장된 계약이 없습니다.</p>
                 </div>
 
                 <!-- 빈 상태 -->

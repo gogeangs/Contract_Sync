@@ -121,9 +121,16 @@ class GeminiService:
 
 1. **계약 기본 정보**
    - 계약명/사업명
-   - 계약 착수일 (시작일)
-   - 계약 완료일 (종료일)
+   - 기업명 (계약 당사자 기업)
+   - 수급자 (수급 업체)
+   - 발주처 (발주 기관/업체)
+   - 계약일 (계약 체결일)
+   - 착수일 (사업 시작일)
+   - 완수일 (사업 종료일)
    - 총 사업 기간
+   - 계약 금액 (총 계약 금액, 원문 그대로)
+   - 계약금 지급 방식 (일시불, 분할, 착수금/중도금/잔금 등)
+   - 입금예정일 (대금 지급 예정일)
 
 2. **단계별 추진 일정**
    각 단계에 대해 다음을 추출:
@@ -154,9 +161,16 @@ class GeminiService:
 {
     "contract_schedule": {
         "contract_name": "계약명",
+        "company_name": "기업명 또는 null",
+        "contractor": "수급자 또는 null",
+        "client": "발주처 또는 null",
+        "contract_date": "YYYY-MM-DD 또는 원문 또는 null",
         "contract_start_date": "YYYY-MM-DD 또는 원문",
         "contract_end_date": "YYYY-MM-DD 또는 원문",
         "total_duration_days": 숫자 또는 null,
+        "contract_amount": "계약 금액 원문 그대로 또는 null",
+        "payment_method": "지급 방식 또는 null",
+        "payment_due_date": "YYYY-MM-DD 또는 원문 또는 null",
         "schedules": [
             {
                 "phase": "단계명",

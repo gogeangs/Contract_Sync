@@ -35,9 +35,16 @@ class ContractSchedule(BaseModel):
     """계약서 추진 일정 전체"""
 
     contract_name: Optional[str] = Field(None, description="계약명")
-    contract_start_date: Optional[str] = Field(None, description="계약 착수일")
-    contract_end_date: Optional[str] = Field(None, description="계약 완료일")
+    company_name: Optional[str] = Field(None, description="기업명")
+    contractor: Optional[str] = Field(None, description="수급자")
+    client: Optional[str] = Field(None, description="발주처")
+    contract_date: Optional[str] = Field(None, description="계약일")
+    contract_start_date: Optional[str] = Field(None, description="착수일")
+    contract_end_date: Optional[str] = Field(None, description="완수일")
     total_duration_days: Optional[int] = Field(None, description="총 사업 기간 (일)")
+    contract_amount: Optional[str] = Field(None, description="계약 금액")
+    payment_method: Optional[str] = Field(None, description="계약금 지급 방식")
+    payment_due_date: Optional[str] = Field(None, description="입금예정일")
     schedules: list[ScheduleItem] = Field(default_factory=list, description="단계별 일정 목록")
     milestones: Optional[list[str]] = Field(None, description="주요 마일스톤")
 

@@ -50,11 +50,16 @@ class Contract(Base):
     user_id = Column(Integer, ForeignKey("users.id"), nullable=False)
     contract_name = Column(String, nullable=False)
     file_name = Column(String, nullable=True)
-    contractor = Column(String, nullable=True)  # 계약자
+    company_name = Column(String, nullable=True)  # 기업명
+    contractor = Column(String, nullable=True)  # 수급자
     client = Column(String, nullable=True)  # 발주처
-    contract_start_date = Column(String, nullable=True)
-    contract_end_date = Column(String, nullable=True)
+    contract_date = Column(String, nullable=True)  # 계약일
+    contract_start_date = Column(String, nullable=True)  # 착수일
+    contract_end_date = Column(String, nullable=True)  # 완수일
     total_duration_days = Column(Integer, nullable=True)
+    contract_amount = Column(String, nullable=True)  # 계약 금액
+    payment_method = Column(String, nullable=True)  # 계약금 지급 방식
+    payment_due_date = Column(String, nullable=True)  # 입금예정일
     schedules = Column(JSON, nullable=True)  # 일정 목록
     tasks = Column(JSON, nullable=True)  # 업무 목록
     milestones = Column(JSON, nullable=True)  # 마일스톤
@@ -68,6 +73,24 @@ class Contract(Base):
 async def init_db():
     async with engine.begin() as conn:
         await conn.run_sync(Base.metadata.create_all)
+
+        # 기존 테이블에 새 컬럼 추가 (이미 있으면 무시)
+        new_columns = [
+            ("company_name", "VARCHAR"),
+            ("contract_date", "VARCHAR"),
+            ("contract_amount", "VARCHAR"),
+            ("payment_method", "VARCHAR"),
+            ("payment_due_date", "VARCHAR"),
+        ]
+        for col_name, col_type in new_columns:
+            try:
+                await conn.execute(
+                    __import__("sqlalchemy").text(
+                        f"ALTER TABLE contracts ADD COLUMN {col_name} {col_type}"
+                    )
+                )
+            except Exception:
+                pass  # 이미 존재하는 컬럼
 
 
 async def get_db():
