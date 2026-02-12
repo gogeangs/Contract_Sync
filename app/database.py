@@ -77,10 +77,14 @@ async def init_db():
         # 기존 테이블에 새 컬럼 추가 (이미 있으면 무시)
         new_columns = [
             ("company_name", "VARCHAR"),
+            ("contractor", "VARCHAR"),
+            ("client", "VARCHAR"),
             ("contract_date", "VARCHAR"),
             ("contract_amount", "VARCHAR"),
             ("payment_method", "VARCHAR"),
             ("payment_due_date", "VARCHAR"),
+            ("milestones", "JSON"),
+            ("raw_text", "TEXT"),
         ]
         for col_name, col_type in new_columns:
             try:

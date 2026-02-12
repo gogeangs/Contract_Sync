@@ -559,11 +559,16 @@ async def delete_task_attachment(
     if not contract or not contract.tasks:
         raise HTTPException(status_code=404, detail="업무를 찾을 수 없습니다")
 
+    found = False
     for task in contract.tasks:
         if str(task.get("task_id")) == str(task_id):
             attachments = task.get("attachments", [])
             task["attachments"] = [a for a in attachments if a["filename"] != filename]
+            found = True
             break
+
+    if not found:
+        raise HTTPException(status_code=404, detail="해당 업무를 찾을 수 없습니다")
 
     # 파일 삭제
     file_path = EVIDENCE_DIR / str(contract_id) / str(task_id) / filename
@@ -576,12 +581,41 @@ async def delete_task_attachment(
 
 
 @router.get("/attachment/{contract_id}/{task_id}/{filename}")
-async def get_attachment(contract_id: int, task_id: str, filename: str):
+async def get_attachment(
+    contract_id: int,
+    task_id: str,
+    filename: str,
+    request: Request,
+    db: AsyncSession = Depends(get_db)
+):
     """증빙 파일 다운로드"""
+    user = await get_current_user(request, db)
+
+    # 해당 계약이 사용자 소유인지 확인
+    result = await db.execute(
+        select(Contract)
+        .where(Contract.id == contract_id, Contract.user_id == user.id)
+    )
+    contract = result.scalar_one_or_none()
+    if not contract:
+        raise HTTPException(status_code=404, detail="파일을 찾을 수 없습니다")
+
     file_path = EVIDENCE_DIR / str(contract_id) / str(task_id) / filename
     if not file_path.exists():
         raise HTTPException(status_code=404, detail="파일을 찾을 수 없습니다")
-    return FileResponse(file_path, filename=filename)
+
+    # 원본 파일명 조회
+    original_name = filename
+    if contract.tasks:
+        for task in contract.tasks:
+            if str(task.get("task_id")) == str(task_id):
+                for att in task.get("attachments", []):
+                    if att.get("filename") == filename:
+                        original_name = att.get("original_name", filename)
+                        break
+                break
+
+    return FileResponse(file_path, filename=original_name)
 
 
 @router.delete("/{contract_id}")

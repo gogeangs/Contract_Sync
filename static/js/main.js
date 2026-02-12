@@ -634,13 +634,8 @@ function scheduleExtractor() {
                 } else if (response.status === 409) {
                     alert('동일한 이름의 계약서가 이미 존재합니다.');
                 } else {
-                    const text = await response.text();
-                    try {
-                        const data = JSON.parse(text);
-                        throw new Error(data.detail || '저장 실패');
-                    } catch {
-                        throw new Error(`서버 오류 (${response.status})`);
-                    }
+                    const data = await response.json().catch(() => null);
+                    throw new Error(data?.detail || `서버 오류 (${response.status})`);
                 }
             } catch (err) {
                 alert('저장 실패: ' + err.message);
@@ -907,7 +902,7 @@ function scheduleExtractor() {
 
             try {
                 const response = await fetch(
-                    `/api/v1/contracts/${contractId}/tasks/attachment?task_id=${taskId}&filename=${filename}`,
+                    `/api/v1/contracts/${contractId}/tasks/attachment?task_id=${encodeURIComponent(taskId)}&filename=${encodeURIComponent(filename)}`,
                     { method: 'DELETE' }
                 );
 
