@@ -262,9 +262,77 @@ class TaskCreate(BaseModel):
     status: Optional[str] = "대기"
 
 
+class StandaloneTaskCreate(BaseModel):
+    contract_id: Optional[int] = None
+    task_name: str
+    phase: Optional[str] = ""
+    due_date: Optional[str] = ""
+    priority: Optional[str] = "보통"
+    status: Optional[str] = "대기"
+
+
 class TaskStatusUpdate(BaseModel):
     task_id: str
     status: str  # 대기, 진행중, 완료, 보류
+
+
+@router.post("/tasks/add")
+async def add_standalone_task(
+    task_data: StandaloneTaskCreate,
+    request: Request,
+    db: AsyncSession = Depends(get_db)
+):
+    """업무 추가 (계약 선택 또는 미분류)"""
+    user = await get_current_user(request, db)
+
+    if task_data.contract_id:
+        # 기존 계약에 업무 추가
+        result = await db.execute(
+            select(Contract)
+            .where(Contract.id == task_data.contract_id, Contract.user_id == user.id)
+        )
+        contract = result.scalar_one_or_none()
+        if not contract:
+            raise HTTPException(status_code=404, detail="계약을 찾을 수 없습니다")
+    else:
+        # 미분류 계약 조회 또는 생성
+        result = await db.execute(
+            select(Contract)
+            .where(Contract.user_id == user.id, Contract.contract_name == "미분류")
+        )
+        contract = result.scalar_one_or_none()
+
+        if not contract:
+            contract = Contract(
+                user_id=user.id,
+                contract_name="미분류",
+                tasks=[],
+            )
+            db.add(contract)
+            await db.flush()
+
+    if not contract.tasks:
+        contract.tasks = []
+
+    # task_id 자동 생성
+    existing_ids = [t.get("task_id", 0) for t in contract.tasks]
+    max_id = max([int(str(tid).replace("TASK-", "")) for tid in existing_ids if str(tid).replace("TASK-", "").isdigit()] or [0])
+    new_task_id = f"TASK-{str(max_id + 1).zfill(3)}"
+
+    new_task = {
+        "task_id": new_task_id,
+        "task_name": task_data.task_name,
+        "phase": task_data.phase,
+        "due_date": task_data.due_date,
+        "priority": task_data.priority,
+        "status": task_data.status
+    }
+
+    contract.tasks.append(new_task)
+    flag_modified(contract, "tasks")
+    await db.commit()
+
+    return {"message": "업무가 추가되었습니다", "task": {**new_task, "contract_id": contract.id, "contract_name": contract.contract_name}}
 
 
 @router.post("/{contract_id}/tasks")

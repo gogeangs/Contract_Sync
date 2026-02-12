@@ -700,7 +700,7 @@ function scheduleExtractor() {
 
         openAddTask() {
             this.newTask = {
-                contract_id: this.dashboard?.contracts?.[0]?.id || null,
+                contract_id: '',
                 task_name: '',
                 phase: '',
                 due_date: '',
@@ -711,10 +711,6 @@ function scheduleExtractor() {
         },
 
         async submitNewTask() {
-            if (!this.newTask.contract_id) {
-                alert('계약을 선택해주세요.');
-                return;
-            }
             if (!this.newTask.task_name.trim()) {
                 alert('업무명을 입력해주세요.');
                 return;
@@ -722,10 +718,11 @@ function scheduleExtractor() {
 
             this.addTaskLoading = true;
             try {
-                const response = await fetch(`/api/v1/contracts/${this.newTask.contract_id}/tasks`, {
+                const response = await fetch('/api/v1/contracts/tasks/add', {
                     method: 'POST',
                     headers: { 'Content-Type': 'application/json' },
                     body: JSON.stringify({
+                        contract_id: this.newTask.contract_id || null,
                         task_name: this.newTask.task_name,
                         phase: this.newTask.phase,
                         due_date: this.newTask.due_date,
@@ -743,7 +740,8 @@ function scheduleExtractor() {
                 const data = await response.json();
 
                 // 대시보드에 새 업무 추가
-                if (this.dashboard?.tasks) {
+                if (this.dashboard) {
+                    if (!this.dashboard.tasks) this.dashboard.tasks = [];
                     this.dashboard.tasks.push(data.task);
                     this.dashboard.total_tasks = this.dashboard.tasks.length;
                     this.dashboard.pending_tasks = this.dashboard.tasks.filter(t => t.status === '대기').length;
