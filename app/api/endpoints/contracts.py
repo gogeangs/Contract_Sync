@@ -600,6 +600,10 @@ async def get_attachment(
     if not contract:
         raise HTTPException(status_code=404, detail="파일을 찾을 수 없습니다")
 
+    # 경로 탐색 공격 방지
+    if "/" in filename or "\\" in filename or ".." in filename:
+        raise HTTPException(status_code=400, detail="잘못된 파일명입니다")
+
     file_path = EVIDENCE_DIR / str(contract_id) / str(task_id) / filename
     if not file_path.exists():
         raise HTTPException(status_code=404, detail="파일을 찾을 수 없습니다")

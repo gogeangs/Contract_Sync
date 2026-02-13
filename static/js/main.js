@@ -53,8 +53,32 @@ function authState() {
         formSuccess: '',
         emailVerified: false,
 
+        // 다크 모드
+        darkMode: false,
+
         async init() {
+            this.initDarkMode();
             await this.checkAuth();
+        },
+
+        initDarkMode() {
+            const saved = localStorage.getItem('darkMode');
+            if (saved !== null) {
+                this.darkMode = saved === 'true';
+            } else {
+                this.darkMode = window.matchMedia('(prefers-color-scheme: dark)').matches;
+            }
+            this.applyDarkMode();
+        },
+
+        toggleDarkMode() {
+            this.darkMode = !this.darkMode;
+            localStorage.setItem('darkMode', this.darkMode);
+            this.applyDarkMode();
+        },
+
+        applyDarkMode() {
+            document.documentElement.classList.toggle('dark', this.darkMode);
         },
 
         async checkAuth() {
@@ -280,6 +304,7 @@ function scheduleExtractor() {
         dragover: false,
         editMode: false,
         saveLoading: false,
+        infoTab: 'basic', // 'basic', 'period', 'payment'
         showMyPage: false,
         myContracts: [],
         myContractsLoading: false,
@@ -294,6 +319,7 @@ function scheduleExtractor() {
         dashboard: null,
         dashboardLoading: false,
         taskFilter: 'all', // all, pending, in_progress, completed
+        taskSearch: '',
 
         // 업무 추가 폼
         showAddTask: false,
@@ -329,19 +355,35 @@ function scheduleExtractor() {
 
         get filteredTasks() {
             if (!this.dashboard?.tasks) return [];
-            if (this.taskFilter === 'all') return this.dashboard.tasks;
-            const statusMap = {
-                'pending': '대기',
-                'in_progress': '진행중',
-                'completed': '완료'
-            };
-            return this.dashboard.tasks.filter(t => t.status === statusMap[this.taskFilter]);
+            let tasks = this.dashboard.tasks;
+
+            // 상태 필터
+            if (this.taskFilter !== 'all') {
+                const statusMap = {
+                    'pending': '대기',
+                    'in_progress': '진행중',
+                    'completed': '완료'
+                };
+                tasks = tasks.filter(t => t.status === statusMap[this.taskFilter]);
+            }
+
+            // 검색 필터
+            if (this.taskSearch.trim()) {
+                const q = this.taskSearch.trim().toLowerCase();
+                tasks = tasks.filter(t =>
+                    (t.task_name || '').toLowerCase().includes(q) ||
+                    (t.contract_name || '').toLowerCase().includes(q) ||
+                    (t.phase || '').toLowerCase().includes(q)
+                );
+            }
+
+            return tasks;
         },
 
         // D-day 계산 헬퍼
         getDaysUntil(dateStr) {
             if (!dateStr) return null;
-            const due = new Date(dateStr + 'T23:59:59');
+            const due = new Date(dateStr + 'T00:00:00');
             if (isNaN(due.getTime())) return null;
             const today = new Date();
             today.setHours(0, 0, 0, 0);
@@ -385,6 +427,58 @@ function scheduleExtractor() {
                 inProgress: Math.round((this.dashboard.in_progress_tasks / total) * 100),
                 completed: Math.round((this.dashboard.completed_tasks / total) * 100),
             };
+        },
+
+        // 드래그 정렬
+        _dragIdx: null,
+
+        get canDragTasks() {
+            return this.taskFilter === 'all' && !this.taskSearch.trim();
+        },
+
+        handleTaskDragStart(idx) {
+            this._dragIdx = idx;
+        },
+
+        handleTaskDragOver(_, idx) {
+            if (this._dragIdx === null || this._dragIdx === idx) return;
+            const tasks = this.dashboard.tasks;
+            const dragged = tasks.splice(this._dragIdx, 1)[0];
+            tasks.splice(idx, 0, dragged);
+            this._dragIdx = idx;
+        },
+
+        handleTaskDragEnd() {
+            this._dragIdx = null;
+        },
+
+        // 계약별 색상 구분
+        _contractColors: {},
+        _colorPalette: [
+            { bg: 'bg-violet-100', text: 'text-violet-700', dot: 'bg-violet-500' },
+            { bg: 'bg-sky-100', text: 'text-sky-700', dot: 'bg-sky-500' },
+            { bg: 'bg-emerald-100', text: 'text-emerald-700', dot: 'bg-emerald-500' },
+            { bg: 'bg-amber-100', text: 'text-amber-700', dot: 'bg-amber-500' },
+            { bg: 'bg-rose-100', text: 'text-rose-700', dot: 'bg-rose-500' },
+            { bg: 'bg-cyan-100', text: 'text-cyan-700', dot: 'bg-cyan-500' },
+            { bg: 'bg-fuchsia-100', text: 'text-fuchsia-700', dot: 'bg-fuchsia-500' },
+            { bg: 'bg-lime-100', text: 'text-lime-700', dot: 'bg-lime-500' },
+            { bg: 'bg-orange-100', text: 'text-orange-700', dot: 'bg-orange-500' },
+            { bg: 'bg-teal-100', text: 'text-teal-700', dot: 'bg-teal-500' },
+        ],
+
+        getContractColor(contractName) {
+            if (!contractName) return this._colorPalette[0];
+            if (this._contractColors[contractName]) return this._contractColors[contractName];
+
+            // 문자열 해시로 일관된 색상 매핑
+            let hash = 0;
+            for (let i = 0; i < contractName.length; i++) {
+                hash = contractName.charCodeAt(i) + ((hash << 5) - hash);
+            }
+            const idx = Math.abs(hash) % this._colorPalette.length;
+            this._contractColors[contractName] = this._colorPalette[idx];
+            return this._colorPalette[idx];
         },
 
         _dispatchPage(page) {
@@ -825,6 +919,7 @@ function scheduleExtractor() {
         loadContract(contract) {
             this.loadContractData(contract);
             this.showMyPage = false;
+            this._dispatchPage('upload');
         },
 
         openAddTask() {
