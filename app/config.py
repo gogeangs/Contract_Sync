@@ -16,6 +16,9 @@ class Settings(BaseSettings):
     # Paths
     upload_dir: str = "uploads"
 
+    # CORS 허용 도메인 (쉼표 구분, 비어있으면 모든 도메인 허용)
+    allowed_origins: list[str] = []
+
     # Google OAuth
     google_client_id: str = ""
     google_client_secret: str = ""
@@ -31,6 +34,7 @@ class Settings(BaseSettings):
     class Config:
         env_file = ".env"
         env_file_encoding = "utf-8"
+        extra = "ignore"  # .env에 정의되지 않은 필드 무시
 
 
 @lru_cache

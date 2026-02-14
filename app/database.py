@@ -1,9 +1,13 @@
 from sqlalchemy.ext.asyncio import create_async_engine, AsyncSession, async_sessionmaker
 from sqlalchemy.orm import DeclarativeBase, relationship
 from sqlalchemy import Column, Integer, String, Boolean, DateTime, Text, ForeignKey, JSON
-from datetime import datetime
+from datetime import datetime, timezone
 from pathlib import Path
-import os
+
+
+def utc_now() -> datetime:
+    """SQLite 호환 naive UTC 현재 시각 반환"""
+    return datetime.now(timezone.utc).replace(tzinfo=None)
 
 # Railway에서는 /app 디렉토리 사용
 BASE_DIR = Path(__file__).resolve().parent.parent
@@ -29,7 +33,7 @@ class User(Base):
     is_verified = Column(Boolean, default=False)
     is_active = Column(Boolean, default=True)
     auth_provider = Column(String, default="email")  # email or google
-    created_at = Column(DateTime, default=datetime.utcnow)
+    created_at = Column(DateTime, default=utc_now)
 
 
 class VerificationCode(Base):
@@ -40,7 +44,7 @@ class VerificationCode(Base):
     code = Column(String, nullable=False)
     expires_at = Column(DateTime, nullable=False)
     is_used = Column(Boolean, default=False)
-    created_at = Column(DateTime, default=datetime.utcnow)
+    created_at = Column(DateTime, default=utc_now)
 
 
 class Contract(Base):
@@ -64,8 +68,8 @@ class Contract(Base):
     tasks = Column(JSON, nullable=True)  # 업무 목록
     milestones = Column(JSON, nullable=True)  # 마일스톤
     raw_text = Column(Text, nullable=True)  # 원본 텍스트 (워드 저장용)
-    created_at = Column(DateTime, default=datetime.utcnow)
-    updated_at = Column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
+    created_at = Column(DateTime, default=utc_now)
+    updated_at = Column(DateTime, default=utc_now, onupdate=utc_now)
 
     user = relationship("User", backref="contracts")
 

@@ -7,11 +7,15 @@ from typing import Optional, List
 from datetime import datetime
 from pathlib import Path
 import uuid
+import shutil
+import logging
 
 from sqlalchemy.orm.attributes import flag_modified
 
-from app.database import get_db, Contract, User
-from app.api.endpoints.auth import sessions
+from app.database import get_db, Contract, User, utc_now
+from app.api.endpoints.auth import require_current_user
+
+logger = logging.getLogger(__name__)
 
 # 증빙 파일 저장 경로
 EVIDENCE_DIR = Path(__file__).resolve().parent.parent.parent / "uploads" / "evidence"
@@ -80,23 +84,6 @@ class ContractResponse(BaseModel):
         from_attributes = True
 
 
-async def get_current_user(request: Request, db: AsyncSession = Depends(get_db)) -> User:
-    """세션에서 현재 로그인된 사용자 가져오기"""
-    session_token = request.cookies.get("session_token")
-    if not session_token or session_token not in sessions:
-        raise HTTPException(status_code=401, detail="로그인이 필요합니다")
-
-    user_data = sessions[session_token]
-    user_id = user_data.get("id")
-
-    result = await db.execute(select(User).where(User.id == user_id))
-    user = result.scalar_one_or_none()
-    if not user:
-        raise HTTPException(status_code=401, detail="사용자를 찾을 수 없습니다")
-
-    return user
-
-
 @router.post("/save", response_model=ContractResponse)
 async def save_contract(
     contract_data: ContractCreate,
@@ -105,7 +92,7 @@ async def save_contract(
 ):
     """계약 정보 저장"""
     try:
-        user = await get_current_user(request, db)
+        user = await require_current_user(request, db)
 
         # 동일한 계약명이 있는지 확인
         result = await db.execute(
@@ -150,7 +137,8 @@ async def save_contract(
         raise
     except Exception as e:
         await db.rollback()
-        raise HTTPException(status_code=500, detail=f"저장 실패: {str(e)}")
+        logger.error(f"계약 저장 실패: {e}")
+        raise HTTPException(status_code=500, detail="계약 저장 중 오류가 발생했습니다.")
 
 
 @router.get("/list", response_model=List[ContractResponse])
@@ -159,7 +147,7 @@ async def list_contracts(
     db: AsyncSession = Depends(get_db)
 ):
     """사용자의 계약 목록 조회"""
-    user = await get_current_user(request, db)
+    user = await require_current_user(request, db)
 
     result = await db.execute(
         select(Contract)
@@ -177,7 +165,7 @@ async def get_dashboard_summary(
     db: AsyncSession = Depends(get_db)
 ):
     """대시보드 요약 정보 조회"""
-    user = await get_current_user(request, db)
+    user = await require_current_user(request, db)
 
     result = await db.execute(
         select(Contract)
@@ -262,7 +250,7 @@ async def get_contract(
     db: AsyncSession = Depends(get_db)
 ):
     """특정 계약 상세 조회"""
-    user = await get_current_user(request, db)
+    user = await require_current_user(request, db)
 
     result = await db.execute(
         select(Contract)
@@ -310,7 +298,7 @@ async def add_standalone_task(
     db: AsyncSession = Depends(get_db)
 ):
     """업무 추가 (계약 선택 또는 미분류)"""
-    user = await get_current_user(request, db)
+    user = await require_current_user(request, db)
 
     if task_data.contract_id:
         # 기존 계약에 업무 추가
@@ -370,7 +358,7 @@ async def add_task(
     db: AsyncSession = Depends(get_db)
 ):
     """계약에 업무 추가"""
-    user = await get_current_user(request, db)
+    user = await require_current_user(request, db)
 
     result = await db.execute(
         select(Contract)
@@ -413,7 +401,7 @@ async def update_task_status(
     db: AsyncSession = Depends(get_db)
 ):
     """업무 상태 변경"""
-    user = await get_current_user(request, db)
+    user = await require_current_user(request, db)
 
     result = await db.execute(
         select(Contract)
@@ -451,7 +439,7 @@ async def update_task_note(
     db: AsyncSession = Depends(get_db)
 ):
     """업무 처리 내용 저장"""
-    user = await get_current_user(request, db)
+    user = await require_current_user(request, db)
 
     result = await db.execute(
         select(Contract)
@@ -487,7 +475,7 @@ async def upload_task_attachment(
     db: AsyncSession = Depends(get_db)
 ):
     """업무 증빙 파일 업로드"""
-    user = await get_current_user(request, db)
+    user = await require_current_user(request, db)
 
     result = await db.execute(
         select(Contract)
@@ -517,7 +505,7 @@ async def upload_task_attachment(
     attachment = {
         "filename": saved_name,
         "original_name": file.filename,
-        "uploaded_at": datetime.utcnow().strftime("%Y-%m-%d %H:%M"),
+        "uploaded_at": utc_now().strftime("%Y-%m-%d %H:%M"),
     }
 
     updated = False
@@ -548,7 +536,7 @@ async def delete_task_attachment(
     db: AsyncSession = Depends(get_db)
 ):
     """업무 증빙 파일 삭제"""
-    user = await get_current_user(request, db)
+    user = await require_current_user(request, db)
 
     result = await db.execute(
         select(Contract)
@@ -589,7 +577,7 @@ async def get_attachment(
     db: AsyncSession = Depends(get_db)
 ):
     """증빙 파일 다운로드"""
-    user = await get_current_user(request, db)
+    user = await require_current_user(request, db)
 
     # 해당 계약이 사용자 소유인지 확인
     result = await db.execute(
@@ -629,7 +617,7 @@ async def delete_contract(
     db: AsyncSession = Depends(get_db)
 ):
     """계약 삭제"""
-    user = await get_current_user(request, db)
+    user = await require_current_user(request, db)
 
     result = await db.execute(
         select(Contract)
@@ -639,6 +627,11 @@ async def delete_contract(
 
     if not contract:
         raise HTTPException(status_code=404, detail="계약을 찾을 수 없습니다")
+
+    # 증빙 파일 디렉토리 삭제
+    evidence_dir = EVIDENCE_DIR / str(contract_id)
+    if evidence_dir.exists():
+        shutil.rmtree(evidence_dir, ignore_errors=True)
 
     await db.delete(contract)
     await db.commit()

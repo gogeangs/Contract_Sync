@@ -1,6 +1,7 @@
 import random
 import string
-from datetime import datetime, timedelta
+from datetime import timedelta
+from app.database import utc_now
 from aiosmtplib import SMTP
 from email.mime.text import MIMEText
 from email.mime.multipart import MIMEMultipart
@@ -58,6 +59,6 @@ async def send_verification_email(to_email: str, code: str) -> bool:
         return False
 
 
-def get_code_expiry() -> datetime:
+def get_code_expiry():
     """인증코드 만료시간 (10분 후)"""
-    return datetime.utcnow() + timedelta(minutes=10)
+    return utc_now() + timedelta(minutes=10)

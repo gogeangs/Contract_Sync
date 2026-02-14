@@ -1,11 +1,14 @@
 import json
 import logging
+import re
 import google.generativeai as genai
 from app.config import settings
 from app.schemas.schedule import ContractSchedule, TaskItem
 
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
+
+MAX_RETRIES = 2
 
 
 class GeminiService:
@@ -33,31 +36,61 @@ class GeminiService:
         """
 
         system_prompt = self._build_system_prompt()
+        last_error = None
 
-        if images:
-            result_text = await self._extract_from_images(
-                system_prompt, images, supplementary_text=text
-            )
-        else:
-            result_text = await self._extract_from_text(system_prompt, text)
+        for attempt in range(MAX_RETRIES + 1):
+            try:
+                if images:
+                    result_text = await self._extract_from_images(
+                        system_prompt, images, supplementary_text=text
+                    )
+                else:
+                    result_text = await self._extract_from_text(system_prompt, text)
 
-        logger.info(f"Gemini 응답: {result_text[:1000]}")
-        result = json.loads(result_text)
+                logger.info(f"Gemini 응답 (시도 {attempt + 1}): {result_text[:1000]}")
+                result = self._parse_json_response(result_text)
 
-        # ContractSchedule 파싱
-        schedule_data = result.get("contract_schedule", {})
-        logger.info(f"파싱된 일정 데이터: {schedule_data}")
-        contract_schedule = ContractSchedule(**schedule_data)
+                # ContractSchedule 파싱
+                schedule_data = result.get("contract_schedule", {})
+                logger.info(f"파싱된 일정 데이터: {schedule_data}")
+                contract_schedule = ContractSchedule(**schedule_data)
 
-        # TaskItem 리스트 파싱
-        task_data = result.get("task_list", [])
-        logger.info(f"파싱된 업무 목록: {len(task_data)}개")
-        task_list = [TaskItem(**task) for task in task_data]
+                # TaskItem 리스트 파싱
+                task_data = result.get("task_list", [])
+                logger.info(f"파싱된 업무 목록: {len(task_data)}개")
+                task_list = [TaskItem(**task) for task in task_data]
 
-        # 원문 텍스트 (이미지 기반 추출 시 Gemini가 OCR한 텍스트)
-        extracted_text = result.get("raw_text", "")
+                # 원문 텍스트 (이미지 기반 추출 시 Gemini가 OCR한 텍스트)
+                extracted_text = result.get("raw_text", "")
 
-        return contract_schedule, task_list, extracted_text
+                return contract_schedule, task_list, extracted_text
+
+            except (json.JSONDecodeError, KeyError, TypeError) as e:
+                last_error = e
+                logger.warning(f"Gemini 응답 파싱 실패 (시도 {attempt + 1}/{MAX_RETRIES + 1}): {e}")
+                if attempt < MAX_RETRIES:
+                    continue
+            except Exception as e:
+                last_error = e
+                logger.error(f"Gemini API 호출 실패: {e}")
+                break
+
+        raise RuntimeError(f"계약서 분석에 실패했습니다: {last_error}")
+
+    def _parse_json_response(self, text: str) -> dict:
+        """Gemini 응답에서 JSON을 안전하게 파싱"""
+        # 직접 파싱 시도
+        try:
+            return json.loads(text)
+        except json.JSONDecodeError:
+            pass
+
+        # markdown 코드 블록에서 JSON 추출 시도
+        match = re.search(r"```(?:json)?\s*\n?(.*?)\n?```", text, re.DOTALL)
+        if match:
+            return json.loads(match.group(1).strip())
+
+        raise json.JSONDecodeError("Gemini 응답에서 유효한 JSON을 찾을 수 없습니다", text, 0)
 
     async def _extract_from_text(self, system_prompt: str, text: str) -> str:
         """텍스트 기반 추출 (DOCX, HWP, 텍스트 PDF)"""

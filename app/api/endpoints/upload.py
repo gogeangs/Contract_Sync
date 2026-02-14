@@ -1,9 +1,11 @@
 from fastapi import APIRouter, UploadFile, File, HTTPException
+import logging
 
 from app.services.file_service import FileService
 from app.services.gemini_service import GeminiService
 from app.schemas.schedule import ScheduleResponse
 
+logger = logging.getLogger(__name__)
 router = APIRouter()
 
 
@@ -57,7 +59,8 @@ async def upload_and_extract_schedule(
     except ValueError as e:
         raise HTTPException(status_code=400, detail=str(e))
     except Exception as e:
-        raise HTTPException(status_code=500, detail=f"처리 중 오류가 발생했습니다: {str(e)}")
+        logger.error(f"계약서 분석 실패: {e}")
+        raise HTTPException(status_code=500, detail="계약서 분석 중 오류가 발생했습니다.")
     finally:
         # 4. 임시 파일 정리
         if saved_path:

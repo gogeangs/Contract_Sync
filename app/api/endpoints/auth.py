@@ -7,10 +7,14 @@ from sqlalchemy import select
 from datetime import datetime
 import secrets
 import bcrypt
+import logging
 
 from app.config import settings
-from app.database import get_db, User, VerificationCode, init_db
+from app.database import get_db, User, VerificationCode, init_db, utc_now
+
 from app.services.email_service import generate_verification_code, send_verification_email, get_code_expiry
+
+logger = logging.getLogger(__name__)
 
 router = APIRouter()
 
@@ -31,6 +35,19 @@ if settings.google_client_id and settings.google_client_secret:
 
 # 간단한 세션 저장소 (프로덕션에서는 Redis 등 사용)
 sessions = {}
+
+
+def _set_session_cookie(response: JSONResponse | RedirectResponse, session_token: str):
+    """세션 쿠키 설정 (보안 플래그 포함)"""
+    is_production = not settings.debug
+    response.set_cookie(
+        key="session_token",
+        value=session_token,
+        httponly=True,
+        max_age=86400,
+        secure=is_production,
+        samesite="lax",
+    )
 
 
 # Pydantic 모델
@@ -125,7 +142,7 @@ async def verify_code(data: VerifyEmailRequest, db: AsyncSession = Depends(get_d
     if not verification:
         raise HTTPException(status_code=400, detail="잘못된 인증코드입니다.")
 
-    if verification.expires_at < datetime.utcnow():
+    if verification.expires_at < utc_now():
         raise HTTPException(status_code=400, detail="인증코드가 만료되었습니다.")
 
     # 코드 사용 처리
@@ -185,7 +202,7 @@ async def signup(data: SignupRequest, db: AsyncSession = Depends(get_db)):
     }
 
     response = JSONResponse(content={"message": "회원가입이 완료되었습니다.", "success": True})
-    response.set_cookie(key="session_token", value=session_token, httponly=True, max_age=86400)
+    _set_session_cookie(response, session_token)
     return response
 
 
@@ -195,7 +212,7 @@ async def email_login(data: LoginRequest, db: AsyncSession = Depends(get_db)):
     result = await db.execute(select(User).where(User.email == data.email))
     user = result.scalar_one_or_none()
 
-    if not user or not verify_password(data.password, user.password_hash):
+    if not user or not user.password_hash or not verify_password(data.password, user.password_hash):
         raise HTTPException(status_code=401, detail="이메일 또는 비밀번호가 올바르지 않습니다.")
 
     if not user.is_verified:
@@ -214,7 +231,7 @@ async def email_login(data: LoginRequest, db: AsyncSession = Depends(get_db)):
     }
 
     response = JSONResponse(content={"message": "로그인 성공", "success": True})
-    response.set_cookie(key="session_token", value=session_token, httponly=True, max_age=86400)
+    _set_session_cookie(response, session_token)
     return response
 
 
@@ -253,7 +270,7 @@ async def google_callback(request: Request, db: AsyncSession = Depends(get_db)):
             # 새 사용자 생성
             user = User(
                 email=email,
-                password_hash="",  # Google 로그인은 비밀번호 없음
+                password_hash=None,  # Google 로그인은 비밀번호 없음
                 name=user_info.get('name'),
                 picture=user_info.get('picture'),
                 is_verified=True,
@@ -274,17 +291,37 @@ async def google_callback(request: Request, db: AsyncSession = Depends(get_db)):
 
         # 메인 페이지로 리다이렉트
         response = RedirectResponse(url="/")
-        response.set_cookie(key="session_token", value=session_token, httponly=True, max_age=86400)
+        _set_session_cookie(response, session_token)
         return response
 
     except Exception as e:
-        raise HTTPException(status_code=400, detail=f"로그인 실패: {str(e)}")
+        logger.error(f"Google OAuth 콜백 에러: {e}")
+        raise HTTPException(status_code=400, detail="Google 로그인 처리 중 오류가 발생했습니다.")
+
+
+# ============ 공통 인증 의존성 ============
+
+async def require_current_user(request: Request, db: AsyncSession = Depends(get_db)) -> User:
+    """세션에서 현재 로그인된 사용자 가져오기 (의존성 주입용)"""
+    session_token = request.cookies.get("session_token")
+    if not session_token or session_token not in sessions:
+        raise HTTPException(status_code=401, detail="로그인이 필요합니다")
+
+    user_data = sessions[session_token]
+    user_id = user_data.get("id")
+
+    result = await db.execute(select(User).where(User.id == user_id))
+    user = result.scalar_one_or_none()
+    if not user:
+        raise HTTPException(status_code=401, detail="사용자를 찾을 수 없습니다")
+
+    return user
 
 
 # ============ 공통 API ============
 
 @router.get("/me")
-async def get_current_user(request: Request):
+async def get_me(request: Request):
     """현재 로그인한 사용자 정보"""
     session_token = request.cookies.get("session_token")
 
