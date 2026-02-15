@@ -47,6 +47,18 @@ class VerificationCode(Base):
     created_at = Column(DateTime, default=utc_now)
 
 
+class UserSession(Base):
+    __tablename__ = "user_sessions"
+
+    id = Column(Integer, primary_key=True, index=True)
+    token = Column(String, unique=True, index=True, nullable=False)
+    user_id = Column(Integer, ForeignKey("users.id"), nullable=False)
+    expires_at = Column(DateTime, nullable=False)
+    created_at = Column(DateTime, default=utc_now)
+
+    user = relationship("User", backref="sessions")
+
+
 class Contract(Base):
     __tablename__ = "contracts"
 
@@ -80,21 +92,21 @@ async def init_db():
 
         # 기존 테이블에 새 컬럼 추가 (이미 있으면 무시)
         new_columns = [
-            ("company_name", "VARCHAR"),
-            ("contractor", "VARCHAR"),
-            ("client", "VARCHAR"),
-            ("contract_date", "VARCHAR"),
-            ("contract_amount", "VARCHAR"),
-            ("payment_method", "VARCHAR"),
-            ("payment_due_date", "VARCHAR"),
-            ("milestones", "JSON"),
-            ("raw_text", "TEXT"),
+            ("contracts", "company_name", "VARCHAR"),
+            ("contracts", "contractor", "VARCHAR"),
+            ("contracts", "client", "VARCHAR"),
+            ("contracts", "contract_date", "VARCHAR"),
+            ("contracts", "contract_amount", "VARCHAR"),
+            ("contracts", "payment_method", "VARCHAR"),
+            ("contracts", "payment_due_date", "VARCHAR"),
+            ("contracts", "milestones", "JSON"),
+            ("contracts", "raw_text", "TEXT"),
         ]
-        for col_name, col_type in new_columns:
+        for table, col_name, col_type in new_columns:
             try:
                 await conn.execute(
                     __import__("sqlalchemy").text(
-                        f"ALTER TABLE contracts ADD COLUMN {col_name} {col_type}"
+                        f"ALTER TABLE {table} ADD COLUMN {col_name} {col_type}"
                     )
                 )
             except Exception:

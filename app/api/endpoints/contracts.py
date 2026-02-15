@@ -14,6 +14,7 @@ from sqlalchemy.orm.attributes import flag_modified
 
 from app.database import get_db, Contract, User, utc_now
 from app.api.endpoints.auth import require_current_user
+from app.limiter import limiter
 
 logger = logging.getLogger(__name__)
 
@@ -85,6 +86,7 @@ class ContractResponse(BaseModel):
 
 
 @router.post("/save", response_model=ContractResponse)
+@limiter.limit("30/minute")
 async def save_contract(
     contract_data: ContractCreate,
     request: Request,
@@ -262,6 +264,70 @@ async def get_contract(
         raise HTTPException(status_code=404, detail="계약을 찾을 수 없습니다")
 
     return contract
+
+
+class ContractUpdate(BaseModel):
+    contract_name: Optional[str] = None
+    company_name: Optional[str] = None
+    contractor: Optional[str] = None
+    client: Optional[str] = None
+    contract_date: Optional[str] = None
+    contract_start_date: Optional[str] = None
+    contract_end_date: Optional[str] = None
+    total_duration_days: Optional[int] = None
+    contract_amount: Optional[str] = None
+    payment_method: Optional[str] = None
+    payment_due_date: Optional[str] = None
+
+
+@router.put("/{contract_id}", response_model=ContractResponse)
+@limiter.limit("30/minute")
+async def update_contract(
+    contract_id: int,
+    update_data: ContractUpdate,
+    request: Request,
+    db: AsyncSession = Depends(get_db)
+):
+    """계약 정보 수정"""
+    try:
+        user = await require_current_user(request, db)
+
+        result = await db.execute(
+            select(Contract)
+            .where(Contract.id == contract_id, Contract.user_id == user.id)
+        )
+        contract = result.scalar_one_or_none()
+
+        if not contract:
+            raise HTTPException(status_code=404, detail="계약을 찾을 수 없습니다")
+
+        # 계약명 중복 확인 (변경 시)
+        if update_data.contract_name and update_data.contract_name != contract.contract_name:
+            dup_result = await db.execute(
+                select(Contract).where(
+                    Contract.user_id == user.id,
+                    Contract.contract_name == update_data.contract_name,
+                    Contract.id != contract_id,
+                )
+            )
+            if dup_result.scalar_one_or_none():
+                raise HTTPException(status_code=409, detail="동일한 이름의 계약서가 이미 존재합니다.")
+
+        # 전달된 필드만 업데이트
+        update_fields = update_data.model_dump(exclude_unset=True)
+        for field, value in update_fields.items():
+            setattr(contract, field, value)
+
+        await db.commit()
+        await db.refresh(contract)
+
+        return contract
+    except HTTPException:
+        raise
+    except Exception as e:
+        await db.rollback()
+        logger.error(f"계약 수정 실패: {e}")
+        raise HTTPException(status_code=500, detail="계약 수정 중 오류가 발생했습니다.")
 
 
 class TaskCreate(BaseModel):

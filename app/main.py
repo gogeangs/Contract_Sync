@@ -3,8 +3,10 @@ from fastapi import FastAPI, Request
 from fastapi.staticfiles import StaticFiles
 from fastapi.templating import Jinja2Templates
 from fastapi.middleware.cors import CORSMiddleware
-from fastapi.responses import HTMLResponse
+from fastapi.responses import HTMLResponse, JSONResponse
 from starlette.middleware.sessions import SessionMiddleware
+from slowapi import _rate_limit_exceeded_handler
+from slowapi.errors import RateLimitExceeded
 from pathlib import Path
 import logging
 import sys
@@ -21,7 +23,8 @@ logger.info("Starting Contract Sync application...")
 
 from app.api.router import api_router
 from app.config import settings
-from app.database import init_db
+from app.database import init_db, async_session, UserSession, utc_now
+from app.limiter import limiter
 
 # 앱 루트 디렉토리
 BASE_DIR = Path(__file__).resolve().parent.parent
@@ -39,6 +42,16 @@ async def lifespan(app: FastAPI):
     try:
         await init_db()
         logger.info("Database initialized successfully")
+
+        # 만료된 세션 정리
+        async with async_session() as db:
+            from sqlalchemy import delete
+            result = await db.execute(
+                delete(UserSession).where(UserSession.expires_at < utc_now())
+            )
+            if result.rowcount:
+                await db.commit()
+                logger.info(f"Cleaned up {result.rowcount} expired sessions")
     except Exception as e:
         logger.error(f"Database initialization failed: {e}")
         raise
@@ -51,6 +64,10 @@ app = FastAPI(
     version="1.0.0",
     lifespan=lifespan,
 )
+
+# Rate Limiter 등록
+app.state.limiter = limiter
+app.add_exception_handler(RateLimitExceeded, _rate_limit_exceeded_handler)
 
 # 세션 미들웨어 (Google OAuth에 필요)
 if not settings.secret_key or settings.secret_key == "your-secret-key-change-in-production":

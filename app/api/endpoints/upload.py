@@ -1,16 +1,19 @@
-from fastapi import APIRouter, UploadFile, File, HTTPException
+from fastapi import APIRouter, UploadFile, File, HTTPException, Request
 import logging
 
 from app.services.file_service import FileService
 from app.services.gemini_service import GeminiService
 from app.schemas.schedule import ScheduleResponse
+from app.limiter import limiter
 
 logger = logging.getLogger(__name__)
 router = APIRouter()
 
 
 @router.post("/upload-and-extract", response_model=ScheduleResponse)
+@limiter.limit("10/minute")
 async def upload_and_extract_schedule(
+    request: Request,
     file: UploadFile = File(..., description="계약서 파일 (PDF, DOCX, HWP)")
 ):
     """

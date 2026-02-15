@@ -10,7 +10,8 @@ import bcrypt
 import logging
 
 from app.config import settings
-from app.database import get_db, User, VerificationCode, init_db, utc_now
+from app.database import get_db, User, VerificationCode, UserSession, init_db, utc_now
+from app.limiter import limiter
 
 from app.services.email_service import generate_verification_code, send_verification_email, get_code_expiry
 
@@ -33,8 +34,7 @@ if settings.google_client_id and settings.google_client_secret:
         }
     )
 
-# 간단한 세션 저장소 (프로덕션에서는 Redis 등 사용)
-sessions = {}
+SESSION_MAX_AGE = 86400  # 24시간
 
 
 def _set_session_cookie(response: JSONResponse | RedirectResponse, session_token: str):
@@ -44,10 +44,24 @@ def _set_session_cookie(response: JSONResponse | RedirectResponse, session_token
         key="session_token",
         value=session_token,
         httponly=True,
-        max_age=86400,
+        max_age=SESSION_MAX_AGE,
         secure=is_production,
         samesite="lax",
     )
+
+
+async def _create_session(db: AsyncSession, user: User) -> str:
+    """DB에 세션 생성하고 토큰 반환"""
+    from datetime import timedelta
+    session_token = secrets.token_urlsafe(32)
+    session = UserSession(
+        token=session_token,
+        user_id=user.id,
+        expires_at=utc_now() + timedelta(seconds=SESSION_MAX_AGE),
+    )
+    db.add(session)
+    await db.commit()
+    return session_token
 
 
 # Pydantic 모델
@@ -83,7 +97,8 @@ def verify_password(password: str, hashed: str) -> bool:
 # ============ 이메일 회원가입 API ============
 
 @router.post("/send-code")
-async def send_verification_code(data: SendCodeRequest, db: AsyncSession = Depends(get_db)):
+@limiter.limit("5/minute")
+async def send_verification_code(request: Request, data: SendCodeRequest, db: AsyncSession = Depends(get_db)):
     """이메일 인증코드 발송"""
     # 이미 가입된 이메일인지 확인
     result = await db.execute(select(User).where(User.email == data.email))
@@ -128,7 +143,8 @@ async def send_verification_code(data: SendCodeRequest, db: AsyncSession = Depen
 
 
 @router.post("/verify-code")
-async def verify_code(data: VerifyEmailRequest, db: AsyncSession = Depends(get_db)):
+@limiter.limit("5/minute")
+async def verify_code(request: Request, data: VerifyEmailRequest, db: AsyncSession = Depends(get_db)):
     """이메일 인증코드 확인"""
     result = await db.execute(
         select(VerificationCode).where(
@@ -153,7 +169,8 @@ async def verify_code(data: VerifyEmailRequest, db: AsyncSession = Depends(get_d
 
 
 @router.post("/signup")
-async def signup(data: SignupRequest, db: AsyncSession = Depends(get_db)):
+@limiter.limit("3/minute")
+async def signup(request: Request, data: SignupRequest, db: AsyncSession = Depends(get_db)):
     """이메일 회원가입"""
     # 비밀번호 확인
     if data.password != data.password_confirm:
@@ -193,13 +210,7 @@ async def signup(data: SignupRequest, db: AsyncSession = Depends(get_db)):
     await db.refresh(user)
 
     # 세션 생성 및 자동 로그인
-    session_token = secrets.token_urlsafe(32)
-    sessions[session_token] = {
-        'id': user.id,
-        'email': user.email,
-        'name': user.name,
-        'picture': user.picture
-    }
+    session_token = await _create_session(db, user)
 
     response = JSONResponse(content={"message": "회원가입이 완료되었습니다.", "success": True})
     _set_session_cookie(response, session_token)
@@ -207,7 +218,8 @@ async def signup(data: SignupRequest, db: AsyncSession = Depends(get_db)):
 
 
 @router.post("/login/email")
-async def email_login(data: LoginRequest, db: AsyncSession = Depends(get_db)):
+@limiter.limit("5/minute")
+async def email_login(request: Request, data: LoginRequest, db: AsyncSession = Depends(get_db)):
     """이메일 로그인"""
     result = await db.execute(select(User).where(User.email == data.email))
     user = result.scalar_one_or_none()
@@ -222,13 +234,7 @@ async def email_login(data: LoginRequest, db: AsyncSession = Depends(get_db)):
         raise HTTPException(status_code=401, detail="비활성화된 계정입니다.")
 
     # 세션 생성
-    session_token = secrets.token_urlsafe(32)
-    sessions[session_token] = {
-        'id': user.id,
-        'email': user.email,
-        'name': user.name,
-        'picture': user.picture
-    }
+    session_token = await _create_session(db, user)
 
     response = JSONResponse(content={"message": "로그인 성공", "success": True})
     _set_session_cookie(response, session_token)
@@ -281,13 +287,7 @@ async def google_callback(request: Request, db: AsyncSession = Depends(get_db)):
             await db.refresh(user)
 
         # 세션 토큰 생성
-        session_token = secrets.token_urlsafe(32)
-        sessions[session_token] = {
-            'id': user.id,
-            'email': user.email,
-            'name': user.name or user_info.get('name'),
-            'picture': user.picture or user_info.get('picture')
-        }
+        session_token = await _create_session(db, user)
 
         # 메인 페이지로 리다이렉트
         response = RedirectResponse(url="/")
@@ -304,13 +304,23 @@ async def google_callback(request: Request, db: AsyncSession = Depends(get_db)):
 async def require_current_user(request: Request, db: AsyncSession = Depends(get_db)) -> User:
     """세션에서 현재 로그인된 사용자 가져오기 (의존성 주입용)"""
     session_token = request.cookies.get("session_token")
-    if not session_token or session_token not in sessions:
+    if not session_token:
         raise HTTPException(status_code=401, detail="로그인이 필요합니다")
 
-    user_data = sessions[session_token]
-    user_id = user_data.get("id")
+    # DB에서 세션 조회
+    result = await db.execute(
+        select(UserSession).where(UserSession.token == session_token)
+    )
+    session = result.scalar_one_or_none()
 
-    result = await db.execute(select(User).where(User.id == user_id))
+    if not session or session.expires_at < utc_now():
+        # 만료된 세션 삭제
+        if session:
+            await db.delete(session)
+            await db.commit()
+        raise HTTPException(status_code=401, detail="로그인이 필요합니다")
+
+    result = await db.execute(select(User).where(User.id == session.user_id))
     user = result.scalar_one_or_none()
     if not user:
         raise HTTPException(status_code=401, detail="사용자를 찾을 수 없습니다")
@@ -321,23 +331,49 @@ async def require_current_user(request: Request, db: AsyncSession = Depends(get_
 # ============ 공통 API ============
 
 @router.get("/me")
-async def get_me(request: Request):
+async def get_me(request: Request, db: AsyncSession = Depends(get_db)):
     """현재 로그인한 사용자 정보"""
     session_token = request.cookies.get("session_token")
-
-    if not session_token or session_token not in sessions:
+    if not session_token:
         return {"logged_in": False, "user": None}
 
-    return {"logged_in": True, "user": sessions[session_token]}
+    result = await db.execute(
+        select(UserSession).where(UserSession.token == session_token)
+    )
+    session = result.scalar_one_or_none()
+
+    if not session or session.expires_at < utc_now():
+        return {"logged_in": False, "user": None}
+
+    result = await db.execute(select(User).where(User.id == session.user_id))
+    user = result.scalar_one_or_none()
+    if not user:
+        return {"logged_in": False, "user": None}
+
+    return {
+        "logged_in": True,
+        "user": {
+            "id": user.id,
+            "email": user.email,
+            "name": user.name,
+            "picture": user.picture,
+        }
+    }
 
 
 @router.post("/logout")
-async def logout(request: Request):
+async def logout(request: Request, db: AsyncSession = Depends(get_db)):
     """로그아웃"""
     session_token = request.cookies.get("session_token")
 
-    if session_token and session_token in sessions:
-        del sessions[session_token]
+    if session_token:
+        result = await db.execute(
+            select(UserSession).where(UserSession.token == session_token)
+        )
+        session = result.scalar_one_or_none()
+        if session:
+            await db.delete(session)
+            await db.commit()
 
     response = JSONResponse(content={"message": "로그아웃 되었습니다."})
     response.delete_cookie(key="session_token")
