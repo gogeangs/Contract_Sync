@@ -1,8 +1,14 @@
+import os
 import asyncio
 import pytest
 import pytest_asyncio
 from httpx import AsyncClient, ASGITransport
 from sqlalchemy.ext.asyncio import create_async_engine, AsyncSession, async_sessionmaker
+
+# email-validator DNS 검증 비활성화 (테스트 환경)
+os.environ["EMAIL_VALIDATOR_CHECK_DELIVERABILITY"] = "false"
+import email_validator
+email_validator.TEST_ENVIRONMENT = True
 
 from app.database import Base, get_db, utc_now, UserSession
 from app.main import app
