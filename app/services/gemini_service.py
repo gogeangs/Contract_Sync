@@ -1,7 +1,8 @@
 import json
 import logging
 import re
-import google.generativeai as genai
+from google import genai
+from google.genai import types
 from app.config import settings
 from app.schemas.schedule import ContractSchedule, TaskItem
 
@@ -15,13 +16,11 @@ class GeminiService:
     """Google Gemini API 연동 서비스"""
 
     def __init__(self):
-        genai.configure(api_key=settings.gemini_api_key)
-        self.model = genai.GenerativeModel(
-            model_name="gemini-2.0-flash",
-            generation_config=genai.GenerationConfig(
-                temperature=0.1,
-                response_mime_type="application/json",
-            ),
+        self.client = genai.Client(api_key=settings.gemini_api_key)
+        self.model = "gemini-2.0-flash"
+        self.config = types.GenerateContentConfig(
+            temperature=0.1,
+            response_mime_type="application/json",
         )
 
     async def extract_schedule(
@@ -105,7 +104,11 @@ class GeminiService:
 {self._build_json_format()}"""
 
         full_prompt = f"{system_prompt}\n\n{user_prompt}"
-        response = await self.model.generate_content_async(full_prompt)
+        response = await self.client.aio.models.generate_content(
+            model=self.model,
+            contents=full_prompt,
+            config=self.config,
+        )
         return response.text
 
     async def _extract_from_images(
@@ -118,32 +121,35 @@ class GeminiService:
         logger.info(f"이미지 기반 추출: {len(images)}페이지")
 
         parts = [
-            system_prompt + "\n\n",
-            "다음은 외주용역 계약서의 각 페이지 이미지입니다. "
-            "모든 페이지를 분석하여 추진 일정 정보를 추출하고 "
-            "업무 목록을 생성해 주세요.\n\n",
+            types.Part.from_text(
+                system_prompt + "\n\n"
+                "다음은 외주용역 계약서의 각 페이지 이미지입니다. "
+                "모든 페이지를 분석하여 추진 일정 정보를 추출하고 "
+                "업무 목록을 생성해 주세요.\n\n"
+            ),
         ]
 
         # 각 페이지 이미지 추가
         for i, img_bytes in enumerate(images):
-            parts.append(f"--- 페이지 {i + 1} ---\n")
-            parts.append({
-                "mime_type": "image/png",
-                "data": img_bytes,
-            })
+            parts.append(types.Part.from_text(f"--- 페이지 {i + 1} ---\n"))
+            parts.append(types.Part.from_bytes(data=img_bytes, mime_type="image/png"))
 
         # 보조 텍스트 추가
         if supplementary_text and supplementary_text.strip():
-            parts.append(
+            parts.append(types.Part.from_text(
                 f"\n\n추가로 추출된 텍스트 (참고용):\n{supplementary_text[:4000]}"
-            )
+            ))
 
-        parts.append(
+        parts.append(types.Part.from_text(
             "\n\n중요: 이미지에 보이는 계약서의 전체 텍스트를 raw_text 필드에 그대로 옮겨 적어주세요.\n\n"
             + self._build_json_format()
-        )
+        ))
 
-        response = await self.model.generate_content_async(parts)
+        response = await self.client.aio.models.generate_content(
+            model=self.model,
+            contents=types.Content(parts=parts),
+            config=self.config,
+        )
         return response.text
 
     def _build_system_prompt(self) -> str:

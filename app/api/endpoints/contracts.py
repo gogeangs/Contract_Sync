@@ -1,8 +1,8 @@
-from fastapi import APIRouter, Depends, HTTPException, Request, UploadFile, File, Form
+from fastapi import APIRouter, Depends, HTTPException, Request, UploadFile, File, Form, Query
 from fastapi.responses import FileResponse
 from sqlalchemy.ext.asyncio import AsyncSession
-from sqlalchemy import select, desc
-from pydantic import BaseModel
+from sqlalchemy import select, desc, func
+from pydantic import BaseModel, ConfigDict
 from typing import Optional, List
 from datetime import datetime
 from pathlib import Path
@@ -81,8 +81,7 @@ class ContractResponse(BaseModel):
     created_at: datetime
     updated_at: datetime
 
-    class Config:
-        from_attributes = True
+    model_config = ConfigDict(from_attributes=True)
 
 
 @router.post("/save", response_model=ContractResponse)
@@ -143,22 +142,39 @@ async def save_contract(
         raise HTTPException(status_code=500, detail="계약 저장 중 오류가 발생했습니다.")
 
 
-@router.get("/list", response_model=List[ContractResponse])
+@router.get("/list")
 async def list_contracts(
     request: Request,
+    page: int = Query(1, ge=1, description="페이지 번호"),
+    size: int = Query(20, ge=1, le=100, description="페이지 크기"),
     db: AsyncSession = Depends(get_db)
 ):
-    """사용자의 계약 목록 조회"""
+    """사용자의 계약 목록 조회 (페이지네이션)"""
     user = await require_current_user(request, db)
 
+    # 전체 개수
+    count_result = await db.execute(
+        select(func.count()).select_from(Contract).where(Contract.user_id == user.id)
+    )
+    total = count_result.scalar()
+
+    # 페이지네이션 적용
     result = await db.execute(
         select(Contract)
         .where(Contract.user_id == user.id)
         .order_by(desc(Contract.created_at))
+        .offset((page - 1) * size)
+        .limit(size)
     )
     contracts = result.scalars().all()
 
-    return contracts
+    return {
+        "items": [ContractResponse.model_validate(c) for c in contracts],
+        "total": total,
+        "page": page,
+        "size": size,
+        "pages": (total + size - 1) // size,
+    }
 
 
 @router.get("/dashboard/summary")
@@ -530,6 +546,42 @@ async def update_task_note(
     await db.commit()
 
     return {"message": "처리 내용이 저장되었습니다"}
+
+
+@router.delete("/{contract_id}/tasks/{task_id}")
+async def delete_task(
+    contract_id: int,
+    task_id: str,
+    request: Request,
+    db: AsyncSession = Depends(get_db)
+):
+    """개별 업무 삭제"""
+    user = await require_current_user(request, db)
+
+    result = await db.execute(
+        select(Contract)
+        .where(Contract.id == contract_id, Contract.user_id == user.id)
+    )
+    contract = result.scalar_one_or_none()
+
+    if not contract or not contract.tasks:
+        raise HTTPException(status_code=404, detail="업무를 찾을 수 없습니다")
+
+    original_len = len(contract.tasks)
+    contract.tasks = [t for t in contract.tasks if str(t.get("task_id")) != str(task_id)]
+
+    if len(contract.tasks) == original_len:
+        raise HTTPException(status_code=404, detail="해당 업무를 찾을 수 없습니다")
+
+    # 해당 업무의 증빙 파일도 삭제
+    task_evidence_dir = EVIDENCE_DIR / str(contract_id) / str(task_id)
+    if task_evidence_dir.exists():
+        shutil.rmtree(task_evidence_dir, ignore_errors=True)
+
+    flag_modified(contract, "tasks")
+    await db.commit()
+
+    return {"message": "업무가 삭제되었습니다", "task_id": task_id}
 
 
 @router.post("/{contract_id}/tasks/attachment")

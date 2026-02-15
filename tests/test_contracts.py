@@ -33,14 +33,34 @@ async def test_create_duplicate_contract(auth_client):
 
 @pytest.mark.asyncio
 async def test_list_contracts(auth_client):
-    """계약 목록 조회"""
+    """계약 목록 조회 (페이지네이션)"""
     # 2개 계약 생성
     await auth_client.post("/api/v1/contracts/save", json={"contract_name": "계약A"})
     await auth_client.post("/api/v1/contracts/save", json={"contract_name": "계약B"})
 
     resp = await auth_client.get("/api/v1/contracts/list")
     assert resp.status_code == 200
-    assert len(resp.json()) == 2
+    data = resp.json()
+    assert data["total"] == 2
+    assert len(data["items"]) == 2
+    assert data["page"] == 1
+
+
+@pytest.mark.asyncio
+async def test_list_contracts_pagination(auth_client):
+    """계약 목록 페이지네이션"""
+    for i in range(3):
+        await auth_client.post("/api/v1/contracts/save", json={"contract_name": f"페이지 계약{i}"})
+
+    resp = await auth_client.get("/api/v1/contracts/list?page=1&size=2")
+    assert resp.status_code == 200
+    data = resp.json()
+    assert data["total"] == 3
+    assert len(data["items"]) == 2
+    assert data["pages"] == 2
+
+    resp2 = await auth_client.get("/api/v1/contracts/list?page=2&size=2")
+    assert len(resp2.json()["items"]) == 1
 
 
 @pytest.mark.asyncio
@@ -166,6 +186,38 @@ async def test_update_task_note(auth_client):
         "note": "처리 완료",
     })
     assert resp.status_code == 200
+
+
+@pytest.mark.asyncio
+async def test_delete_task(auth_client):
+    """개별 업무 삭제"""
+    create_resp = await auth_client.post("/api/v1/contracts/save", json={
+        "contract_name": "업무 삭제 테스트",
+        "tasks": [
+            {"task_id": "TASK-001", "task_name": "업무1", "status": "대기", "priority": "보통", "phase": "", "due_date": ""},
+            {"task_id": "TASK-002", "task_name": "업무2", "status": "대기", "priority": "보통", "phase": "", "due_date": ""},
+        ],
+    })
+    contract_id = create_resp.json()["id"]
+
+    resp = await auth_client.delete(f"/api/v1/contracts/{contract_id}/tasks/TASK-001")
+    assert resp.status_code == 200
+    assert resp.json()["task_id"] == "TASK-001"
+
+    # 삭제 후 계약 조회 시 업무 1개만 남아있는지 확인
+    contract_resp = await auth_client.get(f"/api/v1/contracts/{contract_id}")
+    assert len(contract_resp.json()["tasks"]) == 1
+    assert contract_resp.json()["tasks"][0]["task_id"] == "TASK-002"
+
+
+@pytest.mark.asyncio
+async def test_delete_task_not_found(auth_client):
+    """존재하지 않는 업무 삭제"""
+    create_resp = await auth_client.post("/api/v1/contracts/save", json={"contract_name": "빈 계약"})
+    contract_id = create_resp.json()["id"]
+
+    resp = await auth_client.delete(f"/api/v1/contracts/{contract_id}/tasks/TASK-999")
+    assert resp.status_code == 404
 
 
 @pytest.mark.asyncio
