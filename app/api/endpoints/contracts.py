@@ -12,7 +12,7 @@ import logging
 
 from sqlalchemy.orm.attributes import flag_modified
 
-from app.database import get_db, Contract, User, Team, TeamMember, utc_now
+from app.database import get_db, Contract, User, Team, TeamMember, ActivityLog, Notification, utc_now
 from app.api.endpoints.auth import require_current_user
 from app.limiter import limiter
 
@@ -172,6 +172,10 @@ async def save_contract(
             raw_text=contract_data.raw_text
         )
         db.add(contract)
+        await db.flush()
+
+        # 활동 로그
+        await _log_activity(db, user.id, contract, "create", "contract", contract.contract_name)
 
         await db.commit()
         await db.refresh(contract)
@@ -385,8 +389,11 @@ async def update_contract(
 
         # 전달된 필드만 업데이트
         update_fields = update_data.model_dump(exclude_unset=True)
+        changed = ", ".join(update_fields.keys())
         for field, value in update_fields.items():
             setattr(contract, field, value)
+
+        await _log_activity(db, user.id, contract, "update", "contract", contract.contract_name, f"변경: {changed}")
 
         await db.commit()
         await db.refresh(contract)
@@ -432,6 +439,45 @@ class TaskNoteUpdate(BaseModel):
 class TaskAssigneeUpdate(BaseModel):
     task_id: str
     assignee_id: Optional[int] = None  # null이면 담당자 해제
+
+
+async def _log_activity(
+    db: AsyncSession, user_id: int, contract: Contract,
+    action: str, target_type: str, target_name: str, detail: str = None,
+):
+    """활동 로그 기록"""
+    db.add(ActivityLog(
+        contract_id=contract.id,
+        team_id=contract.team_id,
+        user_id=user_id,
+        action=action,
+        target_type=target_type,
+        target_name=target_name,
+        detail=detail,
+    ))
+
+
+async def _notify_team_members(
+    db: AsyncSession, contract: Contract, sender_id: int,
+    ntype: str, title: str, message: str = None,
+):
+    """팀 계약의 멤버에게 알림 (발신자 제외)"""
+    if not contract.team_id:
+        return
+    result = await db.execute(
+        select(TeamMember.user_id).where(
+            TeamMember.team_id == contract.team_id,
+            TeamMember.user_id != sender_id,
+        )
+    )
+    for (uid,) in result.all():
+        db.add(Notification(
+            user_id=uid,
+            type=ntype,
+            title=title,
+            message=message,
+            link=f'{{"contract_id": {contract.id}}}',
+        ))
 
 
 async def _resolve_assignee(db: AsyncSession, assignee_id: Optional[int], contract: Contract) -> dict:
@@ -512,6 +558,9 @@ async def add_standalone_task(
 
     contract.tasks.append(new_task)
     flag_modified(contract, "tasks")
+
+    await _log_activity(db, user.id, contract, "create", "task", task_data.task_name)
+
     await db.commit()
 
     return {"message": "업무가 추가되었습니다", "task": {**new_task, "contract_id": contract.id, "contract_name": contract.contract_name}}
@@ -555,6 +604,9 @@ async def add_task(
 
     contract.tasks.append(new_task)
     flag_modified(contract, "tasks")
+
+    await _log_activity(db, user.id, contract, "create", "task", task_data.task_name)
+
     await db.commit()
 
     return {"message": "업무가 추가되었습니다", "task": {**new_task, "contract_id": contract_id, "contract_name": contract.contract_name}}
@@ -579,8 +631,12 @@ async def update_task_status(
         raise HTTPException(status_code=404, detail="업무 목록이 없습니다")
 
     updated = False
+    task_name = ""
+    old_status = ""
     for task in contract.tasks:
         if str(task.get("task_id")) == str(update.task_id):
+            old_status = task.get("status", "")
+            task_name = task.get("task_name", "")
             task["status"] = update.status
             updated = True
             break
@@ -589,6 +645,12 @@ async def update_task_status(
         raise HTTPException(status_code=404, detail="해당 업무를 찾을 수 없습니다")
 
     flag_modified(contract, "tasks")
+
+    await _log_activity(db, user.id, contract, "status_change", "task", task_name, f"{old_status} -> {update.status}")
+    await _notify_team_members(db, contract, user.id, "status_change",
+        f"{user.name or user.email}님이 '{task_name}' 상태를 변경했습니다",
+        f"{old_status} -> {update.status}")
+
     await db.commit()
 
     return {"message": "상태가 변경되었습니다", "task_id": update.task_id, "status": update.status}
@@ -641,10 +703,17 @@ async def delete_task(
         raise HTTPException(status_code=404, detail="업무를 찾을 수 없습니다")
 
     original_len = len(contract.tasks)
+    deleted_name = ""
+    for t in contract.tasks:
+        if str(t.get("task_id")) == str(task_id):
+            deleted_name = t.get("task_name", "")
+            break
     contract.tasks = [t for t in contract.tasks if str(t.get("task_id")) != str(task_id)]
 
     if len(contract.tasks) == original_len:
         raise HTTPException(status_code=404, detail="해당 업무를 찾을 수 없습니다")
+
+    await _log_activity(db, user.id, contract, "delete", "task", deleted_name)
 
     # 해당 업무의 증빙 파일도 삭제
     task_evidence_dir = EVIDENCE_DIR / str(contract_id) / str(task_id)
@@ -803,6 +872,9 @@ async def delete_contract(
     if not contract:
         raise HTTPException(status_code=404, detail="계약을 찾을 수 없습니다")
 
+    # 활동 로그 (삭제 전에 기록)
+    await _log_activity(db, user.id, contract, "delete", "contract", contract.contract_name)
+
     # 증빙 파일 디렉토리 삭제
     evidence_dir = EVIDENCE_DIR / str(contract_id)
     if evidence_dir.exists():
@@ -834,8 +906,10 @@ async def update_task_assignee(
     assignee_info = await _resolve_assignee(db, update.assignee_id, contract)
 
     updated = False
+    task_name = ""
     for task in contract.tasks:
         if str(task.get("task_id")) == str(update.task_id):
+            task_name = task.get("task_name", "")
             task["assignee_id"] = assignee_info["assignee_id"]
             task["assignee_name"] = assignee_info["assignee_name"]
             updated = True
@@ -845,6 +919,20 @@ async def update_task_assignee(
         raise HTTPException(status_code=404, detail="해당 업무를 찾을 수 없습니다")
 
     flag_modified(contract, "tasks")
+
+    await _log_activity(db, user.id, contract, "assign", "task", task_name,
+        f"담당자: {assignee_info['assignee_name'] or '없음'}")
+
+    # 담당자에게 알림
+    if update.assignee_id and update.assignee_id != user.id:
+        db.add(Notification(
+            user_id=update.assignee_id,
+            type="assign",
+            title=f"{user.name or user.email}님이 '{task_name}' 업무를 배정했습니다",
+            message=f"계약: {contract.contract_name}",
+            link=f'{{"contract_id": {contract.id}, "task_id": "{update.task_id}"}}',
+        ))
+
     await db.commit()
 
     return {"message": "담당자가 변경되었습니다", "task_id": update.task_id, **assignee_info}

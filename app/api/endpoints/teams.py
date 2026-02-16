@@ -5,9 +5,14 @@ from pydantic import BaseModel
 from typing import Optional
 import logging
 
-from app.database import get_db, User, Team, TeamMember, utc_now
+from app.database import get_db, User, Team, TeamMember, ActivityLog, Notification, TEAM_PERMISSIONS, utc_now
 from app.api.endpoints.auth import require_current_user
 from app.limiter import limiter
+
+
+def check_permission(role: str, permission: str) -> bool:
+    """역할별 권한 확인"""
+    return permission in TEAM_PERMISSIONS.get(role, set())
 
 logger = logging.getLogger(__name__)
 
@@ -80,6 +85,13 @@ async def create_team(
     # 생성자를 owner로 추가
     owner = TeamMember(team_id=team.id, user_id=user.id, role="owner")
     db.add(owner)
+
+    # 활동 로그
+    db.add(ActivityLog(
+        team_id=team.id, user_id=user.id,
+        action="create", target_type="team", target_name=team.name,
+    ))
+
     await db.commit()
     await db.refresh(team)
 
@@ -156,12 +168,15 @@ async def get_team(
         for tm, u in members_result.all()
     ]
 
+    my_permissions = list(TEAM_PERMISSIONS.get(member.role, set()))
+
     return {
         "id": team.id,
         "name": team.name,
         "description": team.description,
         "created_at": team.created_at.isoformat() if team.created_at else None,
         "my_role": member.role,
+        "my_permissions": my_permissions,
         "members": members,
     }
 
@@ -246,6 +261,23 @@ async def invite_member(
 
     member = TeamMember(team_id=team_id, user_id=target_user.id, role="member")
     db.add(member)
+
+    # 활동 로그
+    db.add(ActivityLog(
+        team_id=team_id, user_id=user.id,
+        action="invite", target_type="member",
+        target_name=target_user.name or target_user.email,
+    ))
+
+    # 초대 알림
+    db.add(Notification(
+        user_id=target_user.id,
+        type="team_invite",
+        title=f"{user.name or user.email}님이 팀에 초대했습니다",
+        message=f"팀에 초대되었습니다.",
+        link=f'{{"team_id": {team_id}}}',
+    ))
+
     await db.commit()
 
     return {
@@ -281,6 +313,15 @@ async def remove_member(
     if user.id != target_user_id:
         await require_team_role(db, team_id, user.id, ["owner", "admin"])
 
+    # 활동 로그
+    target_result = await db.execute(select(User).where(User.id == target_user_id))
+    target_u = target_result.scalar_one_or_none()
+    db.add(ActivityLog(
+        team_id=team_id, user_id=user.id,
+        action="remove", target_type="member",
+        target_name=target_u.name or target_u.email if target_u else str(target_user_id),
+    ))
+
     await db.delete(target_member)
     await db.commit()
 
@@ -299,8 +340,8 @@ async def update_member_role(
     user = await require_current_user(request, db)
     await require_team_role(db, team_id, user.id, ["owner"])
 
-    if data.role not in ("admin", "member"):
-        raise HTTPException(status_code=400, detail="역할은 admin 또는 member만 가능합니다.")
+    if data.role not in ("admin", "member", "viewer"):
+        raise HTTPException(status_code=400, detail="역할은 admin, member, viewer만 가능합니다.")
 
     target_member = await get_team_member(db, team_id, target_user_id)
     if not target_member:
@@ -309,7 +350,40 @@ async def update_member_role(
     if target_member.role == "owner":
         raise HTTPException(status_code=400, detail="소유자의 역할은 변경할 수 없습니다.")
 
+    old_role = target_member.role
     target_member.role = data.role
+
+    # 활동 로그
+    target_result = await db.execute(select(User).where(User.id == target_user_id))
+    target_u = target_result.scalar_one_or_none()
+    db.add(ActivityLog(
+        team_id=team_id, user_id=user.id,
+        action="change_role", target_type="member",
+        target_name=target_u.name or target_u.email if target_u else str(target_user_id),
+        detail=f"{old_role} -> {data.role}",
+    ))
+
     await db.commit()
 
     return {"message": "역할이 변경되었습니다.", "role": data.role}
+
+
+# ============ 권한 확인 API ============
+
+@router.get("/{team_id}/permissions")
+async def get_my_permissions(
+    team_id: int,
+    request: Request,
+    db: AsyncSession = Depends(get_db),
+):
+    """내 팀 권한 조회"""
+    user = await require_current_user(request, db)
+    member = await get_team_member(db, team_id, user.id)
+    if not member:
+        raise HTTPException(status_code=403, detail="팀 멤버가 아닙니다.")
+
+    permissions = list(TEAM_PERMISSIONS.get(member.role, set()))
+    return {
+        "role": member.role,
+        "permissions": permissions,
+    }

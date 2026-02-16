@@ -114,6 +114,77 @@ class Contract(Base):
     team = relationship("Team", backref="contracts")
 
 
+class Comment(Base):
+    __tablename__ = "comments"
+
+    id = Column(Integer, primary_key=True, index=True)
+    contract_id = Column(Integer, ForeignKey("contracts.id", ondelete="CASCADE"), nullable=False)
+    task_id = Column(String, nullable=True)  # null이면 계약 전체 댓글
+    user_id = Column(Integer, ForeignKey("users.id"), nullable=False)
+    content = Column(Text, nullable=False)
+    created_at = Column(DateTime, default=utc_now)
+    updated_at = Column(DateTime, default=utc_now, onupdate=utc_now)
+
+    user = relationship("User", backref="comments")
+    contract = relationship("Contract", backref="comments")
+
+
+class Notification(Base):
+    __tablename__ = "notifications"
+
+    id = Column(Integer, primary_key=True, index=True)
+    user_id = Column(Integer, ForeignKey("users.id"), nullable=False)
+    type = Column(String, nullable=False)  # comment, assign, status_change, mention, deadline
+    title = Column(String, nullable=False)
+    message = Column(Text, nullable=True)
+    link = Column(String, nullable=True)  # 관련 페이지 링크 정보 (JSON)
+    is_read = Column(Boolean, default=False)
+    created_at = Column(DateTime, default=utc_now)
+
+    user = relationship("User", backref="notifications")
+
+
+class ActivityLog(Base):
+    __tablename__ = "activity_logs"
+
+    id = Column(Integer, primary_key=True, index=True)
+    contract_id = Column(Integer, ForeignKey("contracts.id", ondelete="CASCADE"), nullable=True)
+    team_id = Column(Integer, ForeignKey("teams.id", ondelete="CASCADE"), nullable=True)
+    user_id = Column(Integer, ForeignKey("users.id"), nullable=False)
+    action = Column(String, nullable=False)  # create, update, delete, assign, status_change, comment 등
+    target_type = Column(String, nullable=False)  # contract, task, team, member
+    target_name = Column(String, nullable=True)
+    detail = Column(Text, nullable=True)  # 변경 상세 (JSON 또는 텍스트)
+    created_at = Column(DateTime, default=utc_now)
+
+    user = relationship("User", backref="activity_logs")
+
+
+# 팀 역할별 권한 정의
+TEAM_PERMISSIONS = {
+    "owner": {
+        "team.update", "team.delete", "team.invite", "team.remove_member", "team.change_role",
+        "contract.create", "contract.update", "contract.delete",
+        "task.create", "task.update", "task.delete", "task.assign",
+        "comment.create", "comment.delete_any",
+    },
+    "admin": {
+        "team.update", "team.invite", "team.remove_member",
+        "contract.create", "contract.update", "contract.delete",
+        "task.create", "task.update", "task.delete", "task.assign",
+        "comment.create", "comment.delete_any",
+    },
+    "member": {
+        "contract.create",
+        "task.create", "task.update", "task.assign",
+        "comment.create",
+    },
+    "viewer": {
+        "comment.create",
+    },
+}
+
+
 async def init_db():
     async with engine.begin() as conn:
         await conn.run_sync(Base.metadata.create_all)

@@ -90,6 +90,11 @@ function authState() {
                 if (data.logged_in && data.user) {
                     this.user = data.user;
                     this.teams = data.teams || [];
+                    this.loadUnreadCount();
+                    // 30초마다 알림 카운트 갱신
+                    if (!this._notifInterval) {
+                        this._notifInterval = setInterval(() => this.loadUnreadCount(), 30000);
+                    }
                     window.dispatchEvent(new CustomEvent('user-logged-in'));
                 } else {
                     window.dispatchEvent(new CustomEvent('user-not-logged-in'));
@@ -285,6 +290,64 @@ function authState() {
             }
         },
 
+        // 알림 상태
+        notifications: [],
+        unreadCount: 0,
+        showNotifPanel: false,
+        notifLoading: false,
+
+        async loadUnreadCount() {
+            try {
+                const res = await fetch('/api/v1/notifications/unread-count');
+                if (res.ok) {
+                    const data = await res.json();
+                    this.unreadCount = data.unread_count;
+                }
+            } catch (err) { /* ignore */ }
+        },
+
+        async loadNotifications() {
+            this.notifLoading = true;
+            try {
+                const res = await fetch('/api/v1/notifications?size=20');
+                if (res.ok) {
+                    const data = await res.json();
+                    this.notifications = data.items || [];
+                    this.unreadCount = data.unread_count;
+                }
+            } catch (err) { console.error('알림 로드 실패:', err); }
+            finally { this.notifLoading = false; }
+        },
+
+        toggleNotifications() {
+            this.showNotifPanel = !this.showNotifPanel;
+            if (this.showNotifPanel) this.loadNotifications();
+        },
+
+        async markNotifRead(id) {
+            await fetch(`/api/v1/notifications/${id}/read`, { method: 'PATCH' });
+            const n = this.notifications.find(x => x.id === id);
+            if (n) n.is_read = true;
+            this.unreadCount = Math.max(0, this.unreadCount - 1);
+        },
+
+        async markAllNotifRead() {
+            await fetch('/api/v1/notifications/read-all', { method: 'PATCH' });
+            this.notifications.forEach(n => n.is_read = true);
+            this.unreadCount = 0;
+        },
+
+        getNotifTimeAgo(isoStr) {
+            if (!isoStr) return '';
+            const diff = Date.now() - new Date(isoStr).getTime();
+            const mins = Math.floor(diff / 60000);
+            if (mins < 1) return '방금';
+            if (mins < 60) return `${mins}분 전`;
+            const hours = Math.floor(mins / 60);
+            if (hours < 24) return `${hours}시간 전`;
+            return `${Math.floor(hours / 24)}일 전`;
+        },
+
         async logout() {
             try {
                 await fetch('/api/v1/auth/logout', { method: 'POST' });
@@ -370,8 +433,10 @@ function scheduleExtractor() {
             this.selectedTeamId = teamId || null;
             if (this.selectedTeamId) {
                 await this.loadTeamMembers(this.selectedTeamId);
+                await this.loadPermissions(this.selectedTeamId);
             } else {
                 this.teamMembers = [];
+                this.teamPermissions = [];
             }
             if (this.showDashboard) {
                 await this.loadDashboard();
@@ -1249,6 +1314,124 @@ function scheduleExtractor() {
 
             // input 초기화
             event.target.value = '';
+        },
+
+        // ============ 댓글 시스템 ============
+        comments: [],
+        commentsLoading: false,
+        newComment: '',
+        activeCommentContract: null,
+        activeCommentTask: null,
+
+        async loadComments(contractId, taskId = null) {
+            this.commentsLoading = true;
+            this.activeCommentContract = contractId;
+            this.activeCommentTask = taskId;
+            try {
+                const params = taskId ? `?task_id=${encodeURIComponent(taskId)}` : '';
+                const res = await fetch(`/api/v1/contracts/${contractId}/comments${params}`);
+                if (res.ok) this.comments = await res.json();
+            } catch (err) { console.error('댓글 로드 실패:', err); }
+            finally { this.commentsLoading = false; }
+        },
+
+        async submitComment() {
+            if (!this.newComment.trim() || !this.activeCommentContract) return;
+            try {
+                const res = await fetch(`/api/v1/contracts/${this.activeCommentContract}/comments`, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({
+                        content: this.newComment,
+                        task_id: this.activeCommentTask,
+                    })
+                });
+                if (res.ok) {
+                    const comment = await res.json();
+                    this.comments.push(comment);
+                    this.newComment = '';
+                }
+            } catch (err) { window.toast.error('댓글 작성 실패'); }
+        },
+
+        async deleteComment(contractId, commentId) {
+            if (!confirm('이 댓글을 삭제하시겠습니까?')) return;
+            try {
+                const res = await fetch(`/api/v1/contracts/${contractId}/comments/${commentId}`, { method: 'DELETE' });
+                if (res.ok) {
+                    this.comments = this.comments.filter(c => c.id !== commentId);
+                }
+            } catch (err) { window.toast.error('댓글 삭제 실패'); }
+        },
+
+        // ============ 활동 로그 ============
+        activityLogs: [],
+        activityLoading: false,
+        showActivityLog: false,
+
+        async loadActivityLogs(contractId = null) {
+            this.activityLoading = true;
+            try {
+                let params = '';
+                if (contractId) params = `?contract_id=${contractId}`;
+                else if (this.selectedTeamId) params = `?team_id=${this.selectedTeamId}`;
+                const res = await fetch(`/api/v1/activity${params}`);
+                if (res.ok) {
+                    const data = await res.json();
+                    this.activityLogs = data.items || [];
+                }
+            } catch (err) { console.error('활동 로그 로드 실패:', err); }
+            finally { this.activityLoading = false; }
+        },
+
+        getActionLabel(action) {
+            const labels = {
+                'create': '생성',
+                'update': '수정',
+                'delete': '삭제',
+                'assign': '담당자 지정',
+                'status_change': '상태 변경',
+                'comment': '댓글',
+                'invite': '멤버 초대',
+                'remove': '멤버 제거',
+                'change_role': '역할 변경',
+            };
+            return labels[action] || action;
+        },
+
+        getActionColor(action) {
+            const colors = {
+                'create': 'text-green-600',
+                'update': 'text-blue-600',
+                'delete': 'text-red-600',
+                'assign': 'text-purple-600',
+                'status_change': 'text-orange-600',
+                'comment': 'text-gray-600',
+                'invite': 'text-indigo-600',
+                'remove': 'text-red-500',
+                'change_role': 'text-yellow-600',
+            };
+            return colors[action] || 'text-gray-600';
+        },
+
+        // ============ 권한 확인 ============
+        teamPermissions: [],
+
+        async loadPermissions(teamId) {
+            if (!teamId) { this.teamPermissions = []; return; }
+            try {
+                const res = await fetch(`/api/v1/teams/${teamId}/permissions`);
+                if (res.ok) {
+                    const data = await res.json();
+                    this.teamPermissions = data.permissions || [];
+                }
+            } catch (err) { this.teamPermissions = []; }
+        },
+
+        hasPermission(perm) {
+            // 개인 모드에서는 항상 허용
+            if (!this.selectedTeamId) return true;
+            return this.teamPermissions.includes(perm);
         },
 
         async deleteAttachment(contractId, taskId, filename) {
