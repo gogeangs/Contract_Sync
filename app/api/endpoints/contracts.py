@@ -1,7 +1,7 @@
 from fastapi import APIRouter, Depends, HTTPException, Request, UploadFile, File, Form, Query
 from fastapi.responses import FileResponse
 from sqlalchemy.ext.asyncio import AsyncSession
-from sqlalchemy import select, desc, func
+from sqlalchemy import select, desc, func, or_
 from pydantic import BaseModel, ConfigDict
 from typing import Optional, List
 from datetime import datetime
@@ -12,7 +12,7 @@ import logging
 
 from sqlalchemy.orm.attributes import flag_modified
 
-from app.database import get_db, Contract, User, utc_now
+from app.database import get_db, Contract, User, Team, TeamMember, utc_now
 from app.api.endpoints.auth import require_current_user
 from app.limiter import limiter
 
@@ -23,6 +23,39 @@ EVIDENCE_DIR = Path(__file__).resolve().parent.parent.parent / "uploads" / "evid
 EVIDENCE_DIR.mkdir(parents=True, exist_ok=True)
 
 router = APIRouter()
+
+
+async def _user_team_ids(db: AsyncSession, user_id: int) -> list[int]:
+    """사용자가 속한 모든 팀 ID 목록"""
+    result = await db.execute(
+        select(TeamMember.team_id).where(TeamMember.user_id == user_id)
+    )
+    return [row[0] for row in result.all()]
+
+
+def _accessible_filter(user_id: int, team_ids: list[int]):
+    """개인 계약 + 팀 계약 접근 필터 생성"""
+    conditions = [
+        # 개인 계약 (team_id가 없는 본인 소유)
+        (Contract.user_id == user_id) & (Contract.team_id == None)  # noqa: E711
+    ]
+    if team_ids:
+        # 팀 계약
+        conditions.append(Contract.team_id.in_(team_ids))
+    return or_(*conditions)
+
+
+async def _get_accessible_contract(
+    db: AsyncSession, contract_id: int, user_id: int, team_ids: list[int]
+) -> Optional[Contract]:
+    """접근 가능한 계약 1건 조회"""
+    result = await db.execute(
+        select(Contract).where(
+            Contract.id == contract_id,
+            _accessible_filter(user_id, team_ids),
+        )
+    )
+    return result.scalar_one_or_none()
 
 
 class ScheduleItem(BaseModel):
@@ -43,6 +76,7 @@ class TaskItem(BaseModel):
 
 class ContractCreate(BaseModel):
     contract_name: str
+    team_id: Optional[int] = None
     file_name: Optional[str] = None
     company_name: Optional[str] = None
     contractor: Optional[str] = None
@@ -63,6 +97,7 @@ class ContractCreate(BaseModel):
 class ContractResponse(BaseModel):
     id: int
     contract_name: str
+    team_id: Optional[int] = None
     file_name: Optional[str]
     company_name: Optional[str]
     contractor: Optional[str]
@@ -94,12 +129,19 @@ async def save_contract(
     """계약 정보 저장"""
     try:
         user = await require_current_user(request, db)
+        team_ids = await _user_team_ids(db, user.id)
 
-        # 동일한 계약명이 있는지 확인
-        result = await db.execute(
-            select(Contract)
-            .where(Contract.user_id == user.id, Contract.contract_name == contract_data.contract_name)
+        # 팀 계약인 경우 멤버 확인
+        if contract_data.team_id:
+            if contract_data.team_id not in team_ids:
+                raise HTTPException(status_code=403, detail="해당 팀의 멤버가 아닙니다.")
+
+        # 동일한 계약명이 있는지 확인 (접근 가능 범위 내)
+        dup_query = select(Contract).where(
+            Contract.contract_name == contract_data.contract_name,
+            _accessible_filter(user.id, team_ids),
         )
+        result = await db.execute(dup_query)
         existing_contract = result.scalar_one_or_none()
 
         if existing_contract:
@@ -111,6 +153,7 @@ async def save_contract(
         # 새 계약 생성
         contract = Contract(
             user_id=user.id,
+            team_id=contract_data.team_id,
             contract_name=contract_data.contract_name,
             file_name=contract_data.file_name,
             company_name=contract_data.company_name,
@@ -147,21 +190,31 @@ async def list_contracts(
     request: Request,
     page: int = Query(1, ge=1, description="페이지 번호"),
     size: int = Query(20, ge=1, le=100, description="페이지 크기"),
+    team_id: Optional[int] = Query(None, description="팀 ID 필터"),
     db: AsyncSession = Depends(get_db)
 ):
     """사용자의 계약 목록 조회 (페이지네이션)"""
     user = await require_current_user(request, db)
+    user_team_ids = await _user_team_ids(db, user.id)
+
+    # 접근 필터
+    if team_id is not None:
+        if team_id not in user_team_ids:
+            raise HTTPException(status_code=403, detail="해당 팀의 멤버가 아닙니다.")
+        access = Contract.team_id == team_id
+    else:
+        access = _accessible_filter(user.id, user_team_ids)
 
     # 전체 개수
     count_result = await db.execute(
-        select(func.count()).select_from(Contract).where(Contract.user_id == user.id)
+        select(func.count()).select_from(Contract).where(access)
     )
     total = count_result.scalar()
 
     # 페이지네이션 적용
     result = await db.execute(
         select(Contract)
-        .where(Contract.user_id == user.id)
+        .where(access)
         .order_by(desc(Contract.created_at))
         .offset((page - 1) * size)
         .limit(size)
@@ -180,14 +233,23 @@ async def list_contracts(
 @router.get("/dashboard/summary")
 async def get_dashboard_summary(
     request: Request,
+    team_id: Optional[int] = Query(None, description="팀 ID 필터"),
     db: AsyncSession = Depends(get_db)
 ):
     """대시보드 요약 정보 조회"""
     user = await require_current_user(request, db)
+    user_team_ids = await _user_team_ids(db, user.id)
+
+    if team_id is not None:
+        if team_id not in user_team_ids:
+            raise HTTPException(status_code=403, detail="해당 팀의 멤버가 아닙니다.")
+        access = Contract.team_id == team_id
+    else:
+        access = _accessible_filter(user.id, user_team_ids)
 
     result = await db.execute(
         select(Contract)
-        .where(Contract.user_id == user.id)
+        .where(access)
         .order_by(desc(Contract.created_at))
     )
     contracts = result.scalars().all()
@@ -269,13 +331,9 @@ async def get_contract(
 ):
     """특정 계약 상세 조회"""
     user = await require_current_user(request, db)
+    team_ids = await _user_team_ids(db, user.id)
 
-    result = await db.execute(
-        select(Contract)
-        .where(Contract.id == contract_id, Contract.user_id == user.id)
-    )
-    contract = result.scalar_one_or_none()
-
+    contract = await _get_accessible_contract(db, contract_id, user.id, team_ids)
     if not contract:
         raise HTTPException(status_code=404, detail="계약을 찾을 수 없습니다")
 
@@ -307,13 +365,9 @@ async def update_contract(
     """계약 정보 수정"""
     try:
         user = await require_current_user(request, db)
+        team_ids = await _user_team_ids(db, user.id)
 
-        result = await db.execute(
-            select(Contract)
-            .where(Contract.id == contract_id, Contract.user_id == user.id)
-        )
-        contract = result.scalar_one_or_none()
-
+        contract = await _get_accessible_contract(db, contract_id, user.id, team_ids)
         if not contract:
             raise HTTPException(status_code=404, detail="계약을 찾을 수 없습니다")
 
@@ -321,7 +375,7 @@ async def update_contract(
         if update_data.contract_name and update_data.contract_name != contract.contract_name:
             dup_result = await db.execute(
                 select(Contract).where(
-                    Contract.user_id == user.id,
+                    _accessible_filter(user.id, team_ids),
                     Contract.contract_name == update_data.contract_name,
                     Contract.id != contract_id,
                 )
@@ -352,6 +406,7 @@ class TaskCreate(BaseModel):
     due_date: Optional[str] = ""
     priority: Optional[str] = "보통"
     status: Optional[str] = "대기"
+    assignee_id: Optional[int] = None
 
 
 class StandaloneTaskCreate(BaseModel):
@@ -361,6 +416,7 @@ class StandaloneTaskCreate(BaseModel):
     due_date: Optional[str] = ""
     priority: Optional[str] = "보통"
     status: Optional[str] = "대기"
+    assignee_id: Optional[int] = None
 
 
 class TaskStatusUpdate(BaseModel):
@@ -373,6 +429,35 @@ class TaskNoteUpdate(BaseModel):
     note: str
 
 
+class TaskAssigneeUpdate(BaseModel):
+    task_id: str
+    assignee_id: Optional[int] = None  # null이면 담당자 해제
+
+
+async def _resolve_assignee(db: AsyncSession, assignee_id: Optional[int], contract: Contract) -> dict:
+    """담당자 ID로 이름 조회. 팀 계약이면 팀 멤버인지 검증."""
+    if not assignee_id:
+        return {"assignee_id": None, "assignee_name": None}
+
+    # 팀 계약이면 팀 멤버인지 확인
+    if contract.team_id:
+        result = await db.execute(
+            select(TeamMember).where(
+                TeamMember.team_id == contract.team_id,
+                TeamMember.user_id == assignee_id,
+            )
+        )
+        if not result.scalar_one_or_none():
+            raise HTTPException(status_code=400, detail="팀 멤버만 담당자로 지정할 수 있습니다.")
+
+    result = await db.execute(select(User).where(User.id == assignee_id))
+    assignee = result.scalar_one_or_none()
+    if not assignee:
+        raise HTTPException(status_code=404, detail="담당자를 찾을 수 없습니다.")
+
+    return {"assignee_id": assignee.id, "assignee_name": assignee.name or assignee.email}
+
+
 @router.post("/tasks/add")
 async def add_standalone_task(
     task_data: StandaloneTaskCreate,
@@ -381,21 +466,17 @@ async def add_standalone_task(
 ):
     """업무 추가 (계약 선택 또는 미분류)"""
     user = await require_current_user(request, db)
+    team_ids = await _user_team_ids(db, user.id)
 
     if task_data.contract_id:
-        # 기존 계약에 업무 추가
-        result = await db.execute(
-            select(Contract)
-            .where(Contract.id == task_data.contract_id, Contract.user_id == user.id)
-        )
-        contract = result.scalar_one_or_none()
+        contract = await _get_accessible_contract(db, task_data.contract_id, user.id, team_ids)
         if not contract:
             raise HTTPException(status_code=404, detail="계약을 찾을 수 없습니다")
     else:
         # 미분류 계약 조회 또는 생성
         result = await db.execute(
             select(Contract)
-            .where(Contract.user_id == user.id, Contract.contract_name == "미분류")
+            .where(Contract.user_id == user.id, Contract.contract_name == "미분류", Contract.team_id == None)  # noqa: E711
         )
         contract = result.scalar_one_or_none()
 
@@ -411,6 +492,9 @@ async def add_standalone_task(
     if not contract.tasks:
         contract.tasks = []
 
+    # 담당자 확인
+    assignee_info = await _resolve_assignee(db, task_data.assignee_id, contract)
+
     # task_id 자동 생성
     existing_ids = [t.get("task_id", 0) for t in contract.tasks]
     max_id = max([int(str(tid).replace("TASK-", "")) for tid in existing_ids if str(tid).replace("TASK-", "").isdigit()] or [0])
@@ -422,7 +506,8 @@ async def add_standalone_task(
         "phase": task_data.phase,
         "due_date": task_data.due_date,
         "priority": task_data.priority,
-        "status": task_data.status
+        "status": task_data.status,
+        **assignee_info,
     }
 
     contract.tasks.append(new_task)
@@ -441,18 +526,17 @@ async def add_task(
 ):
     """계약에 업무 추가"""
     user = await require_current_user(request, db)
+    team_ids = await _user_team_ids(db, user.id)
 
-    result = await db.execute(
-        select(Contract)
-        .where(Contract.id == contract_id, Contract.user_id == user.id)
-    )
-    contract = result.scalar_one_or_none()
-
+    contract = await _get_accessible_contract(db, contract_id, user.id, team_ids)
     if not contract:
         raise HTTPException(status_code=404, detail="계약을 찾을 수 없습니다")
 
     if not contract.tasks:
         contract.tasks = []
+
+    # 담당자 확인
+    assignee_info = await _resolve_assignee(db, task_data.assignee_id, contract)
 
     # task_id 자동 생성
     existing_ids = [t.get("task_id", 0) for t in contract.tasks]
@@ -465,7 +549,8 @@ async def add_task(
         "phase": task_data.phase,
         "due_date": task_data.due_date,
         "priority": task_data.priority,
-        "status": task_data.status
+        "status": task_data.status,
+        **assignee_info,
     }
 
     contract.tasks.append(new_task)
@@ -484,13 +569,9 @@ async def update_task_status(
 ):
     """업무 상태 변경"""
     user = await require_current_user(request, db)
+    team_ids = await _user_team_ids(db, user.id)
 
-    result = await db.execute(
-        select(Contract)
-        .where(Contract.id == contract_id, Contract.user_id == user.id)
-    )
-    contract = result.scalar_one_or_none()
-
+    contract = await _get_accessible_contract(db, contract_id, user.id, team_ids)
     if not contract:
         raise HTTPException(status_code=404, detail="계약을 찾을 수 없습니다")
 
@@ -522,13 +603,9 @@ async def update_task_note(
 ):
     """업무 처리 내용 저장"""
     user = await require_current_user(request, db)
+    team_ids = await _user_team_ids(db, user.id)
 
-    result = await db.execute(
-        select(Contract)
-        .where(Contract.id == contract_id, Contract.user_id == user.id)
-    )
-    contract = result.scalar_one_or_none()
-
+    contract = await _get_accessible_contract(db, contract_id, user.id, team_ids)
     if not contract or not contract.tasks:
         raise HTTPException(status_code=404, detail="업무를 찾을 수 없습니다")
 
@@ -557,13 +634,9 @@ async def delete_task(
 ):
     """개별 업무 삭제"""
     user = await require_current_user(request, db)
+    team_ids = await _user_team_ids(db, user.id)
 
-    result = await db.execute(
-        select(Contract)
-        .where(Contract.id == contract_id, Contract.user_id == user.id)
-    )
-    contract = result.scalar_one_or_none()
-
+    contract = await _get_accessible_contract(db, contract_id, user.id, team_ids)
     if not contract or not contract.tasks:
         raise HTTPException(status_code=404, detail="업무를 찾을 수 없습니다")
 
@@ -594,13 +667,9 @@ async def upload_task_attachment(
 ):
     """업무 증빙 파일 업로드"""
     user = await require_current_user(request, db)
+    team_ids = await _user_team_ids(db, user.id)
 
-    result = await db.execute(
-        select(Contract)
-        .where(Contract.id == contract_id, Contract.user_id == user.id)
-    )
-    contract = result.scalar_one_or_none()
-
+    contract = await _get_accessible_contract(db, contract_id, user.id, team_ids)
     if not contract or not contract.tasks:
         raise HTTPException(status_code=404, detail="업무를 찾을 수 없습니다")
 
@@ -655,13 +724,9 @@ async def delete_task_attachment(
 ):
     """업무 증빙 파일 삭제"""
     user = await require_current_user(request, db)
+    team_ids = await _user_team_ids(db, user.id)
 
-    result = await db.execute(
-        select(Contract)
-        .where(Contract.id == contract_id, Contract.user_id == user.id)
-    )
-    contract = result.scalar_one_or_none()
-
+    contract = await _get_accessible_contract(db, contract_id, user.id, team_ids)
     if not contract or not contract.tasks:
         raise HTTPException(status_code=404, detail="업무를 찾을 수 없습니다")
 
@@ -696,13 +761,9 @@ async def get_attachment(
 ):
     """증빙 파일 다운로드"""
     user = await require_current_user(request, db)
+    team_ids = await _user_team_ids(db, user.id)
 
-    # 해당 계약이 사용자 소유인지 확인
-    result = await db.execute(
-        select(Contract)
-        .where(Contract.id == contract_id, Contract.user_id == user.id)
-    )
-    contract = result.scalar_one_or_none()
+    contract = await _get_accessible_contract(db, contract_id, user.id, team_ids)
     if not contract:
         raise HTTPException(status_code=404, detail="파일을 찾을 수 없습니다")
 
@@ -736,13 +797,9 @@ async def delete_contract(
 ):
     """계약 삭제"""
     user = await require_current_user(request, db)
+    team_ids = await _user_team_ids(db, user.id)
 
-    result = await db.execute(
-        select(Contract)
-        .where(Contract.id == contract_id, Contract.user_id == user.id)
-    )
-    contract = result.scalar_one_or_none()
-
+    contract = await _get_accessible_contract(db, contract_id, user.id, team_ids)
     if not contract:
         raise HTTPException(status_code=404, detail="계약을 찾을 수 없습니다")
 
@@ -755,3 +812,39 @@ async def delete_contract(
     await db.commit()
 
     return {"message": "계약이 삭제되었습니다"}
+
+
+# ============ 담당자 지정 ============
+
+@router.patch("/{contract_id}/tasks/assignee")
+async def update_task_assignee(
+    contract_id: int,
+    update: TaskAssigneeUpdate,
+    request: Request,
+    db: AsyncSession = Depends(get_db)
+):
+    """업무 담당자 지정/변경"""
+    user = await require_current_user(request, db)
+    team_ids = await _user_team_ids(db, user.id)
+
+    contract = await _get_accessible_contract(db, contract_id, user.id, team_ids)
+    if not contract or not contract.tasks:
+        raise HTTPException(status_code=404, detail="업무를 찾을 수 없습니다")
+
+    assignee_info = await _resolve_assignee(db, update.assignee_id, contract)
+
+    updated = False
+    for task in contract.tasks:
+        if str(task.get("task_id")) == str(update.task_id):
+            task["assignee_id"] = assignee_info["assignee_id"]
+            task["assignee_name"] = assignee_info["assignee_name"]
+            updated = True
+            break
+
+    if not updated:
+        raise HTTPException(status_code=404, detail="해당 업무를 찾을 수 없습니다")
+
+    flag_modified(contract, "tasks")
+    await db.commit()
+
+    return {"message": "담당자가 변경되었습니다", "task_id": update.task_id, **assignee_info}

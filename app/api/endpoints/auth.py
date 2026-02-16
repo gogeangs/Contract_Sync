@@ -10,7 +10,7 @@ import bcrypt
 import logging
 
 from app.config import settings
-from app.database import get_db, User, VerificationCode, UserSession, init_db, utc_now
+from app.database import get_db, User, VerificationCode, UserSession, Team, TeamMember, init_db, utc_now
 from app.limiter import limiter
 
 from app.services.email_service import generate_verification_code, send_verification_email, get_code_expiry
@@ -350,6 +350,18 @@ async def get_me(request: Request, db: AsyncSession = Depends(get_db)):
     if not user:
         return {"logged_in": False, "user": None}
 
+    # 팀 목록 조회
+    teams_result = await db.execute(
+        select(Team, TeamMember.role)
+        .join(TeamMember, TeamMember.team_id == Team.id)
+        .where(TeamMember.user_id == user.id)
+        .order_by(Team.created_at)
+    )
+    teams = [
+        {"id": team.id, "name": team.name, "role": role}
+        for team, role in teams_result.all()
+    ]
+
     return {
         "logged_in": True,
         "user": {
@@ -357,7 +369,8 @@ async def get_me(request: Request, db: AsyncSession = Depends(get_db)):
             "email": user.email,
             "name": user.name,
             "picture": user.picture,
-        }
+        },
+        "teams": teams,
     }
 
 

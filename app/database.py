@@ -59,11 +59,38 @@ class UserSession(Base):
     user = relationship("User", backref="sessions")
 
 
+class Team(Base):
+    __tablename__ = "teams"
+
+    id = Column(Integer, primary_key=True, index=True)
+    name = Column(String, nullable=False)
+    description = Column(String, nullable=True)
+    created_by = Column(Integer, ForeignKey("users.id"), nullable=False)
+    created_at = Column(DateTime, default=utc_now)
+
+    creator = relationship("User", backref="created_teams")
+    members = relationship("TeamMember", back_populates="team", cascade="all, delete-orphan")
+
+
+class TeamMember(Base):
+    __tablename__ = "team_members"
+
+    id = Column(Integer, primary_key=True, index=True)
+    team_id = Column(Integer, ForeignKey("teams.id", ondelete="CASCADE"), nullable=False)
+    user_id = Column(Integer, ForeignKey("users.id"), nullable=False)
+    role = Column(String, default="member")  # owner, admin, member
+    joined_at = Column(DateTime, default=utc_now)
+
+    team = relationship("Team", back_populates="members")
+    user = relationship("User", backref="team_memberships")
+
+
 class Contract(Base):
     __tablename__ = "contracts"
 
     id = Column(Integer, primary_key=True, index=True)
     user_id = Column(Integer, ForeignKey("users.id"), nullable=False)
+    team_id = Column(Integer, ForeignKey("teams.id"), nullable=True)
     contract_name = Column(String, nullable=False)
     file_name = Column(String, nullable=True)
     company_name = Column(String, nullable=True)  # 기업명
@@ -84,6 +111,7 @@ class Contract(Base):
     updated_at = Column(DateTime, default=utc_now, onupdate=utc_now)
 
     user = relationship("User", backref="contracts")
+    team = relationship("Team", backref="contracts")
 
 
 async def init_db():
@@ -101,6 +129,7 @@ async def init_db():
             ("contracts", "payment_due_date", "VARCHAR"),
             ("contracts", "milestones", "JSON"),
             ("contracts", "raw_text", "TEXT"),
+            ("contracts", "team_id", "INTEGER"),
         ]
         for table, col_name, col_type in new_columns:
             try:

@@ -37,6 +37,7 @@ window.toast = {
 function authState() {
     return {
         user: null,
+        teams: [],
         loading: true,
         showModal: false,
         modalMode: 'login', // 'login', 'signup', 'verify'
@@ -88,6 +89,7 @@ function authState() {
 
                 if (data.logged_in && data.user) {
                     this.user = data.user;
+                    this.teams = data.teams || [];
                     window.dispatchEvent(new CustomEvent('user-logged-in'));
                 } else {
                     window.dispatchEvent(new CustomEvent('user-not-logged-in'));
@@ -321,6 +323,15 @@ function scheduleExtractor() {
         taskFilter: 'all', // all, pending, in_progress, completed
         taskSearch: '',
 
+        // 팀 상태
+        selectedTeamId: null, // null = 개인, 숫자 = 팀
+        teamMembers: [],
+        showTeamManage: false,
+        teamManageLoading: false,
+        teamDetail: null,
+        inviteEmail: '',
+        inviteLoading: false,
+
         // 업무 추가 폼
         showAddTask: false,
         newTask: {
@@ -329,7 +340,8 @@ function scheduleExtractor() {
             phase: '',
             due_date: '',
             priority: '보통',
-            status: '대기'
+            status: '대기',
+            assignee_id: '',
         },
         addTaskLoading: false,
 
@@ -340,7 +352,8 @@ function scheduleExtractor() {
         async loadDashboard() {
             this.dashboardLoading = true;
             try {
-                const response = await fetch('/api/v1/contracts/dashboard/summary');
+                const params = this.selectedTeamId ? `?team_id=${this.selectedTeamId}` : '';
+                const response = await fetch(`/api/v1/contracts/dashboard/summary${params}`);
                 if (response.ok) {
                     this.dashboard = await response.json();
                 } else if (response.status === 401) {
@@ -350,6 +363,157 @@ function scheduleExtractor() {
                 console.error('대시보드 로드 실패:', err);
             } finally {
                 this.dashboardLoading = false;
+            }
+        },
+
+        async switchTeam(teamId) {
+            this.selectedTeamId = teamId || null;
+            if (this.selectedTeamId) {
+                await this.loadTeamMembers(this.selectedTeamId);
+            } else {
+                this.teamMembers = [];
+            }
+            if (this.showDashboard) {
+                await this.loadDashboard();
+            }
+        },
+
+        async loadTeamMembers(teamId) {
+            try {
+                const response = await fetch(`/api/v1/teams/${teamId}`);
+                if (response.ok) {
+                    const data = await response.json();
+                    this.teamMembers = data.members || [];
+                    this.teamDetail = data;
+                }
+            } catch (err) {
+                console.error('팀 멤버 로드 실패:', err);
+            }
+        },
+
+        async createTeam(name, description) {
+            try {
+                const response = await fetch('/api/v1/teams', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ name, description })
+                });
+                if (!response.ok) {
+                    const data = await response.json();
+                    throw new Error(data.detail || '팀 생성 실패');
+                }
+                window.toast.success('팀이 생성되었습니다.');
+                // authState의 teams 갱신
+                window.dispatchEvent(new CustomEvent('refresh-auth'));
+                return await response.json();
+            } catch (err) {
+                window.toast.error(err.message);
+                return null;
+            }
+        },
+
+        async inviteMember(teamId, email) {
+            this.inviteLoading = true;
+            try {
+                const response = await fetch(`/api/v1/teams/${teamId}/members`, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ email })
+                });
+                if (!response.ok) {
+                    const data = await response.json();
+                    throw new Error(data.detail || '초대 실패');
+                }
+                window.toast.success('멤버가 추가되었습니다.');
+                await this.loadTeamMembers(teamId);
+                this.inviteEmail = '';
+            } catch (err) {
+                window.toast.error(err.message);
+            } finally {
+                this.inviteLoading = false;
+            }
+        },
+
+        async removeMember(teamId, userId) {
+            if (!confirm('이 멤버를 제거하시겠습니까?')) return;
+            try {
+                const response = await fetch(`/api/v1/teams/${teamId}/members/${userId}`, {
+                    method: 'DELETE'
+                });
+                if (!response.ok) {
+                    const data = await response.json();
+                    throw new Error(data.detail || '멤버 제거 실패');
+                }
+                window.toast.success('멤버가 제거되었습니다.');
+                await this.loadTeamMembers(teamId);
+            } catch (err) {
+                window.toast.error(err.message);
+            }
+        },
+
+        async updateMemberRole(teamId, userId, role) {
+            try {
+                const response = await fetch(`/api/v1/teams/${teamId}/members/${userId}/role`, {
+                    method: 'PATCH',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ role })
+                });
+                if (!response.ok) {
+                    const data = await response.json();
+                    throw new Error(data.detail || '역할 변경 실패');
+                }
+                window.toast.success('역할이 변경되었습니다.');
+                await this.loadTeamMembers(teamId);
+            } catch (err) {
+                window.toast.error(err.message);
+            }
+        },
+
+        async deleteTeam(teamId) {
+            if (!confirm('이 팀을 삭제하시겠습니까? 팀 계약은 유지됩니다.')) return;
+            try {
+                const response = await fetch(`/api/v1/teams/${teamId}`, { method: 'DELETE' });
+                if (!response.ok) {
+                    const data = await response.json();
+                    throw new Error(data.detail || '팀 삭제 실패');
+                }
+                window.toast.success('팀이 삭제되었습니다.');
+                this.selectedTeamId = null;
+                this.teamMembers = [];
+                this.showTeamManage = false;
+                window.dispatchEvent(new CustomEvent('refresh-auth'));
+            } catch (err) {
+                window.toast.error(err.message);
+            }
+        },
+
+        async updateTaskAssignee(contractId, taskId, assigneeId) {
+            try {
+                const response = await fetch(`/api/v1/contracts/${contractId}/tasks/assignee`, {
+                    method: 'PATCH',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ task_id: String(taskId), assignee_id: assigneeId || null })
+                });
+
+                if (!response.ok) {
+                    const data = await response.json();
+                    throw new Error(data.detail || '담당자 변경 실패');
+                }
+
+                const data = await response.json();
+
+                // 로컬 데이터 업데이트
+                if (this.dashboard?.tasks) {
+                    const task = this.dashboard.tasks.find(
+                        t => t.contract_id === contractId && t.task_id === taskId
+                    );
+                    if (task) {
+                        task.assignee_id = data.assignee_id;
+                        task.assignee_name = data.assignee_name;
+                    }
+                }
+            } catch (err) {
+                window.toast.error(err.message);
             }
         },
 
@@ -788,6 +952,7 @@ function scheduleExtractor() {
                 const cs = this.result.contract_schedule;
                 const contractData = {
                     contract_name: cs?.contract_name || '제목 없음',
+                    team_id: this.selectedTeamId || null,
                     file_name: this.file?.name || null,
                     company_name: cs?.company_name || null,
                     contractor: cs?.contractor || null,
@@ -861,9 +1026,11 @@ function scheduleExtractor() {
             this.contractFilterYear = '';
             this.contractFilterMonth = '';
             try {
-                const response = await fetch('/api/v1/contracts/list');
+                const params = this.selectedTeamId ? `?team_id=${this.selectedTeamId}` : '';
+                const response = await fetch(`/api/v1/contracts/list${params}`);
                 if (response.ok) {
-                    this.myContracts = await response.json();
+                    const data = await response.json();
+                    this.myContracts = data.items || data;
                 }
             } catch (err) {
                 console.error('계약 목록 로드 실패:', err);
@@ -929,7 +1096,8 @@ function scheduleExtractor() {
                 phase: '',
                 due_date: '',
                 priority: '보통',
-                status: '대기'
+                status: '대기',
+                assignee_id: '',
             };
             this.showAddTask = true;
         },
@@ -951,7 +1119,8 @@ function scheduleExtractor() {
                         phase: this.newTask.phase,
                         due_date: this.newTask.due_date,
                         priority: this.newTask.priority,
-                        status: this.newTask.status
+                        status: this.newTask.status,
+                        assignee_id: this.newTask.assignee_id || null,
                     })
                 });
 
