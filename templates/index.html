@@ -796,7 +796,7 @@
                                                         <div class="flex items-center gap-2">
                                                             <span class="text-xs font-medium text-gray-700" x-text="cmt.user_name"></span>
                                                             <span class="text-[10px] text-gray-400" x-text="cmt.created_at ? new Date(cmt.created_at).toLocaleString('ko-KR') : ''"></span>
-                                                            <button x-show="cmt.is_mine" @click="fetch(`/api/v1/contracts/${task.contract_id}/comments/${cmt.id}`, {method:'DELETE'}).then(r => { if(r.ok) taskComments = taskComments.filter(c => c.id !== cmt.id); })"
+                                                            <button x-show="cmt.is_mine" @click="fetch(`/api/v1/contracts/${task.contract_id}/comments/${cmt.id}`, {method:'DELETE'}).then(r => { if(r.ok) taskComments = taskComments.filter(c => c.id !== cmt.id); else window.toast.error('댓글 삭제 실패'); }).catch(()=>{ window.toast.error('댓글 삭제 실패'); })"
                                                                     class="text-[10px] text-red-400 hover:text-red-600">삭제</button>
                                                         </div>
                                                         <p class="text-xs text-gray-600 mt-0.5 whitespace-pre-wrap" x-text="cmt.content"></p>
@@ -805,9 +805,9 @@
                                             </template>
                                             <div class="flex gap-2 mt-1">
                                                 <input type="text" x-model="commentText" placeholder="댓글 입력... (@이메일로 멘션)"
-                                                       @keydown.enter="if(commentText.trim() && !cmtSubmitting) { cmtSubmitting=true; fetch(`/api/v1/contracts/${task.contract_id}/comments`, {method:'POST', headers:{'Content-Type':'application/json'}, body:JSON.stringify({content:commentText, task_id:task.task_id})}).then(r=>r.json()).then(d=>{ taskComments.push(d); commentText=''; }).catch(()=>{}).finally(()=>{ cmtSubmitting=false; }); }"
+                                                       @keydown.enter="if(commentText.trim() && !cmtSubmitting) { cmtSubmitting=true; fetch(`/api/v1/contracts/${task.contract_id}/comments`, {method:'POST', headers:{'Content-Type':'application/json'}, body:JSON.stringify({content:commentText, task_id:task.task_id})}).then(r=>r.json()).then(d=>{ taskComments.push(d); commentText=''; }).catch(()=>{ window.toast.error('댓글 작성 실패'); }).finally(()=>{ cmtSubmitting=false; }); }"
                                                        class="flex-1 px-2 py-1 text-xs border border-gray-200 rounded focus:outline-none focus:ring-1 focus:ring-indigo-500">
-                                                <button @click="if(commentText.trim() && !cmtSubmitting) { cmtSubmitting=true; fetch(`/api/v1/contracts/${task.contract_id}/comments`, {method:'POST', headers:{'Content-Type':'application/json'}, body:JSON.stringify({content:commentText, task_id:task.task_id})}).then(r=>r.json()).then(d=>{ taskComments.push(d); commentText=''; }).catch(()=>{}).finally(()=>{ cmtSubmitting=false; }); }"
+                                                <button @click="if(commentText.trim() && !cmtSubmitting) { cmtSubmitting=true; fetch(`/api/v1/contracts/${task.contract_id}/comments`, {method:'POST', headers:{'Content-Type':'application/json'}, body:JSON.stringify({content:commentText, task_id:task.task_id})}).then(r=>r.json()).then(d=>{ taskComments.push(d); commentText=''; }).catch(()=>{ window.toast.error('댓글 작성 실패'); }).finally(()=>{ cmtSubmitting=false; }); }"
                                                         :disabled="cmtSubmitting"
                                                         class="px-2 py-1 text-xs bg-indigo-600 text-white rounded hover:bg-indigo-700 disabled:opacity-50">전송</button>
                                             </div>

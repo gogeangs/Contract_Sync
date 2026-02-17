@@ -93,7 +93,9 @@ class HWPParser(BaseParser):
             if not ole.exists("FileHeader"):
                 raise ValueError("HWP 파일 헤더를 찾을 수 없습니다.")
 
-            header = ole.openstream("FileHeader").read()
+            header_stream = ole.openstream("FileHeader")
+            header = header_stream.read()
+            header_stream.close()
             is_compressed = header[36] & 1  # 압축 여부
 
             # BodyText 스트림 읽기
@@ -101,6 +103,7 @@ class HWPParser(BaseParser):
             while ole.exists(f"BodyText/Section{section_num}"):
                 stream = ole.openstream(f"BodyText/Section{section_num}")
                 data = stream.read()
+                stream.close()
 
                 if is_compressed:
                     try:

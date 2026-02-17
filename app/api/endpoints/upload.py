@@ -78,6 +78,11 @@ async def upload_and_extract_schedule(
 
 
 @router.get("/health")
-async def health_check():
-    """서버 상태 확인"""
-    return {"status": "ok", "message": "서버가 정상 작동 중입니다."}
+async def health_check(db: AsyncSession = Depends(get_db)):
+    """서버 상태 확인 (DB 연결 포함)"""
+    try:
+        from sqlalchemy import text
+        await db.execute(text("SELECT 1"))
+        return {"status": "ok", "message": "서버가 정상 작동 중입니다.", "database": "connected"}
+    except Exception:
+        return {"status": "degraded", "message": "서버는 동작 중이나 DB 연결에 문제가 있습니다.", "database": "disconnected"}

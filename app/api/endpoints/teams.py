@@ -1,8 +1,9 @@
 from fastapi import APIRouter, Depends, HTTPException, Request
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy import select, func
-from pydantic import BaseModel
+from pydantic import BaseModel, Field
 from typing import Optional
+import json as json_mod
 import logging
 
 from app.database import get_db, User, Team, TeamMember, ActivityLog, Notification, TEAM_PERMISSIONS, utc_now
@@ -21,21 +22,21 @@ router = APIRouter()
 
 # Pydantic 모델
 class TeamCreate(BaseModel):
-    name: str
-    description: Optional[str] = None
+    name: str = Field(..., min_length=1, max_length=100)
+    description: Optional[str] = Field(None, max_length=500)
 
 
 class TeamUpdate(BaseModel):
-    name: Optional[str] = None
-    description: Optional[str] = None
+    name: Optional[str] = Field(None, min_length=1, max_length=100)
+    description: Optional[str] = Field(None, max_length=500)
 
 
 class MemberInvite(BaseModel):
-    email: str
+    email: str = Field(..., max_length=255)
 
 
 class MemberRoleUpdate(BaseModel):
-    role: str  # admin, member
+    role: str = Field(..., pattern=r'^(admin|member|viewer)$')
 
 
 # ============ 헬퍼 함수 ============
@@ -275,7 +276,7 @@ async def invite_member(
         type="team_invite",
         title=f"{user.name or user.email}님이 팀에 초대했습니다",
         message=f"팀에 초대되었습니다.",
-        link=f'{{"team_id": {team_id}}}',
+        link=json_mod.dumps({"team_id": team_id}),
     ))
 
     await db.commit()

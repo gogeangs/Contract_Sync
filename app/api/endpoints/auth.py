@@ -222,7 +222,7 @@ async def signup(request: Request, data: SignupRequest, db: AsyncSession = Depen
 
 
 @router.post("/login/email")
-@limiter.limit("5/minute")
+@limiter.limit("3/minute")
 async def email_login(request: Request, data: LoginRequest, db: AsyncSession = Depends(get_db)):
     """이메일 로그인"""
     result = await db.execute(select(User).where(User.email == data.email))
@@ -257,8 +257,9 @@ async def google_login(request: Request):
         raise HTTPException(status_code=400, detail="Google OAuth가 설정되지 않았습니다.")
 
     redirect_uri = str(request.url_for('google_callback'))
-    # Railway 프록시 뒤에서 http -> https 변환
-    if redirect_uri.startswith('http://') and 'railway.app' in redirect_uri:
+    # 프록시 뒤에서 http -> https 변환 (X-Forwarded-Proto 우선)
+    proto = request.headers.get("X-Forwarded-Proto", request.url.scheme)
+    if proto == "https" and redirect_uri.startswith('http://'):
         redirect_uri = redirect_uri.replace('http://', 'https://', 1)
     return await oauth.google.authorize_redirect(request, redirect_uri)
 
@@ -305,7 +306,7 @@ async def google_callback(request: Request, db: AsyncSession = Depends(get_db)):
         raise
     except Exception as e:
         logger.error(f"Google OAuth 콜백 에러: {type(e).__name__}: {e}")
-        raise HTTPException(status_code=400, detail=f"Google 로그인 처리 중 오류가 발생했습니다: {type(e).__name__}")
+        raise HTTPException(status_code=400, detail="Google 로그인 처리 중 오류가 발생했습니다.")
 
 
 # ============ 공통 인증 의존성 ============

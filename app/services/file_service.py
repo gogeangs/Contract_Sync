@@ -1,10 +1,13 @@
 import uuid
+import logging
 import aiofiles
 from pathlib import Path
 from fastapi import UploadFile
 
 from app.config import settings
 from app.parsers import ParserFactory, ParseResult
+
+logger = logging.getLogger(__name__)
 
 
 class FileService:
@@ -69,5 +72,5 @@ class FileService:
         try:
             if file_path.exists():
                 file_path.unlink()
-        except Exception:
-            pass
+        except Exception as e:
+            logger.warning(f"임시 파일 삭제 실패 ({file_path}): {e}")

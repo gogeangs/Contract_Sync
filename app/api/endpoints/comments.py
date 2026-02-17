@@ -1,7 +1,7 @@
 from fastapi import APIRouter, Depends, HTTPException, Request, Query
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy import select, desc
-from pydantic import BaseModel
+from pydantic import BaseModel, Field
 from typing import Optional
 import re
 import json
@@ -20,12 +20,12 @@ router = APIRouter()
 
 
 class CommentCreate(BaseModel):
-    content: str
-    task_id: Optional[str] = None
+    content: str = Field(..., min_length=1, max_length=5000)
+    task_id: Optional[str] = Field(None, max_length=20)
 
 
 class CommentUpdate(BaseModel):
-    content: str
+    content: str = Field(..., min_length=1, max_length=5000)
 
 
 def _extract_mentions(content: str) -> list[str]:

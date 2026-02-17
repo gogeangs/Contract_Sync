@@ -71,8 +71,8 @@ async def lifespan(app: FastAPI):
                     if r.rowcount:
                         await db.commit()
                         logger.info(f"Periodic cleanup: {r.rowcount} expired sessions removed")
-            except Exception:
-                pass
+            except Exception as e:
+                logger.warning(f"세션 정리 실패: {e}")
 
     cleanup_task = asyncio.create_task(_cleanup_expired_sessions())
     yield
@@ -118,6 +118,22 @@ app.add_middleware(
     allow_methods=["*"],
     allow_headers=["*"],
 )
+
+# C-1: 보안 헤더 미들웨어
+from starlette.middleware.base import BaseHTTPMiddleware
+
+class SecurityHeadersMiddleware(BaseHTTPMiddleware):
+    async def dispatch(self, request, call_next):
+        response = await call_next(request)
+        response.headers["X-Frame-Options"] = "DENY"
+        response.headers["X-Content-Type-Options"] = "nosniff"
+        response.headers["X-XSS-Protection"] = "1; mode=block"
+        response.headers["Referrer-Policy"] = "strict-origin-when-cross-origin"
+        if not settings.debug:
+            response.headers["Strict-Transport-Security"] = "max-age=31536000; includeSubDomains"
+        return response
+
+app.add_middleware(SecurityHeadersMiddleware)
 
 # 정적 파일 마운트
 app.mount("/static", StaticFiles(directory=BASE_DIR / "static"), name="static")

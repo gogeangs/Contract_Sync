@@ -370,6 +370,9 @@ function authState() {
     };
 }
 
+const MAX_CONTRACT_FILE_SIZE = 50 * 1024 * 1024;  // 50MB
+const MAX_ATTACHMENT_SIZE = 20 * 1024 * 1024;      // 20MB
+
 function scheduleExtractor() {
     return {
         file: null,
@@ -758,7 +761,7 @@ function scheduleExtractor() {
                 return;
             }
 
-            if (file.size > 50 * 1024 * 1024) {
+            if (file.size > MAX_CONTRACT_FILE_SIZE) {
                 this.error = '파일 크기는 50MB를 초과할 수 없습니다.';
                 return;
             }
@@ -1231,6 +1234,21 @@ function scheduleExtractor() {
         },
 
         async updateTaskStatus(contractId, taskId, newStatus) {
+            // 롤백용 이전 상태 저장
+            let oldStatus = null;
+            if (this.dashboard?.tasks) {
+                const task = this.dashboard.tasks.find(
+                    t => t.contract_id === contractId && t.task_id === taskId
+                );
+                if (task) {
+                    oldStatus = task.status;
+                    task.status = newStatus;
+                    // 통계 재계산
+                    this.dashboard.pending_tasks = this.dashboard.tasks.filter(t => t.status === '대기').length;
+                    this.dashboard.in_progress_tasks = this.dashboard.tasks.filter(t => t.status === '진행중').length;
+                    this.dashboard.completed_tasks = this.dashboard.tasks.filter(t => t.status === '완료').length;
+                }
+            }
             try {
                 const response = await fetch(`/api/v1/contracts/${contractId}/tasks/status`, {
                     method: 'PATCH',
@@ -1244,20 +1262,19 @@ function scheduleExtractor() {
                     const msg = typeof detail === 'string' ? detail : JSON.stringify(detail);
                     throw new Error(msg || '상태 변경 실패');
                 }
-
-                // 대시보드 데이터 갱신
-                if (this.dashboard?.tasks) {
+            } catch (err) {
+                // 실패 시 롤백
+                if (oldStatus !== null && this.dashboard?.tasks) {
                     const task = this.dashboard.tasks.find(
                         t => t.contract_id === contractId && t.task_id === taskId
                     );
-                    if (task) task.status = newStatus;
-
-                    // 통계 재계산
-                    this.dashboard.pending_tasks = this.dashboard.tasks.filter(t => t.status === '대기').length;
-                    this.dashboard.in_progress_tasks = this.dashboard.tasks.filter(t => t.status === '진행중').length;
-                    this.dashboard.completed_tasks = this.dashboard.tasks.filter(t => t.status === '완료').length;
+                    if (task) {
+                        task.status = oldStatus;
+                        this.dashboard.pending_tasks = this.dashboard.tasks.filter(t => t.status === '대기').length;
+                        this.dashboard.in_progress_tasks = this.dashboard.tasks.filter(t => t.status === '진행중').length;
+                        this.dashboard.completed_tasks = this.dashboard.tasks.filter(t => t.status === '완료').length;
+                    }
                 }
-            } catch (err) {
                 window.toast.error('상태 변경 실패: ' + err.message);
             }
         },
@@ -1291,7 +1308,7 @@ function scheduleExtractor() {
             const file = event.target.files[0];
             if (!file) return;
 
-            if (file.size > 20 * 1024 * 1024) {
+            if (file.size > MAX_ATTACHMENT_SIZE) {
                 window.toast.warning('파일 크기는 20MB를 초과할 수 없습니다.');
                 return;
             }

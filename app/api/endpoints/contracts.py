@@ -2,12 +2,14 @@ from fastapi import APIRouter, Depends, HTTPException, Request, UploadFile, File
 from fastapi.responses import FileResponse
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy import select, desc, func, or_
-from pydantic import BaseModel, ConfigDict
+from pydantic import BaseModel, ConfigDict, Field
 from typing import Optional, List
 from datetime import datetime
 from pathlib import Path
 import uuid
 import shutil
+import json as json_mod
+import re as re_mod
 import logging
 
 from sqlalchemy.orm.attributes import flag_modified
@@ -75,19 +77,19 @@ class TaskItem(BaseModel):
 
 
 class ContractCreate(BaseModel):
-    contract_name: str
+    contract_name: str = Field(..., min_length=1, max_length=500)
     team_id: Optional[int] = None
-    file_name: Optional[str] = None
-    company_name: Optional[str] = None
-    contractor: Optional[str] = None
-    client: Optional[str] = None
-    contract_date: Optional[str] = None
-    contract_start_date: Optional[str] = None
-    contract_end_date: Optional[str] = None
-    total_duration_days: Optional[int] = None
-    contract_amount: Optional[str] = None
-    payment_method: Optional[str] = None
-    payment_due_date: Optional[str] = None
+    file_name: Optional[str] = Field(None, max_length=500)
+    company_name: Optional[str] = Field(None, max_length=300)
+    contractor: Optional[str] = Field(None, max_length=300)
+    client: Optional[str] = Field(None, max_length=300)
+    contract_date: Optional[str] = Field(None, max_length=50)
+    contract_start_date: Optional[str] = Field(None, max_length=50)
+    contract_end_date: Optional[str] = Field(None, max_length=50)
+    total_duration_days: Optional[int] = Field(None, ge=0, le=36500)
+    contract_amount: Optional[str] = Field(None, max_length=200)
+    payment_method: Optional[str] = Field(None, max_length=500)
+    payment_due_date: Optional[str] = Field(None, max_length=50)
     schedules: Optional[List[dict]] = None
     tasks: Optional[List[dict]] = None
     milestones: Optional[List[str]] = None
@@ -255,6 +257,7 @@ async def get_dashboard_summary(
         select(Contract)
         .where(access)
         .order_by(desc(Contract.created_at))
+        .limit(200)
     )
     contracts = result.scalars().all()
 
@@ -345,17 +348,17 @@ async def get_contract(
 
 
 class ContractUpdate(BaseModel):
-    contract_name: Optional[str] = None
-    company_name: Optional[str] = None
-    contractor: Optional[str] = None
-    client: Optional[str] = None
-    contract_date: Optional[str] = None
-    contract_start_date: Optional[str] = None
-    contract_end_date: Optional[str] = None
-    total_duration_days: Optional[int] = None
-    contract_amount: Optional[str] = None
-    payment_method: Optional[str] = None
-    payment_due_date: Optional[str] = None
+    contract_name: Optional[str] = Field(None, min_length=1, max_length=500)
+    company_name: Optional[str] = Field(None, max_length=300)
+    contractor: Optional[str] = Field(None, max_length=300)
+    client: Optional[str] = Field(None, max_length=300)
+    contract_date: Optional[str] = Field(None, max_length=50)
+    contract_start_date: Optional[str] = Field(None, max_length=50)
+    contract_end_date: Optional[str] = Field(None, max_length=50)
+    total_duration_days: Optional[int] = Field(None, ge=0, le=36500)
+    contract_amount: Optional[str] = Field(None, max_length=200)
+    payment_method: Optional[str] = Field(None, max_length=500)
+    payment_due_date: Optional[str] = Field(None, max_length=50)
 
 
 @router.put("/{contract_id}", response_model=ContractResponse)
@@ -408,37 +411,44 @@ async def update_contract(
 
 
 class TaskCreate(BaseModel):
-    task_name: str
-    phase: Optional[str] = ""
-    due_date: Optional[str] = ""
-    priority: Optional[str] = "보통"
-    status: Optional[str] = "대기"
+    task_name: str = Field(..., min_length=1, max_length=300)
+    phase: Optional[str] = Field("", max_length=200)
+    due_date: Optional[str] = Field("", max_length=50)
+    priority: Optional[str] = Field("보통", max_length=20)
+    status: Optional[str] = Field("대기", max_length=20)
     assignee_id: Optional[int] = None
 
 
 class StandaloneTaskCreate(BaseModel):
     contract_id: Optional[int] = None
-    task_name: str
-    phase: Optional[str] = ""
-    due_date: Optional[str] = ""
-    priority: Optional[str] = "보통"
-    status: Optional[str] = "대기"
+    task_name: str = Field(..., min_length=1, max_length=300)
+    phase: Optional[str] = Field("", max_length=200)
+    due_date: Optional[str] = Field("", max_length=50)
+    priority: Optional[str] = Field("보통", max_length=20)
+    status: Optional[str] = Field("대기", max_length=20)
     assignee_id: Optional[int] = None
 
 
 class TaskStatusUpdate(BaseModel):
-    task_id: str
-    status: str  # 대기, 진행중, 완료, 보류
+    task_id: str = Field(..., max_length=20)
+    status: str = Field(..., max_length=20)
 
 
 class TaskNoteUpdate(BaseModel):
-    task_id: str
-    note: str
+    task_id: str = Field(..., max_length=20)
+    note: str = Field(..., max_length=5000)
 
 
 class TaskAssigneeUpdate(BaseModel):
-    task_id: str
+    task_id: str = Field(..., max_length=20)
     assignee_id: Optional[int] = None  # null이면 담당자 해제
+
+
+def _validate_task_id(task_id: str) -> str:
+    """task_id 형식 검증 (경로 탐색 방지)"""
+    if not re_mod.match(r'^TASK-\d{1,6}$', str(task_id)):
+        raise HTTPException(status_code=400, detail="잘못된 업무 ID 형식입니다.")
+    return str(task_id)
 
 
 async def _log_activity(
@@ -446,15 +456,18 @@ async def _log_activity(
     action: str, target_type: str, target_name: str, detail: str = None,
 ):
     """활동 로그 기록"""
-    db.add(ActivityLog(
-        contract_id=contract.id,
-        team_id=contract.team_id,
-        user_id=user_id,
-        action=action,
-        target_type=target_type,
-        target_name=target_name,
-        detail=detail,
-    ))
+    try:
+        db.add(ActivityLog(
+            contract_id=contract.id,
+            team_id=contract.team_id,
+            user_id=user_id,
+            action=action,
+            target_type=target_type,
+            target_name=target_name,
+            detail=detail,
+        ))
+    except Exception as e:
+        logger.warning(f"활동 로그 기록 실패: {e}")
 
 
 async def _notify_team_members(
@@ -476,7 +489,7 @@ async def _notify_team_members(
             type=ntype,
             title=title,
             message=message,
-            link=f'{{"contract_id": {contract.id}}}',
+            link=json_mod.dumps({"contract_id": contract.id}),
         ))
 
 
@@ -727,6 +740,7 @@ async def delete_task(
 
 
 @router.post("/{contract_id}/tasks/attachment")
+@limiter.limit("20/minute")
 async def upload_task_attachment(
     contract_id: int,
     task_id: str = Form(...),
@@ -736,6 +750,7 @@ async def upload_task_attachment(
 ):
     """업무 증빙 파일 업로드"""
     user = await require_current_user(request, db)
+    _validate_task_id(task_id)
     team_ids = await _user_team_ids(db, user.id)
 
     contract = await _get_accessible_contract(db, contract_id, user.id, team_ids)
@@ -790,6 +805,7 @@ async def upload_task_attachment(
 
 
 @router.delete("/{contract_id}/tasks/attachment")
+@limiter.limit("20/minute")
 async def delete_task_attachment(
     contract_id: int,
     task_id: str,
@@ -836,17 +852,20 @@ async def get_attachment(
 ):
     """증빙 파일 다운로드"""
     user = await require_current_user(request, db)
+    _validate_task_id(task_id)
     team_ids = await _user_team_ids(db, user.id)
 
     contract = await _get_accessible_contract(db, contract_id, user.id, team_ids)
     if not contract:
         raise HTTPException(status_code=404, detail="파일을 찾을 수 없습니다")
 
-    # 경로 탐색 공격 방지
+    # 경로 탐색 공격 방지 (문자열 검사 + resolve 검증)
     if "/" in filename or "\\" in filename or ".." in filename:
         raise HTTPException(status_code=400, detail="잘못된 파일명입니다")
 
-    file_path = EVIDENCE_DIR / str(contract_id) / str(task_id) / filename
+    file_path = (EVIDENCE_DIR / str(contract_id) / str(task_id) / filename).resolve()
+    if not str(file_path).startswith(str(EVIDENCE_DIR.resolve())):
+        raise HTTPException(status_code=400, detail="잘못된 파일 경로입니다")
     if not file_path.exists():
         raise HTTPException(status_code=404, detail="파일을 찾을 수 없습니다")
 
@@ -936,7 +955,7 @@ async def update_task_assignee(
             type="assign",
             title=f"{user.name or user.email}님이 '{task_name}' 업무를 배정했습니다",
             message=f"계약: {contract.contract_name}",
-            link=f'{{"contract_id": {contract.id}, "task_id": "{update.task_id}"}}',
+            link=json_mod.dumps({"contract_id": contract.id, "task_id": update.task_id}),
         ))
 
     await db.commit()

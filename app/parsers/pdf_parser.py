@@ -54,17 +54,28 @@ class PDFParser(BaseParser):
         filtered = re.sub(r'\n\s*\n', '\n', filtered)
         return filtered.strip()
 
+    MAX_TOTAL_IMAGE_BYTES = 100 * 1024 * 1024  # 100MB 총 이미지 메모리 제한
+
     def _render_pages_as_images(self, file_path: str) -> list[bytes]:
         """PDF 페이지를 PNG 이미지로 렌더링"""
         images = []
+        total_bytes = 0
         with fitz.open(file_path) as doc:
             page_count = min(len(doc), self.MAX_IMAGE_PAGES)
             for page_num in range(page_count):
-                page = doc[page_num]
-                mat = fitz.Matrix(self.IMAGE_DPI_SCALE, self.IMAGE_DPI_SCALE)
-                pix = page.get_pixmap(matrix=mat)
-                png_bytes = pix.tobytes("png")
-                images.append(png_bytes)
-                logger.info(f"이미지 렌더링: 페이지 {page_num + 1}/{page_count} "
-                           f"({len(png_bytes)} bytes)")
+                try:
+                    page = doc[page_num]
+                    mat = fitz.Matrix(self.IMAGE_DPI_SCALE, self.IMAGE_DPI_SCALE)
+                    pix = page.get_pixmap(matrix=mat)
+                    png_bytes = pix.tobytes("png")
+                    total_bytes += len(png_bytes)
+                    if total_bytes > self.MAX_TOTAL_IMAGE_BYTES:
+                        logger.warning(f"이미지 메모리 제한 초과 ({total_bytes} bytes). {page_num}페이지까지 처리.")
+                        break
+                    images.append(png_bytes)
+                    logger.info(f"이미지 렌더링: 페이지 {page_num + 1}/{page_count} "
+                               f"({len(png_bytes)} bytes)")
+                except Exception as e:
+                    logger.warning(f"페이지 {page_num + 1} 렌더링 실패: {e}")
+                    continue
         return images

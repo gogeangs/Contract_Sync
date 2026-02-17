@@ -37,7 +37,7 @@ async def list_notifications(
     unread_count = (await db.execute(
         select(func.count()).select_from(Notification).where(
             Notification.user_id == user.id,
-            Notification.is_read == False,  # noqa: E712
+            Notification.is_read.is_(False),
         )
     )).scalar()
 
@@ -80,7 +80,7 @@ async def get_unread_count(
     count = (await db.execute(
         select(func.count()).select_from(Notification).where(
             Notification.user_id == user.id,
-            Notification.is_read == False,  # noqa: E712
+            Notification.is_read.is_(False),
         )
     )).scalar()
 

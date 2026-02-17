@@ -16,6 +16,8 @@ class GeminiService:
     """Google Gemini API 연동 서비스"""
 
     def __init__(self):
+        if not settings.gemini_api_key:
+            raise RuntimeError("GEMINI_API_KEY가 설정되지 않았습니다.")
         self.client = genai.Client(api_key=settings.gemini_api_key)
         self.model = "gemini-2.0-flash"
         self.config = types.GenerateContentConfig(
@@ -105,12 +107,20 @@ class GeminiService:
 {self._build_json_format()}"""
 
         full_prompt = f"{system_prompt}\n\n{user_prompt}"
-        response = await self.client.aio.models.generate_content(
-            model=self.model,
-            contents=full_prompt,
-            config=self.config,
-        )
-        return response.text
+        try:
+            response = await self.client.aio.models.generate_content(
+                model=self.model,
+                contents=full_prompt,
+                config=types.GenerateContentConfig(
+                    temperature=self.config.temperature,
+                    response_mime_type=self.config.response_mime_type,
+                    http_options=types.HttpOptions(timeout=120_000),
+                ),
+            )
+            return response.text
+        except Exception as e:
+            logger.error(f"Gemini API 텍스트 추출 실패: {type(e).__name__}: {e}")
+            raise
 
     async def _extract_from_images(
         self,
@@ -146,12 +156,20 @@ class GeminiService:
             + self._build_json_format()
         ))
 
-        response = await self.client.aio.models.generate_content(
-            model=self.model,
-            contents=types.Content(parts=parts),
-            config=self.config,
-        )
-        return response.text
+        try:
+            response = await self.client.aio.models.generate_content(
+                model=self.model,
+                contents=types.Content(parts=parts),
+                config=types.GenerateContentConfig(
+                    temperature=self.config.temperature,
+                    response_mime_type=self.config.response_mime_type,
+                    http_options=types.HttpOptions(timeout=120_000),
+                ),
+            )
+            return response.text
+        except Exception as e:
+            logger.error(f"Gemini API 이미지 추출 실패: {type(e).__name__}: {e}")
+            raise
 
     def _build_system_prompt(self) -> str:
         return """당신은 한국어 외주용역 계약서 분석 전문가입니다.
