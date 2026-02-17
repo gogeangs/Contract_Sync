@@ -25,12 +25,12 @@ async def list_notifications(
 
     query = select(Notification).where(Notification.user_id == user.id)
     if unread_only:
-        query = query.where(Notification.is_read == False)  # noqa: E712
+        query = query.where(Notification.is_read.is_(False))
 
     # 전체 개수
     count_q = select(func.count()).select_from(Notification).where(Notification.user_id == user.id)
     if unread_only:
-        count_q = count_q.where(Notification.is_read == False)  # noqa: E712
+        count_q = count_q.where(Notification.is_read.is_(False))
     total = (await db.execute(count_q)).scalar()
 
     # 읽지 않은 알림 수
@@ -122,7 +122,7 @@ async def mark_all_as_read(
 
     await db.execute(
         update(Notification)
-        .where(Notification.user_id == user.id, Notification.is_read == False)  # noqa: E712
+        .where(Notification.user_id == user.id, Notification.is_read.is_(False))
         .values(is_read=True)
     )
     await db.commit()

@@ -1,6 +1,6 @@
 from fastapi import APIRouter, Depends, HTTPException, Request
 from sqlalchemy.ext.asyncio import AsyncSession
-from sqlalchemy import select
+from sqlalchemy import select, func
 from pydantic import BaseModel
 from typing import Optional
 import logging
@@ -306,8 +306,18 @@ async def remove_member(
     if not target_member:
         raise HTTPException(status_code=404, detail="멤버를 찾을 수 없습니다.")
 
+    # H-5: owner 제거 방지 + 마지막 owner 탈퇴 방지
     if target_member.role == "owner":
-        raise HTTPException(status_code=400, detail="팀 소유자는 제거할 수 없습니다.")
+        # 다른 owner가 있는지 확인
+        owner_count_result = await db.execute(
+            select(func.count()).select_from(TeamMember).where(
+                TeamMember.team_id == team_id,
+                TeamMember.role == "owner",
+            )
+        )
+        owner_count = owner_count_result.scalar()
+        if owner_count <= 1:
+            raise HTTPException(status_code=400, detail="팀의 마지막 소유자는 제거할 수 없습니다. 먼저 다른 멤버를 소유자로 지정하세요.")
 
     # 본인이 나가거나, owner/admin이 제거
     if user.id != target_user_id:
@@ -340,8 +350,10 @@ async def update_member_role(
     user = await require_current_user(request, db)
     await require_team_role(db, team_id, user.id, ["owner"])
 
-    if data.role not in ("admin", "member", "viewer"):
-        raise HTTPException(status_code=400, detail="역할은 admin, member, viewer만 가능합니다.")
+    # L-4: TEAM_PERMISSIONS 기반 역할 검증 (owner 제외)
+    allowed_roles = {r for r in TEAM_PERMISSIONS if r != "owner"}
+    if data.role not in allowed_roles:
+        raise HTTPException(status_code=400, detail=f"역할은 {', '.join(sorted(allowed_roles))}만 가능합니다.")
 
     target_member = await get_team_member(db, team_id, target_user_id)
     if not target_member:

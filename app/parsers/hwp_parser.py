@@ -86,10 +86,9 @@ class HWPParser(BaseParser):
         if not olefile.isOleFile(file_path):
             raise ValueError("유효한 HWP 파일이 아닙니다.")
 
-        ole = olefile.OleFileIO(file_path)
+        # M-14: context manager 패턴으로 리소스 누수 방지
         text_content = []
-
-        try:
+        with olefile.OleFileIO(file_path) as ole:
             # 파일 헤더 확인
             if not ole.exists("FileHeader"):
                 raise ValueError("HWP 파일 헤더를 찾을 수 없습니다.")
@@ -114,9 +113,6 @@ class HWPParser(BaseParser):
                     text_content.append(text)
 
                 section_num += 1
-
-        finally:
-            ole.close()
 
         return "\n\n".join(text_content)
 

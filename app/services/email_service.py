@@ -1,11 +1,14 @@
 import random
 import string
+import logging
 from datetime import timedelta
 from app.database import utc_now
 from aiosmtplib import SMTP
 from email.mime.text import MIMEText
 from email.mime.multipart import MIMEMultipart
 from app.config import settings
+
+logger = logging.getLogger(__name__)
 
 
 def generate_verification_code(length: int = 6) -> str:
@@ -17,15 +20,17 @@ async def send_verification_email(to_email: str, code: str) -> bool:
     """이메일로 인증코드 발송"""
 
     # 테스트용 도메인은 실제 발송하지 않음
-    test_domains = {"example.com", "example.org", "example.net", "test.com"}
+    test_domains = {"example.com", "example.org", "example.net", "test.com", "localhost"}
     domain = to_email.split("@")[-1].lower() if "@" in to_email else ""
     if domain in test_domains:
-        print(f"[TEST] 테스트 도메인 발송 스킵: {to_email} -> {code}")
+        # H-2: 인증코드를 로그에 노출하지 않음
+        logger.debug(f"테스트 도메인 발송 스킵: {to_email}")
         return True
 
-    # SMTP 설정이 없으면 콘솔에 출력 (개발용)
+    # SMTP 설정이 없으면 개발 모드 (코드 노출 방지)
     if not settings.smtp_host or not settings.smtp_username:
-        print(f"[DEV] 인증코드 발송: {to_email} -> {code}")
+        # H-2: 인증코드 값을 로그에 노출하지 않음
+        logger.info(f"[DEV] SMTP 미설정 - 인증코드 발송 시뮬레이션: {to_email}")
         return True
 
     try:
@@ -51,18 +56,21 @@ async def send_verification_email(to_email: str, code: str) -> bool:
 
         message.attach(MIMEText(html_content, "html"))
 
+        # M-13: SMTP 타임아웃 설정 (30초)
         async with SMTP(
             hostname=settings.smtp_host,
             port=settings.smtp_port,
             start_tls=settings.smtp_use_tls,
             username=settings.smtp_username,
-            password=settings.smtp_password
+            password=settings.smtp_password,
+            timeout=30,
         ) as smtp:
             await smtp.send_message(message)
 
         return True
     except Exception as e:
-        print(f"이메일 발송 실패: {e}")
+        # H-2: logger 사용 (print 대신)
+        logger.error(f"이메일 발송 실패: {e}")
         return False
 
 

@@ -100,7 +100,7 @@ function authState() {
                     window.dispatchEvent(new CustomEvent('user-not-logged-in'));
                 }
             } catch (err) {
-                console.error('인증 확인 실패:', err);
+                console.error('인증 확인 실패');
                 window.dispatchEvent(new CustomEvent('user-not-logged-in'));
             } finally {
                 this.loading = false;
@@ -315,7 +315,7 @@ function authState() {
                     this.notifications = data.items || [];
                     this.unreadCount = data.unread_count;
                 }
-            } catch (err) { console.error('알림 로드 실패:', err); }
+            } catch (err) { console.error('알림 로드 실패'); }
             finally { this.notifLoading = false; }
         },
 
@@ -325,16 +325,26 @@ function authState() {
         },
 
         async markNotifRead(id) {
-            await fetch(`/api/v1/notifications/${id}/read`, { method: 'PATCH' });
-            const n = this.notifications.find(x => x.id === id);
-            if (n) n.is_read = true;
-            this.unreadCount = Math.max(0, this.unreadCount - 1);
+            try {
+                const res = await fetch(`/api/v1/notifications/${id}/read`, { method: 'PATCH' });
+                if (res.ok) {
+                    const n = this.notifications.find(x => x.id === id);
+                    if (n && !n.is_read) {
+                        n.is_read = true;
+                        this.unreadCount = Math.max(0, this.unreadCount - 1);
+                    }
+                }
+            } catch (err) { /* ignore */ }
         },
 
         async markAllNotifRead() {
-            await fetch('/api/v1/notifications/read-all', { method: 'PATCH' });
-            this.notifications.forEach(n => n.is_read = true);
-            this.unreadCount = 0;
+            try {
+                const res = await fetch('/api/v1/notifications/read-all', { method: 'PATCH' });
+                if (res.ok) {
+                    this.notifications.forEach(n => n.is_read = true);
+                    this.unreadCount = 0;
+                }
+            } catch (err) { /* ignore */ }
         },
 
         getNotifTimeAgo(isoStr) {
@@ -354,7 +364,7 @@ function authState() {
                 this.user = null;
                 window.location.reload();
             } catch (err) {
-                console.error('로그아웃 실패:', err);
+                console.error('로그아웃 실패');
             }
         }
     };
@@ -423,7 +433,7 @@ function scheduleExtractor() {
                     this.dashboard = null;
                 }
             } catch (err) {
-                console.error('대시보드 로드 실패:', err);
+                console.error('대시보드 로드 실패');
             } finally {
                 this.dashboardLoading = false;
             }
@@ -452,7 +462,7 @@ function scheduleExtractor() {
                     this.teamDetail = data;
                 }
             } catch (err) {
-                console.error('팀 멤버 로드 실패:', err);
+                console.error('팀 멤버 로드 실패');
             }
         },
 
@@ -794,6 +804,10 @@ function scheduleExtractor() {
                     throw new Error(data.detail || '일정 추출에 실패했습니다.');
                 }
 
+                if (!data || typeof data !== 'object' || !data.contract_schedule) {
+                    throw new Error('서버 응답 형식이 올바르지 않습니다.');
+                }
+
                 this.result = data;
 
             } catch (err) {
@@ -949,7 +963,7 @@ function scheduleExtractor() {
                 URL.revokeObjectURL(url);
 
             } catch (err) {
-                console.error('워드 파일 생성 실패:', err);
+                console.error('워드 파일 생성 실패');
                 window.toast.error('워드 파일 생성에 실패했습니다: ' + err.message);
             }
         },
@@ -970,7 +984,8 @@ function scheduleExtractor() {
             if (!this.result) return;
             if (!this.result.task_list) this.result.task_list = [];
 
-            const newId = this.result.task_list.length + 1;
+            const existingIds = this.result.task_list.map(t => parseInt(String(t.task_id).replace('TASK-', '')) || 0);
+            const newId = Math.max(0, ...existingIds) + 1;
             this.result.task_list.push({
                 task_id: `TASK-${String(newId).padStart(3, '0')}`,
                 task_name: '새 업무',
@@ -1098,7 +1113,7 @@ function scheduleExtractor() {
                     this.myContracts = data.items || data;
                 }
             } catch (err) {
-                console.error('계약 목록 로드 실패:', err);
+                console.error('계약 목록 로드 실패');
             } finally {
                 this.myContractsLoading = false;
             }
@@ -1144,7 +1159,7 @@ function scheduleExtractor() {
                     this.myContracts = this.myContracts.filter(c => c.id !== contractId);
                 }
             } catch (err) {
-                console.error('계약 삭제 실패:', err);
+                console.error('계약 삭제 실패');
             }
         },
 
@@ -1331,7 +1346,7 @@ function scheduleExtractor() {
                 const params = taskId ? `?task_id=${encodeURIComponent(taskId)}` : '';
                 const res = await fetch(`/api/v1/contracts/${contractId}/comments${params}`);
                 if (res.ok) this.comments = await res.json();
-            } catch (err) { console.error('댓글 로드 실패:', err); }
+            } catch (err) { console.error('댓글 로드 실패'); }
             finally { this.commentsLoading = false; }
         },
 
@@ -1380,7 +1395,7 @@ function scheduleExtractor() {
                     const data = await res.json();
                     this.activityLogs = data.items || [];
                 }
-            } catch (err) { console.error('활동 로그 로드 실패:', err); }
+            } catch (err) { console.error('활동 로그 로드 실패'); }
             finally { this.activityLoading = false; }
         },
 

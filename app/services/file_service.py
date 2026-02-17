@@ -15,6 +15,14 @@ class FileService:
         self.upload_dir.mkdir(parents=True, exist_ok=True)
         self.max_file_size = settings.max_file_size_mb * 1024 * 1024
 
+    # H-4: 파일 형식별 magic bytes 정의
+    MAGIC_BYTES = {
+        ".pdf": (b"%PDF",),
+        ".docx": (b"PK\x03\x04",),  # ZIP 기반
+        ".hwp": (b"\xd0\xcf\x11\xe0", b"PK\x03\x04"),  # OLE 또는 ZIP(HWPX)
+        ".hwpx": (b"PK\x03\x04",),
+    }
+
     async def save_upload_file(self, file: UploadFile) -> Path:
         """업로드된 파일을 임시 저장"""
         # 파일 확장자 추출
@@ -32,11 +40,18 @@ class FileService:
 
         # 파일 저장 (청크 단위)
         total_size = 0
+        first_chunk = True
         async with aiofiles.open(file_path, "wb") as f:
             while chunk := await file.read(8192):
+                # H-4: 첫 청크에서 magic bytes 검증
+                if first_chunk:
+                    first_chunk = False
+                    expected_magics = self.MAGIC_BYTES.get(extension)
+                    if expected_magics and not any(chunk.startswith(m) for m in expected_magics):
+                        raise ValueError(f"파일 내용이 {extension} 형식과 일치하지 않습니다.")
+
                 total_size += len(chunk)
                 if total_size > self.max_file_size:
-                    await f.close()
                     file_path.unlink(missing_ok=True)
                     raise ValueError(f"파일 크기가 {settings.max_file_size_mb}MB를 초과합니다.")
                 await f.write(chunk)

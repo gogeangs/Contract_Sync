@@ -544,7 +544,7 @@ async def add_standalone_task(
     # task_id 자동 생성
     existing_ids = [t.get("task_id", 0) for t in contract.tasks]
     max_id = max([int(str(tid).replace("TASK-", "")) for tid in existing_ids if str(tid).replace("TASK-", "").isdigit()] or [0])
-    new_task_id = f"TASK-{str(max_id + 1).zfill(3)}"
+    new_task_id = f"TASK-{max_id + 1:03d}"
 
     new_task = {
         "task_id": new_task_id,
@@ -590,7 +590,7 @@ async def add_task(
     # task_id 자동 생성
     existing_ids = [t.get("task_id", 0) for t in contract.tasks]
     max_id = max([int(str(tid).replace("TASK-", "")) for tid in existing_ids if str(tid).replace("TASK-", "").isdigit()] or [0])
-    new_task_id = f"TASK-{str(max_id + 1).zfill(3)}"
+    new_task_id = f"TASK-{max_id + 1:03d}"
 
     new_task = {
         "task_id": new_task_id,
@@ -742,10 +742,16 @@ async def upload_task_attachment(
     if not contract or not contract.tasks:
         raise HTTPException(status_code=404, detail="업무를 찾을 수 없습니다")
 
-    # 파일 크기 제한 (20MB)
-    contents = await file.read()
-    if len(contents) > 20 * 1024 * 1024:
-        raise HTTPException(status_code=400, detail="파일 크기는 20MB를 초과할 수 없습니다")
+    # H-6: 파일 크기를 스트리밍으로 체크 (메모리 고갈 방지)
+    max_size = 20 * 1024 * 1024
+    chunks = []
+    total_size = 0
+    while chunk := await file.read(8192):
+        total_size += len(chunk)
+        if total_size > max_size:
+            raise HTTPException(status_code=400, detail="파일 크기는 20MB를 초과할 수 없습니다")
+        chunks.append(chunk)
+    contents = b"".join(chunks)
 
     # 파일 저장
     ext = Path(file.filename).suffix

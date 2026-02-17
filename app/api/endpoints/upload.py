@@ -1,10 +1,13 @@
-from fastapi import APIRouter, UploadFile, File, HTTPException, Request
+from fastapi import APIRouter, UploadFile, File, HTTPException, Request, Depends
+from sqlalchemy.ext.asyncio import AsyncSession
 import logging
 
 from app.services.file_service import FileService
 from app.services.gemini_service import GeminiService
 from app.schemas.schedule import ScheduleResponse
 from app.limiter import limiter
+from app.database import get_db
+from app.api.endpoints.auth import require_current_user
 
 logger = logging.getLogger(__name__)
 router = APIRouter()
@@ -14,7 +17,8 @@ router = APIRouter()
 @limiter.limit("10/minute")
 async def upload_and_extract_schedule(
     request: Request,
-    file: UploadFile = File(..., description="계약서 파일 (PDF, DOCX, HWP)")
+    file: UploadFile = File(..., description="계약서 파일 (PDF, DOCX, HWP)"),
+    db: AsyncSession = Depends(get_db),
 ):
     """
     계약서 파일을 업로드하고 추진 일정을 추출합니다.
@@ -25,6 +29,9 @@ async def upload_and_extract_schedule(
         - contract_schedule: 추출된 계약 일정 정보
         - task_list: 생성된 업무 목록
     """
+    # C-1: 인증 필수
+    await require_current_user(request, db)
+
     file_service = FileService()
     saved_path = None
 

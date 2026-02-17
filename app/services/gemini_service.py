@@ -46,17 +46,18 @@ class GeminiService:
                 else:
                     result_text = await self._extract_from_text(system_prompt, text)
 
-                logger.info(f"Gemini 응답 (시도 {attempt + 1}): {result_text[:1000]}")
+                # M-12: 민감 데이터 로깅 방지 (계약 금액, 내용 등 제외)
+                logger.info(f"Gemini 응답 수신 (시도 {attempt + 1}, 길이: {len(result_text)}자)")
                 result = self._parse_json_response(result_text)
 
                 # ContractSchedule 파싱
                 schedule_data = result.get("contract_schedule", {})
-                logger.info(f"파싱된 일정 데이터: {schedule_data}")
+                logger.info(f"일정 데이터 파싱 완료: {len(schedule_data.get('schedules', []))}개 일정")
                 contract_schedule = ContractSchedule(**schedule_data)
 
                 # TaskItem 리스트 파싱
                 task_data = result.get("task_list", [])
-                logger.info(f"파싱된 업무 목록: {len(task_data)}개")
+                logger.info(f"업무 목록 파싱 완료: {len(task_data)}개")
                 task_list = [TaskItem(**task) for task in task_data]
 
                 # 원문 텍스트 (이미지 기반 추출 시 Gemini가 OCR한 텍스트)

@@ -27,7 +27,7 @@ class User(Base):
 
     id = Column(Integer, primary_key=True, index=True)
     email = Column(String, unique=True, index=True, nullable=False)
-    password_hash = Column(String, nullable=False)
+    password_hash = Column(String, nullable=True)
     name = Column(String, nullable=True)
     picture = Column(String, nullable=True)
     is_verified = Column(Boolean, default=False)
@@ -89,8 +89,8 @@ class Contract(Base):
     __tablename__ = "contracts"
 
     id = Column(Integer, primary_key=True, index=True)
-    user_id = Column(Integer, ForeignKey("users.id"), nullable=False)
-    team_id = Column(Integer, ForeignKey("teams.id"), nullable=True)
+    user_id = Column(Integer, ForeignKey("users.id"), nullable=False, index=True)
+    team_id = Column(Integer, ForeignKey("teams.id"), nullable=True, index=True)
     contract_name = Column(String, nullable=False)
     file_name = Column(String, nullable=True)
     company_name = Column(String, nullable=True)  # 기업명

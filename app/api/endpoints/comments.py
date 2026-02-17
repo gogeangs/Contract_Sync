@@ -4,6 +4,7 @@ from sqlalchemy import select, desc
 from pydantic import BaseModel
 from typing import Optional
 import re
+import json
 import logging
 
 from app.database import (
@@ -45,7 +46,7 @@ async def _notify_mentions(db: AsyncSession, mentions: list[str], comment: Comme
             type="mention",
             title=f"{user.name or user.email}님이 회원님을 언급했습니다",
             message=comment.content[:100],
-            link=f'{{"contract_id": {contract.id}, "task_id": {repr(comment.task_id)}}}',
+            link=json.dumps({"contract_id": contract.id, "task_id": comment.task_id}),
         )
         db.add(notif)
 
@@ -112,6 +113,10 @@ async def create_comment(
     if not data.content or not data.content.strip():
         raise HTTPException(status_code=400, detail="댓글 내용을 입력해주세요.")
 
+    # M-2: 댓글 길이 제한
+    if len(data.content) > 5000:
+        raise HTTPException(status_code=400, detail="댓글은 5000자를 초과할 수 없습니다.")
+
     comment = Comment(
         contract_id=contract_id,
         task_id=data.task_id,
@@ -144,25 +149,25 @@ async def create_comment(
     await _notify_mentions(db, mentions, comment, user, contract)
 
     # 팀 계약이면 팀 멤버에게 댓글 알림 (본인 제외)
+    # M-4: N+1 쿼리 해결 - JOIN으로 한 번에 조회
     if contract.team_id:
         members_result = await db.execute(
-            select(TeamMember.user_id).where(
+            select(TeamMember.user_id, User.email)
+            .join(User, User.id == TeamMember.user_id)
+            .where(
                 TeamMember.team_id == contract.team_id,
                 TeamMember.user_id != user.id,
             )
         )
         mentioned_emails = set(mentions)
-        for (member_uid,) in members_result.all():
-            # 이미 멘션 알림을 받은 사용자는 제외
-            member_result = await db.execute(select(User).where(User.id == member_uid))
-            member_user = member_result.scalar_one_or_none()
-            if member_user and member_user.email not in mentioned_emails:
+        for member_uid, member_email in members_result.all():
+            if member_email not in mentioned_emails:
                 notif = Notification(
                     user_id=member_uid,
                     type="comment",
                     title=f"{user.name or user.email}님이 댓글을 남겼습니다",
                     message=data.content[:100],
-                    link=f'{{"contract_id": {contract_id}, "task_id": {repr(data.task_id)}}}',
+                    link=json.dumps({"contract_id": contract_id, "task_id": data.task_id}),
                 )
                 db.add(notif)
 

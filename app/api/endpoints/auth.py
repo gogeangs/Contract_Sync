@@ -176,8 +176,12 @@ async def signup(request: Request, data: SignupRequest, db: AsyncSession = Depen
     if data.password != data.password_confirm:
         raise HTTPException(status_code=400, detail="비밀번호가 일치하지 않습니다.")
 
-    if len(data.password) < 6:
-        raise HTTPException(status_code=400, detail="비밀번호는 6자 이상이어야 합니다.")
+    # M-6: 비밀번호 복잡도 강화
+    if len(data.password) < 8:
+        raise HTTPException(status_code=400, detail="비밀번호는 8자 이상이어야 합니다.")
+    import re as _re
+    if not _re.search(r'[A-Za-z]', data.password) or not _re.search(r'\d', data.password):
+        raise HTTPException(status_code=400, detail="비밀번호는 영문자와 숫자를 모두 포함해야 합니다.")
 
     # 이메일 인증 확인
     result = await db.execute(
@@ -224,7 +228,10 @@ async def email_login(request: Request, data: LoginRequest, db: AsyncSession = D
     result = await db.execute(select(User).where(User.email == data.email))
     user = result.scalar_one_or_none()
 
-    if not user or not user.password_hash or not verify_password(data.password, user.password_hash):
+    # H-7: 타이밍 공격 방지 - 사용자 존재 여부와 무관하게 항상 bcrypt 검증 수행
+    _dummy_hash = "$2b$12$LJ3m4ys3Lg2HEOyMKiJYuuGzOJfCqyYBGmMcVDFmJGNFkXMzGq.ZC"
+    password_valid = verify_password(data.password, user.password_hash if (user and user.password_hash) else _dummy_hash)
+    if not user or not user.password_hash or not password_valid:
         raise HTTPException(status_code=401, detail="이메일 또는 비밀번호가 올바르지 않습니다.")
 
     if not user.is_verified:
@@ -294,9 +301,11 @@ async def google_callback(request: Request, db: AsyncSession = Depends(get_db)):
         _set_session_cookie(response, session_token)
         return response
 
+    except HTTPException:
+        raise
     except Exception as e:
-        logger.error(f"Google OAuth 콜백 에러: {e}")
-        raise HTTPException(status_code=400, detail="Google 로그인 처리 중 오류가 발생했습니다.")
+        logger.error(f"Google OAuth 콜백 에러: {type(e).__name__}: {e}")
+        raise HTTPException(status_code=400, detail=f"Google 로그인 처리 중 오류가 발생했습니다: {type(e).__name__}")
 
 
 # ============ 공통 인증 의존성 ============

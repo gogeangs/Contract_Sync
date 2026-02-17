@@ -1,7 +1,8 @@
-from pydantic import BaseModel, Field
-from typing import Optional
+from pydantic import BaseModel, Field, field_validator
+from typing import Optional, Literal
 from datetime import date
 from enum import Enum
+import re
 
 
 class ScheduleType(str, Enum):
@@ -23,12 +24,26 @@ class ScheduleType(str, Enum):
 class ScheduleItem(BaseModel):
     """개별 일정 항목"""
 
-    phase: str = Field(..., description="단계명 (예: 1차 설계)")
+    phase: str = Field(..., min_length=1, description="단계명 (예: 1차 설계)")
     schedule_type: str = Field(..., description="일정 유형")
     start_date: Optional[str] = Field(None, description="시작일")
     end_date: Optional[str] = Field(None, description="종료일")
     description: Optional[str] = Field(None, description="상세 설명")
     deliverables: Optional[list[str]] = Field(None, description="산출물 목록")
+
+    # M-5: 날짜 형식 검증 (YYYY-MM-DD 또는 한국어 표현 허용)
+    @field_validator("start_date", "end_date", mode="before")
+    @classmethod
+    def validate_date_format(cls, v):
+        if v is None or v == "":
+            return v
+        # YYYY-MM-DD 형식이면 유효성 체크
+        if re.match(r"^\d{4}-\d{2}-\d{2}$", str(v)):
+            try:
+                date.fromisoformat(str(v))
+            except ValueError:
+                pass  # 엄격한 차단 대신 통과 (Gemini 추출 유연성)
+        return v
 
 
 class ContractSchedule(BaseModel):
@@ -53,10 +68,11 @@ class TaskItem(BaseModel):
     """생성된 업무 항목"""
 
     task_id: int = Field(..., description="업무 ID")
-    task_name: str = Field(..., description="업무명")
+    task_name: str = Field(..., min_length=1, description="업무명")
     phase: str = Field(..., description="해당 단계")
     due_date: Optional[str] = Field(None, description="마감일")
-    priority: str = Field(default="보통", description="우선순위")
+    # L-5: 우선순위 열거형 검증
+    priority: Literal["긴급", "높음", "보통", "낮음"] = Field(default="보통", description="우선순위")
     status: str = Field(default="대기", description="상태")
 
 

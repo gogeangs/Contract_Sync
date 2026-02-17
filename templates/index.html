@@ -761,7 +761,7 @@
                                         <div x-show="task.attachments?.length > 0" class="space-y-1">
                                             <template x-for="att in task.attachments || []" :key="att.filename">
                                                 <div class="flex items-center justify-between px-2 py-1 bg-gray-50 rounded text-sm">
-                                                    <a :href="`/api/v1/contracts/attachment/${task.contract_id}/${task.task_id}/${att.filename}`"
+                                                    <a :href="`/api/v1/contracts/attachment/${task.contract_id}/${encodeURIComponent(task.task_id)}/${encodeURIComponent(att.filename)}`"
                                                        class="text-indigo-600 hover:underline truncate flex-1"
                                                        x-text="att.original_name" target="_blank"></a>
                                                     <div class="flex items-center gap-2 ml-2 flex-shrink-0">
@@ -780,7 +780,7 @@
                                     </div>
 
                                     <!-- 댓글 섹션 -->
-                                    <div class="mt-3 pt-3 border-t border-gray-100" x-data="{ showComments: false, taskComments: [], commentText: '', cmtLoading: false }">
+                                    <div class="mt-3 pt-3 border-t border-gray-100" x-data="{ showComments: false, taskComments: [], commentText: '', cmtLoading: false, cmtSubmitting: false }">
                                         <button @click="showComments = !showComments; if(showComments && taskComments.length === 0) { cmtLoading = true; fetch(`/api/v1/contracts/${task.contract_id}/comments?task_id=${encodeURIComponent(task.task_id)}`).then(r => r.json()).then(d => { taskComments = d; cmtLoading = false; }).catch(() => { cmtLoading = false; }); }"
                                                 class="text-xs text-indigo-600 hover:text-indigo-800 flex items-center gap-1">
                                             <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 12h.01M12 12h.01M16 12h.01M21 12c0 4.418-4.03 8-9 8a9.863 9.863 0 01-4.255-.949L3 20l1.395-3.72C3.512 15.042 3 13.574 3 12c0-4.418 4.03-8 9-8s9 3.582 9 8z"></path></svg>
@@ -805,10 +805,11 @@
                                             </template>
                                             <div class="flex gap-2 mt-1">
                                                 <input type="text" x-model="commentText" placeholder="댓글 입력... (@이메일로 멘션)"
-                                                       @keydown.enter="if(commentText.trim()) { fetch(`/api/v1/contracts/${task.contract_id}/comments`, {method:'POST', headers:{'Content-Type':'application/json'}, body:JSON.stringify({content:commentText, task_id:task.task_id})}).then(r=>r.json()).then(d=>{ taskComments.push(d); commentText=''; }); }"
+                                                       @keydown.enter="if(commentText.trim() && !cmtSubmitting) { cmtSubmitting=true; fetch(`/api/v1/contracts/${task.contract_id}/comments`, {method:'POST', headers:{'Content-Type':'application/json'}, body:JSON.stringify({content:commentText, task_id:task.task_id})}).then(r=>r.json()).then(d=>{ taskComments.push(d); commentText=''; }).catch(()=>{}).finally(()=>{ cmtSubmitting=false; }); }"
                                                        class="flex-1 px-2 py-1 text-xs border border-gray-200 rounded focus:outline-none focus:ring-1 focus:ring-indigo-500">
-                                                <button @click="if(commentText.trim()) { fetch(`/api/v1/contracts/${task.contract_id}/comments`, {method:'POST', headers:{'Content-Type':'application/json'}, body:JSON.stringify({content:commentText, task_id:task.task_id})}).then(r=>r.json()).then(d=>{ taskComments.push(d); commentText=''; }); }"
-                                                        class="px-2 py-1 text-xs bg-indigo-600 text-white rounded hover:bg-indigo-700">전송</button>
+                                                <button @click="if(commentText.trim() && !cmtSubmitting) { cmtSubmitting=true; fetch(`/api/v1/contracts/${task.contract_id}/comments`, {method:'POST', headers:{'Content-Type':'application/json'}, body:JSON.stringify({content:commentText, task_id:task.task_id})}).then(r=>r.json()).then(d=>{ taskComments.push(d); commentText=''; }).catch(()=>{}).finally(()=>{ cmtSubmitting=false; }); }"
+                                                        :disabled="cmtSubmitting"
+                                                        class="px-2 py-1 text-xs bg-indigo-600 text-white rounded hover:bg-indigo-700 disabled:opacity-50">전송</button>
                                             </div>
                                         </div>
                                     </div>

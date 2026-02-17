@@ -4,7 +4,7 @@ from sqlalchemy import select, desc, func, or_
 from typing import Optional
 import logging
 
-from app.database import get_db, User, ActivityLog, TeamMember
+from app.database import get_db, User, ActivityLog, TeamMember, Contract
 from app.api.endpoints.auth import require_current_user
 
 logger = logging.getLogger(__name__)
@@ -38,7 +38,18 @@ async def list_activities(
 
     query = select(ActivityLog, User).join(User, User.id == ActivityLog.user_id).where(access_filter)
 
+    # H-3: contract_id 필터 시 해당 계약 접근 권한 검증
     if contract_id is not None:
+        contract_result = await db.execute(select(Contract).where(Contract.id == contract_id))
+        contract = contract_result.scalar_one_or_none()
+        if not contract:
+            raise HTTPException(status_code=404, detail="계약을 찾을 수 없습니다")
+        # 본인 계약이거나 팀 계약(소속 팀)인지 확인
+        if contract.team_id:
+            if contract.team_id not in user_team_ids:
+                raise HTTPException(status_code=403, detail="해당 계약에 접근 권한이 없습니다")
+        elif contract.user_id != user.id:
+            raise HTTPException(status_code=403, detail="해당 계약에 접근 권한이 없습니다")
         query = query.where(ActivityLog.contract_id == contract_id)
     if team_id is not None:
         if team_id not in user_team_ids:

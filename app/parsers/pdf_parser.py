@@ -28,7 +28,9 @@ class PDFParser(BaseParser):
                     has_empty_pages = True
 
         total_text = "\n\n".join(text_pages)
-        clean_text = total_text.replace("-", "").replace("페이지", "").strip()
+        # M-1: 하이픈 제거 대신 페이지 헤더/푸터 패턴만 제거 (날짜 보존)
+        import re as _re
+        clean_text = _re.sub(r'[-─━]+\s*페이지\s*\d*\s*[-─━]*', '', total_text).strip()
 
         # 텍스트가 충분하면 텍스트만 반환
         if len(clean_text) >= self.TEXT_THRESHOLD and not has_empty_pages:

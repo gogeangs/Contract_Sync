@@ -15,9 +15,9 @@ class Settings(BaseSettings):
     gemini_api_key: str = ""
 
     # App
-    debug: bool = True
+    debug: bool = False  # M-7: 프로덕션 기본값 False
     max_file_size_mb: int = 50
-    secret_key: str = "your-secret-key-change-in-production"
+    secret_key: str = ""  # C-2: 빈 문자열 기본값 (프로덕션에서 반드시 설정 필요)
 
     # Paths
     upload_dir: str = "uploads"
