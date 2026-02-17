@@ -702,6 +702,7 @@ function scheduleExtractor() {
 
         handleTaskDragOver(_, idx) {
             if (this._dragIdx === null || this._dragIdx === idx) return;
+            if (!this.dashboard?.tasks) return;
             const tasks = this.dashboard.tasks;
             const dragged = tasks.splice(this._dragIdx, 1)[0];
             tasks.splice(idx, 0, dragged);
@@ -977,13 +978,16 @@ function scheduleExtractor() {
                 const fileName = `${contractName.replace(/[^a-zA-Z0-9가-힣\s]/g, '_')}.doc`;
 
                 const url = URL.createObjectURL(blob);
-                const a = document.createElement('a');
-                a.href = url;
-                a.download = fileName;
-                document.body.appendChild(a);
-                a.click();
-                document.body.removeChild(a);
-                URL.revokeObjectURL(url);
+                try {
+                    const a = document.createElement('a');
+                    a.href = url;
+                    a.download = fileName;
+                    document.body.appendChild(a);
+                    a.click();
+                    document.body.removeChild(a);
+                } finally {
+                    URL.revokeObjectURL(url);
+                }
 
             } catch (err) {
                 console.error('워드 파일 생성 실패');
@@ -994,13 +998,16 @@ function scheduleExtractor() {
         downloadFile(content, filename, mimeType) {
             const blob = new Blob([content], { type: mimeType });
             const url = URL.createObjectURL(blob);
-            const a = document.createElement('a');
-            a.href = url;
-            a.download = filename;
-            document.body.appendChild(a);
-            a.click();
-            document.body.removeChild(a);
-            URL.revokeObjectURL(url);
+            try {
+                const a = document.createElement('a');
+                a.href = url;
+                a.download = filename;
+                document.body.appendChild(a);
+                a.click();
+                document.body.removeChild(a);
+            } finally {
+                URL.revokeObjectURL(url);
+            }
         },
 
         addTask() {

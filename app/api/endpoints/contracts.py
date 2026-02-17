@@ -536,7 +536,7 @@ async def add_standalone_task(
         # 미분류 계약 조회 또는 생성
         result = await db.execute(
             select(Contract)
-            .where(Contract.user_id == user.id, Contract.contract_name == "미분류", Contract.team_id == None)  # noqa: E711
+            .where(Contract.user_id == user.id, Contract.contract_name == "미분류", Contract.team_id.is_(None))
         )
         contract = result.scalar_one_or_none()
 
@@ -765,6 +765,7 @@ async def upload_task_attachment(
     while chunk := await file.read(8192):
         total_size += len(chunk)
         if total_size > max_size:
+            chunks.clear()
             raise HTTPException(status_code=400, detail="파일 크기는 20MB를 초과할 수 없습니다")
         chunks.append(chunk)
     contents = b"".join(chunks)
