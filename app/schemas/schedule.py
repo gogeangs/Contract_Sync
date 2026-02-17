@@ -67,7 +67,7 @@ class ContractSchedule(BaseModel):
 class TaskItem(BaseModel):
     """생성된 업무 항목"""
 
-    task_id: int = Field(..., description="업무 ID")
+    task_id: int | str = Field(..., description="업무 ID")
     task_name: str = Field(..., min_length=1, description="업무명")
     phase: str = Field(..., description="해당 단계")
     due_date: Optional[str] = Field(None, description="마감일")

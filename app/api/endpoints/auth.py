@@ -115,7 +115,7 @@ async def send_verification_code(request: Request, data: SendCodeRequest, db: As
     await db.execute(
         VerificationCode.__table__.delete().where(
             VerificationCode.email == data.email,
-            VerificationCode.is_used == False
+            VerificationCode.is_used.is_(False)
         )
     )
 
@@ -150,7 +150,7 @@ async def verify_code(request: Request, data: VerifyEmailRequest, db: AsyncSessi
         select(VerificationCode).where(
             VerificationCode.email == data.email,
             VerificationCode.code == data.code,
-            VerificationCode.is_used == False
+            VerificationCode.is_used.is_(False)
         )
     )
     verification = result.scalar_one_or_none()

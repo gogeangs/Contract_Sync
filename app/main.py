@@ -77,6 +77,10 @@ async def lifespan(app: FastAPI):
     cleanup_task = asyncio.create_task(_cleanup_expired_sessions())
     yield
     cleanup_task.cancel()
+    try:
+        await cleanup_task
+    except asyncio.CancelledError:
+        pass
 
 
 app = FastAPI(

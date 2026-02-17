@@ -445,10 +445,11 @@ class TaskAssigneeUpdate(BaseModel):
 
 
 def _validate_task_id(task_id: str) -> str:
-    """task_id 형식 검증 (경로 탐색 방지)"""
-    if not re_mod.match(r'^TASK-\d{1,6}$', str(task_id)):
+    """task_id 형식 검증 (경로 탐색 방지). TASK-xxx 또는 숫자 ID 허용."""
+    tid = str(task_id)
+    if not re_mod.match(r'^(TASK-\d{1,6}|\d{1,6})$', tid):
         raise HTTPException(status_code=400, detail="잘못된 업무 ID 형식입니다.")
-    return str(task_id)
+    return tid
 
 
 async def _log_activity(
