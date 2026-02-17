@@ -222,8 +222,13 @@ function authState() {
                 return;
             }
 
-            if (this.password.length < 6) {
-                this.formError = '비밀번호는 6자 이상이어야 합니다.';
+            if (this.password.length < 8) {
+                this.formError = '비밀번호는 8자 이상이어야 합니다.';
+                return;
+            }
+
+            if (!/[A-Za-z]/.test(this.password) || !/\d/.test(this.password)) {
+                this.formError = '비밀번호는 영문자와 숫자를 모두 포함해야 합니다.';
                 return;
             }
 
@@ -248,7 +253,7 @@ function authState() {
                 }
 
                 this.closeModal();
-                window.location.reload();
+                await this.checkAuth();
             } catch (err) {
                 this.formError = err.message;
             } finally {
@@ -282,7 +287,7 @@ function authState() {
                 }
 
                 this.closeModal();
-                window.location.reload();
+                await this.checkAuth();
             } catch (err) {
                 this.formError = err.message;
             } finally {
@@ -314,8 +319,10 @@ function authState() {
                     const data = await res.json();
                     this.notifications = data.items || [];
                     this.unreadCount = data.unread_count;
+                } else if (res.status !== 401) {
+                    window.toast.error('알림을 불러올 수 없습니다.');
                 }
-            } catch (err) { console.error('알림 로드 실패'); }
+            } catch (err) { window.toast.error('알림 로드 실패'); }
             finally { this.notifLoading = false; }
         },
 
@@ -362,9 +369,13 @@ function authState() {
             try {
                 await fetch('/api/v1/auth/logout', { method: 'POST' });
                 this.user = null;
-                window.location.reload();
+                this.teams = [];
+                this.notifications = [];
+                this.unreadCount = 0;
+                if (this._notifInterval) { clearInterval(this._notifInterval); this._notifInterval = null; }
+                window.dispatchEvent(new CustomEvent('user-not-logged-in'));
             } catch (err) {
-                console.error('로그아웃 실패');
+                window.toast.error('로그아웃 실패');
             }
         }
     };
@@ -377,6 +388,7 @@ function scheduleExtractor() {
     return {
         file: null,
         loading: false,
+        loadingMessage: '',
         result: null,
         error: null,
         dragover: false,
@@ -566,6 +578,10 @@ function scheduleExtractor() {
         },
 
         async updateTaskAssignee(contractId, taskId, assigneeId) {
+            if (!contractId || !taskId) {
+                window.toast.warning('유효한 계약과 업무를 선택해주세요.');
+                return;
+            }
             try {
                 const response = await fetch(`/api/v1/contracts/${contractId}/tasks/assignee`, {
                     method: 'PATCH',
@@ -625,7 +641,9 @@ function scheduleExtractor() {
         // D-day 계산 헬퍼
         getDaysUntil(dateStr) {
             if (!dateStr) return null;
-            const due = new Date(dateStr + 'T00:00:00');
+            const parts = dateStr.split('-').map(Number);
+            if (parts.length !== 3) return null;
+            const due = new Date(parts[0], parts[1] - 1, parts[2]);
             if (isNaN(due.getTime())) return null;
             const today = new Date();
             today.setHours(0, 0, 0, 0);
@@ -789,6 +807,7 @@ function scheduleExtractor() {
             if (!this.file) return;
 
             this.loading = true;
+            this.loadingMessage = '파일 업로드 중...';
             this.error = null;
             this.result = null;
 
@@ -796,6 +815,7 @@ function scheduleExtractor() {
             formData.append('file', this.file);
 
             try {
+                this.loadingMessage = 'AI가 계약서를 분석하고 있습니다...';
                 const response = await fetch('/api/v1/upload-and-extract', {
                     method: 'POST',
                     body: formData
