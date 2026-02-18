@@ -1,6 +1,6 @@
 from sqlalchemy.ext.asyncio import create_async_engine, AsyncSession, async_sessionmaker
 from sqlalchemy.orm import DeclarativeBase, relationship
-from sqlalchemy import Column, Integer, String, Boolean, DateTime, Text, ForeignKey, JSON
+from sqlalchemy import Column, Integer, String, Boolean, DateTime, Text, ForeignKey, JSON, UniqueConstraint, Index
 from datetime import datetime, timezone
 from pathlib import Path
 
@@ -52,7 +52,7 @@ class UserSession(Base):
 
     id = Column(Integer, primary_key=True, index=True)
     token = Column(String, unique=True, index=True, nullable=False)
-    user_id = Column(Integer, ForeignKey("users.id"), nullable=False)
+    user_id = Column(Integer, ForeignKey("users.id", ondelete="CASCADE"), nullable=False)
     expires_at = Column(DateTime, nullable=False)
     created_at = Column(DateTime, default=utc_now)
 
@@ -65,7 +65,7 @@ class Team(Base):
     id = Column(Integer, primary_key=True, index=True)
     name = Column(String, nullable=False)
     description = Column(String, nullable=True)
-    created_by = Column(Integer, ForeignKey("users.id"), nullable=False)
+    created_by = Column(Integer, ForeignKey("users.id", ondelete="CASCADE"), nullable=False)
     created_at = Column(DateTime, default=utc_now)
 
     creator = relationship("User", backref="created_teams")
@@ -74,10 +74,13 @@ class Team(Base):
 
 class TeamMember(Base):
     __tablename__ = "team_members"
+    __table_args__ = (
+        UniqueConstraint("team_id", "user_id", name="uq_team_user"),
+    )
 
     id = Column(Integer, primary_key=True, index=True)
     team_id = Column(Integer, ForeignKey("teams.id", ondelete="CASCADE"), nullable=False)
-    user_id = Column(Integer, ForeignKey("users.id"), nullable=False)
+    user_id = Column(Integer, ForeignKey("users.id", ondelete="CASCADE"), nullable=False)
     role = Column(String, default="member")  # owner, admin, member
     joined_at = Column(DateTime, default=utc_now)
 
@@ -89,8 +92,8 @@ class Contract(Base):
     __tablename__ = "contracts"
 
     id = Column(Integer, primary_key=True, index=True)
-    user_id = Column(Integer, ForeignKey("users.id"), nullable=False, index=True)
-    team_id = Column(Integer, ForeignKey("teams.id"), nullable=True, index=True)
+    user_id = Column(Integer, ForeignKey("users.id", ondelete="CASCADE"), nullable=False, index=True)
+    team_id = Column(Integer, ForeignKey("teams.id", ondelete="SET NULL"), nullable=True, index=True)
     contract_name = Column(String, nullable=False)
     file_name = Column(String, nullable=True)
     company_name = Column(String, nullable=True)  # 기업명
@@ -116,11 +119,14 @@ class Contract(Base):
 
 class Comment(Base):
     __tablename__ = "comments"
+    __table_args__ = (
+        Index("ix_comment_contract_task", "contract_id", "task_id"),
+    )
 
     id = Column(Integer, primary_key=True, index=True)
     contract_id = Column(Integer, ForeignKey("contracts.id", ondelete="CASCADE"), nullable=False)
     task_id = Column(String, nullable=True)  # null이면 계약 전체 댓글
-    user_id = Column(Integer, ForeignKey("users.id"), nullable=False)
+    user_id = Column(Integer, ForeignKey("users.id", ondelete="CASCADE"), nullable=False)
     content = Column(Text, nullable=False)
     created_at = Column(DateTime, default=utc_now)
     updated_at = Column(DateTime, default=utc_now, onupdate=utc_now)
@@ -131,9 +137,12 @@ class Comment(Base):
 
 class Notification(Base):
     __tablename__ = "notifications"
+    __table_args__ = (
+        Index("ix_notification_user_read", "user_id", "is_read"),
+    )
 
     id = Column(Integer, primary_key=True, index=True)
-    user_id = Column(Integer, ForeignKey("users.id"), nullable=False)
+    user_id = Column(Integer, ForeignKey("users.id", ondelete="CASCADE"), nullable=False)
     type = Column(String, nullable=False)  # comment, assign, status_change, mention, deadline
     title = Column(String, nullable=False)
     message = Column(Text, nullable=True)
@@ -150,7 +159,7 @@ class ActivityLog(Base):
     id = Column(Integer, primary_key=True, index=True)
     contract_id = Column(Integer, ForeignKey("contracts.id", ondelete="CASCADE"), nullable=True)
     team_id = Column(Integer, ForeignKey("teams.id", ondelete="CASCADE"), nullable=True)
-    user_id = Column(Integer, ForeignKey("users.id"), nullable=False)
+    user_id = Column(Integer, ForeignKey("users.id", ondelete="CASCADE"), nullable=False)
     action = Column(String, nullable=False)  # create, update, delete, assign, status_change, comment 등
     target_type = Column(String, nullable=False)  # contract, task, team, member
     target_name = Column(String, nullable=True)
@@ -211,6 +220,27 @@ async def init_db():
                 )
             except Exception:
                 pass  # 이미 존재하는 컬럼
+
+        # 인덱스 추가 (이미 있으면 무시)
+        new_indexes = [
+            "CREATE INDEX IF NOT EXISTS ix_comment_contract_task ON comments (contract_id, task_id)",
+            "CREATE INDEX IF NOT EXISTS ix_notification_user_read ON notifications (user_id, is_read)",
+        ]
+        for idx_sql in new_indexes:
+            try:
+                await conn.execute(__import__("sqlalchemy").text(idx_sql))
+            except Exception:
+                pass
+
+        # TeamMember 중복 방지: 유니크 인덱스 추가
+        try:
+            await conn.execute(
+                __import__("sqlalchemy").text(
+                    "CREATE UNIQUE INDEX IF NOT EXISTS uq_team_user ON team_members (team_id, user_id)"
+                )
+            )
+        except Exception:
+            pass
 
 
 async def get_db():

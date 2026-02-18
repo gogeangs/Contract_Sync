@@ -399,5 +399,11 @@ async def logout(request: Request, db: AsyncSession = Depends(get_db)):
             await db.commit()
 
     response = JSONResponse(content={"message": "로그아웃 되었습니다."})
-    response.delete_cookie(key="session_token")
+    is_production = not settings.debug
+    response.delete_cookie(
+        key="session_token",
+        path="/",
+        secure=is_production,
+        samesite="lax",
+    )
     return response

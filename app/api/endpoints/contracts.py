@@ -2,7 +2,7 @@ from fastapi import APIRouter, Depends, HTTPException, Request, UploadFile, File
 from fastapi.responses import FileResponse
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy import select, desc, func, or_
-from pydantic import BaseModel, ConfigDict, Field
+from pydantic import BaseModel, ConfigDict, Field, field_validator
 from typing import Optional, List
 from datetime import datetime
 from pathlib import Path
@@ -418,6 +418,20 @@ class TaskCreate(BaseModel):
     status: Optional[str] = Field("대기", max_length=20)
     assignee_id: Optional[int] = None
 
+    @field_validator("priority")
+    @classmethod
+    def validate_priority(cls, v):
+        if v and v not in VALID_TASK_PRIORITIES:
+            raise ValueError(f"우선순위는 {', '.join(VALID_TASK_PRIORITIES)} 중 하나여야 합니다.")
+        return v
+
+    @field_validator("status")
+    @classmethod
+    def validate_status(cls, v):
+        if v and v not in VALID_TASK_STATUSES:
+            raise ValueError(f"상태는 {', '.join(VALID_TASK_STATUSES)} 중 하나여야 합니다.")
+        return v
+
 
 class StandaloneTaskCreate(BaseModel):
     contract_id: Optional[int] = None
@@ -428,10 +442,35 @@ class StandaloneTaskCreate(BaseModel):
     status: Optional[str] = Field("대기", max_length=20)
     assignee_id: Optional[int] = None
 
+    @field_validator("priority")
+    @classmethod
+    def validate_priority(cls, v):
+        if v and v not in VALID_TASK_PRIORITIES:
+            raise ValueError(f"우선순위는 {', '.join(VALID_TASK_PRIORITIES)} 중 하나여야 합니다.")
+        return v
+
+    @field_validator("status")
+    @classmethod
+    def validate_status(cls, v):
+        if v and v not in VALID_TASK_STATUSES:
+            raise ValueError(f"상태는 {', '.join(VALID_TASK_STATUSES)} 중 하나여야 합니다.")
+        return v
+
+
+VALID_TASK_STATUSES = {"대기", "진행중", "완료"}
+VALID_TASK_PRIORITIES = {"긴급", "높음", "보통", "낮음"}
+
 
 class TaskStatusUpdate(BaseModel):
     task_id: str = Field(..., max_length=20)
     status: str = Field(..., max_length=20)
+
+    @field_validator("status")
+    @classmethod
+    def validate_status(cls, v):
+        if v not in VALID_TASK_STATUSES:
+            raise ValueError(f"상태는 {', '.join(VALID_TASK_STATUSES)} 중 하나여야 합니다.")
+        return v
 
 
 class TaskNoteUpdate(BaseModel):
@@ -817,7 +856,12 @@ async def delete_task_attachment(
 ):
     """업무 증빙 파일 삭제"""
     user = await require_current_user(request, db)
+    _validate_task_id(task_id)
     team_ids = await _user_team_ids(db, user.id)
+
+    # 경로 탐색 공격 방지
+    if "/" in filename or "\\" in filename or ".." in filename:
+        raise HTTPException(status_code=400, detail="잘못된 파일명입니다")
 
     contract = await _get_accessible_contract(db, contract_id, user.id, team_ids)
     if not contract or not contract.tasks:
@@ -834,8 +878,10 @@ async def delete_task_attachment(
     if not found:
         raise HTTPException(status_code=404, detail="해당 업무를 찾을 수 없습니다")
 
-    # 파일 삭제
-    file_path = EVIDENCE_DIR / str(contract_id) / str(task_id) / filename
+    # 파일 삭제 (resolve 검증)
+    file_path = (EVIDENCE_DIR / str(contract_id) / str(task_id) / filename).resolve()
+    if not str(file_path).startswith(str(EVIDENCE_DIR.resolve())):
+        raise HTTPException(status_code=400, detail="잘못된 파일 경로입니다")
     file_path.unlink(missing_ok=True)
 
     flag_modified(contract, "tasks")
