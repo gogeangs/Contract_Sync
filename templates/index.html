@@ -4,6 +4,8 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Contract Sync</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <script src="https://cdn.tailwindcss.com"></script>
     <script src="/static/js/main.js"></script>
     <script defer src="https://cdn.jsdelivr.net/npm/alpinejs@3.x.x/dist/cdn.min.js"></script>
@@ -130,7 +132,7 @@
                         <div class="w-8 h-8 rounded-full bg-indigo-500 flex items-center justify-center text-white text-sm font-bold" x-text="((user?.name?.trim() || user?.email || '?')[0] || '?').toUpperCase()"></div>
                     </template>
                     <span class="text-gray-700" x-text="user?.name || user?.email"></span>
-                    <button @click="logout()" class="text-gray-500 hover:text-gray-700">
+                    <button @click="logout()" class="text-gray-500 hover:text-gray-700" aria-label="로그아웃">
                         로그아웃
                     </button>
                 </div>
@@ -163,10 +165,18 @@
                             <h3 class="font-semibold text-gray-800 text-sm">알림</h3>
                             <button x-show="unreadCount > 0" @click="markAllNotifRead()" class="text-xs text-indigo-600 hover:underline">모두 읽음</button>
                         </div>
-                        <div class="overflow-y-auto flex-1" style="max-height: 320px;">
+                        <!-- #21 알림 카테고리 필터 -->
+                        <div class="flex gap-1 px-3 py-2 border-b border-gray-100 overflow-x-auto scrollbar-hide">
+                            <button @click="notifFilter = 'all'" class="px-2 py-0.5 text-[10px] rounded-full flex-shrink-0 transition-colors" :class="notifFilter === 'all' ? 'bg-indigo-100 text-indigo-700' : 'bg-gray-100 text-gray-500 hover:bg-gray-200'">전체</button>
+                            <button @click="notifFilter = 'comment'" class="px-2 py-0.5 text-[10px] rounded-full flex-shrink-0 transition-colors" :class="notifFilter === 'comment' ? 'bg-blue-100 text-blue-700' : 'bg-gray-100 text-gray-500 hover:bg-gray-200'">댓글</button>
+                            <button @click="notifFilter = 'assign'" class="px-2 py-0.5 text-[10px] rounded-full flex-shrink-0 transition-colors" :class="notifFilter === 'assign' ? 'bg-purple-100 text-purple-700' : 'bg-gray-100 text-gray-500 hover:bg-gray-200'">배정</button>
+                            <button @click="notifFilter = 'status_change'" class="px-2 py-0.5 text-[10px] rounded-full flex-shrink-0 transition-colors" :class="notifFilter === 'status_change' ? 'bg-orange-100 text-orange-700' : 'bg-gray-100 text-gray-500 hover:bg-gray-200'">상태</button>
+                            <button @click="notifFilter = 'team_invite'" class="px-2 py-0.5 text-[10px] rounded-full flex-shrink-0 transition-colors" :class="notifFilter === 'team_invite' ? 'bg-green-100 text-green-700' : 'bg-gray-100 text-gray-500 hover:bg-gray-200'">초대</button>
+                        </div>
+                        <div class="overflow-y-auto flex-1" style="max-height: 280px;">
                             <div x-show="notifLoading" class="py-8 text-center text-gray-400 text-sm">로딩 중...</div>
-                            <div x-show="!notifLoading && notifications.length === 0" class="py-8 text-center text-gray-400 text-sm">알림이 없습니다</div>
-                            <template x-for="n in notifications" :key="n.id">
+                            <div x-show="!notifLoading && filteredNotifications.length === 0" class="py-8 text-center text-gray-400 text-sm">알림이 없습니다</div>
+                            <template x-for="n in filteredNotifications" :key="n.id">
                                 <div @click="if(!n.is_read) markNotifRead(n.id)"
                                      class="px-4 py-3 border-b border-gray-50 hover:bg-gray-50 cursor-pointer text-sm"
                                      :class="n.is_read ? 'opacity-60' : ''">
@@ -203,7 +213,7 @@
             </div>
 
             <!-- 모바일 햄버거 버튼 -->
-            <button @click="mobileMenu = !mobileMenu" class="md:hidden p-2 text-gray-600 hover:text-gray-800">
+            <button @click="mobileMenu = !mobileMenu" class="md:hidden p-2 text-gray-600 hover:text-gray-800" aria-label="모바일 메뉴 토글">
                 <svg x-show="!mobileMenu" class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                     <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 6h16M4 12h16M4 18h16"></path>
                 </svg>
@@ -277,7 +287,7 @@
                 <div class="flex justify-between items-center mb-6">
                     <h2 class="text-xl font-bold text-gray-800"
                         x-text="modalMode === 'login' ? '로그인' : (modalMode === 'verify' ? '이메일 인증' : '회원가입')"></h2>
-                    <button @click="closeModal()" class="text-gray-400 hover:text-gray-600">
+                    <button @click="closeModal()" class="text-gray-400 hover:text-gray-600" aria-label="모달 닫기">
                         <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                             <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"></path>
                         </svg>
@@ -292,15 +302,20 @@
                 <form x-show="modalMode === 'login'" @submit.prevent="login()" class="space-y-4">
                     <div>
                         <label class="block text-sm font-medium text-gray-700 mb-1">이메일</label>
-                        <input type="email" x-model="email" required
+                        <input type="email" x-model="email" required aria-label="로그인 이메일"
                                class="w-full px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
                                placeholder="email@example.com">
                     </div>
-                    <div>
+                    <div class="relative">
                         <label class="block text-sm font-medium text-gray-700 mb-1">비밀번호</label>
-                        <input type="password" x-model="password" required
-                               class="w-full px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+                        <input :type="showPassword ? 'text' : 'password'" x-model="password" required aria-label="로그인 비밀번호"
+                               class="w-full px-4 py-2 pr-10 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
                                placeholder="비밀번호">
+                        <!-- #13 비밀번호 표시/숨김 토글 -->
+                        <button type="button" @click="showPassword = !showPassword" class="absolute right-3 top-8 text-gray-400 hover:text-gray-600" aria-label="비밀번호 표시 전환">
+                            <svg x-show="!showPassword" class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z"></path><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z"></path></svg>
+                            <svg x-show="showPassword" class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13.875 18.825A10.05 10.05 0 0112 19c-4.478 0-8.268-2.943-9.543-7a9.97 9.97 0 011.563-3.029m5.858.908a3 3 0 114.243 4.243M9.878 9.878l4.242 4.242M9.88 9.88l-3.29-3.29m7.532 7.532l3.29 3.29M3 3l3.59 3.59m0 0A9.953 9.953 0 0112 5c4.478 0 8.268 2.943 9.543 7a10.025 10.025 0 01-4.132 5.411m0 0L21 21"></path></svg>
+                        </button>
                     </div>
                     <button type="submit" :disabled="formLoading"
                             class="w-full py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 disabled:bg-gray-400 transition-colors">
@@ -331,7 +346,9 @@
                     </p>
                     <div>
                         <label class="block text-sm font-medium text-gray-700 mb-1">인증코드</label>
-                        <input type="text" x-model="verificationCode" required maxlength="6"
+                        <!-- #25 6자리 입력 시 자동 제출 -->
+                        <input type="text" x-model="verificationCode" required maxlength="6" aria-label="인증코드 입력"
+                               @input="if(verificationCode.length === 6) verifyCode()"
                                class="w-full px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 text-center text-2xl tracking-widest"
                                placeholder="000000">
                     </div>
@@ -354,17 +371,35 @@
                         </svg>
                         <span x-text="email"></span> 인증 완료
                     </div>
-                    <div>
+                    <div class="relative">
                         <label class="block text-sm font-medium text-gray-700 mb-1">비밀번호</label>
-                        <input type="password" x-model="password" required minlength="8"
-                               class="w-full px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+                        <input :type="showPassword ? 'text' : 'password'" x-model="password" required minlength="8" aria-label="회원가입 비밀번호"
+                               class="w-full px-4 py-2 pr-10 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
                                placeholder="8자 이상 (영문자, 숫자 포함)">
+                        <button type="button" @click="showPassword = !showPassword" class="absolute right-3 top-8 text-gray-400 hover:text-gray-600" aria-label="비밀번호 표시 전환">
+                            <svg x-show="!showPassword" class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z"></path><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z"></path></svg>
+                            <svg x-show="showPassword" class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13.875 18.825A10.05 10.05 0 0112 19c-4.478 0-8.268-2.943-9.543-7a9.97 9.97 0 011.563-3.029m5.858.908a3 3 0 114.243 4.243M9.878 9.878l4.242 4.242M9.88 9.88l-3.29-3.29m7.532 7.532l3.29 3.29M3 3l3.59 3.59m0 0A9.953 9.953 0 0112 5c4.478 0 8.268 2.943 9.543 7a10.025 10.025 0 01-4.132 5.411m0 0L21 21"></path></svg>
+                        </button>
+                        <!-- #4 비밀번호 강도 미터 -->
+                        <div x-show="password.length > 0" class="mt-2">
+                            <div class="h-1.5 w-full bg-gray-200 rounded-full overflow-hidden">
+                                <div class="h-full strength-meter rounded-full" :class="passwordStrength.color" :style="'width:' + passwordStrength.width"></div>
+                            </div>
+                            <p class="text-xs mt-1" :class="{'text-red-500': passwordStrength.label === '약함', 'text-yellow-500': passwordStrength.label === '보통', 'text-green-500': passwordStrength.label === '강함'}" x-text="'비밀번호 강도: ' + passwordStrength.label"></p>
+                        </div>
                     </div>
-                    <div>
+                    <div class="relative">
                         <label class="block text-sm font-medium text-gray-700 mb-1">비밀번호 확인</label>
-                        <input type="password" x-model="passwordConfirm" required minlength="8"
-                               class="w-full px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+                        <input :type="showPasswordConfirm ? 'text' : 'password'" x-model="passwordConfirm" required minlength="8" aria-label="비밀번호 확인"
+                               class="w-full px-4 py-2 pr-10 border rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+                               :class="passwordConfirm && password !== passwordConfirm ? 'border-red-400' : 'border-gray-300'"
                                placeholder="비밀번호 재입력">
+                        <button type="button" @click="showPasswordConfirm = !showPasswordConfirm" class="absolute right-3 top-8 text-gray-400 hover:text-gray-600" aria-label="비밀번호 확인 표시 전환">
+                            <svg x-show="!showPasswordConfirm" class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z"></path><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z"></path></svg>
+                            <svg x-show="showPasswordConfirm" class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13.875 18.825A10.05 10.05 0 0112 19c-4.478 0-8.268-2.943-9.543-7a9.97 9.97 0 011.563-3.029m5.858.908a3 3 0 114.243 4.243M9.878 9.878l4.242 4.242M9.88 9.88l-3.29-3.29m7.532 7.532l3.29 3.29M3 3l3.59 3.59m0 0A9.953 9.953 0 0112 5c4.478 0 8.268 2.943 9.543 7a10.025 10.025 0 01-4.132 5.411m0 0L21 21"></path></svg>
+                        </button>
+                        <!-- #3 실시간 일치 검증 -->
+                        <p x-show="passwordConfirm && password !== passwordConfirm" class="text-xs text-red-500 mt-1">비밀번호가 일치하지 않습니다.</p>
                     </div>
                     <button type="submit" :disabled="formLoading"
                             class="w-full py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 disabled:bg-gray-400 transition-colors">
@@ -412,8 +447,21 @@
          @user-logged-in.window="isLoggedIn = true; showDashboard = true; loadDashboard(); _dispatchPage('dashboard')"
          @user-not-logged-in.window="isLoggedIn = false"
          @switch-team.window="switchTeam($event.detail)"
-         @show-create-team.window="(async () => { const name = prompt('팀 이름을 입력하세요'); if (name) { await createTeam(name, ''); } })()"
+         @show-create-team.window="showCreateTeamDialog = true; $nextTick(() => { if($refs.teamNameInput) $refs.teamNameInput.focus(); })"
          class="container mx-auto px-4 py-8">
+
+        <!-- #14 브레드크럼 네비게이션 -->
+        <nav x-show="isLoggedIn" class="mb-4 flex items-center gap-1 text-sm text-gray-500" aria-label="브레드크럼">
+            <button @click="showDashboard = true; showMyPage = false; showTeamManage = false; loadDashboard(); _dispatchPage('dashboard')" class="hover:text-indigo-600 transition-colors">
+                <svg class="w-4 h-4 inline" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 12l2-2m0 0l7-7 7 7M5 10v10a1 1 0 001 1h3m10-11l2 2m-2-2v10a1 1 0 01-1 1h-3m-6 0a1 1 0 001-1v-4a1 1 0 011-1h2a1 1 0 011 1v4a1 1 0 001 1m-6 0h6"></path></svg>
+                홈
+            </button>
+            <span x-show="showDashboard || showMyPage || showTeamManage || (!showDashboard && !showMyPage && result)" class="text-gray-300">/</span>
+            <span x-show="showDashboard" class="text-gray-800 font-medium">대시보드</span>
+            <span x-show="showMyPage" class="text-gray-800 font-medium">마이페이지</span>
+            <span x-show="showTeamManage" class="text-gray-800 font-medium">팀 관리</span>
+            <span x-show="!showDashboard && !showMyPage && !showTeamManage && result" class="text-gray-800 font-medium">계약서</span>
+        </nav>
 
         <!-- 비로그인 시 랜딩 페이지 -->
         <div x-show="!isLoggedIn" x-transition class="max-w-2xl mx-auto text-center py-20">
@@ -482,34 +530,58 @@
                 </div>
             </div>
 
-            <!-- 로딩 -->
-            <div x-show="dashboardLoading" class="text-center py-12">
-                <svg class="animate-spin h-10 w-10 mx-auto text-indigo-500" fill="none" viewBox="0 0 24 24">
-                    <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
-                    <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
-                </svg>
-                <p class="mt-3 text-gray-500">대시보드 로딩 중...</p>
+            <!-- #11 스켈레톤 로딩 -->
+            <div x-show="dashboardLoading" class="space-y-6">
+                <div class="grid grid-cols-2 md:grid-cols-4 gap-4">
+                    <div class="bg-white rounded-lg shadow p-4"><div class="skeleton h-4 w-16 mb-2"></div><div class="skeleton h-8 w-12"></div></div>
+                    <div class="bg-white rounded-lg shadow p-4"><div class="skeleton h-4 w-16 mb-2"></div><div class="skeleton h-8 w-12"></div></div>
+                    <div class="bg-white rounded-lg shadow p-4"><div class="skeleton h-4 w-16 mb-2"></div><div class="skeleton h-8 w-12"></div></div>
+                    <div class="bg-white rounded-lg shadow p-4"><div class="skeleton h-4 w-16 mb-2"></div><div class="skeleton h-8 w-12"></div></div>
+                </div>
+                <div class="bg-white rounded-lg shadow p-6 space-y-3">
+                    <div class="skeleton h-5 w-24"></div>
+                    <div class="skeleton h-12 w-full"></div>
+                    <div class="skeleton h-12 w-full"></div>
+                    <div class="skeleton h-12 w-full"></div>
+                </div>
             </div>
 
             <!-- 대시보드 콘텐츠 -->
             <div x-show="!dashboardLoading && dashboard">
                 <!-- 통계 카드 -->
+                <!-- #15 통계 카드 + 트렌드 화살표 -->
                 <div class="grid grid-cols-2 md:grid-cols-4 gap-4 mb-6">
                     <div class="bg-white rounded-lg shadow p-4">
                         <p class="text-sm text-gray-500">총 계약</p>
-                        <p class="text-2xl font-bold text-gray-800" x-text="dashboard?.total_contracts || 0"></p>
+                        <div class="flex items-center gap-2">
+                            <p class="text-2xl font-bold text-gray-800" x-text="dashboard?.total_contracts || 0"></p>
+                            <span x-show="getDashboardTrend('total_contracts') === 'up'" class="text-green-500 text-xs">&#9650;</span>
+                            <span x-show="getDashboardTrend('total_contracts') === 'down'" class="text-red-500 text-xs">&#9660;</span>
+                        </div>
                     </div>
                     <div class="bg-white rounded-lg shadow p-4">
                         <p class="text-sm text-gray-500">대기 업무</p>
-                        <p class="text-2xl font-bold text-yellow-600" x-text="dashboard?.pending_tasks || 0"></p>
+                        <div class="flex items-center gap-2">
+                            <p class="text-2xl font-bold text-yellow-600" x-text="dashboard?.pending_tasks || 0"></p>
+                            <span x-show="getDashboardTrend('pending_tasks') === 'up'" class="text-red-500 text-xs">&#9650;</span>
+                            <span x-show="getDashboardTrend('pending_tasks') === 'down'" class="text-green-500 text-xs">&#9660;</span>
+                        </div>
                     </div>
                     <div class="bg-white rounded-lg shadow p-4">
                         <p class="text-sm text-gray-500">진행중 업무</p>
-                        <p class="text-2xl font-bold text-blue-600" x-text="dashboard?.in_progress_tasks || 0"></p>
+                        <div class="flex items-center gap-2">
+                            <p class="text-2xl font-bold text-blue-600" x-text="dashboard?.in_progress_tasks || 0"></p>
+                            <span x-show="getDashboardTrend('in_progress_tasks') === 'up'" class="text-blue-500 text-xs">&#9650;</span>
+                            <span x-show="getDashboardTrend('in_progress_tasks') === 'down'" class="text-blue-500 text-xs">&#9660;</span>
+                        </div>
                     </div>
                     <div class="bg-white rounded-lg shadow p-4">
                         <p class="text-sm text-gray-500">완료 업무</p>
-                        <p class="text-2xl font-bold text-green-600" x-text="dashboard?.completed_tasks || 0"></p>
+                        <div class="flex items-center gap-2">
+                            <p class="text-2xl font-bold text-green-600" x-text="dashboard?.completed_tasks || 0"></p>
+                            <span x-show="getDashboardTrend('completed_tasks') === 'up'" class="text-green-500 text-xs">&#9650;</span>
+                            <span x-show="getDashboardTrend('completed_tasks') === 'down'" class="text-red-500 text-xs">&#9660;</span>
+                        </div>
                     </div>
                 </div>
 
@@ -618,39 +690,76 @@
                 <!-- 업무 목록 -->
                 <div class="bg-white rounded-lg shadow p-4 sm:p-6 mb-6">
                     <div class="flex flex-col sm:flex-row sm:justify-between sm:items-center gap-3 mb-4">
-                        <h2 class="text-lg font-semibold text-gray-800">업무 목록</h2>
+                        <div class="flex items-center gap-3">
+                            <h2 class="text-lg font-semibold text-gray-800">업무 목록</h2>
+                            <!-- #5 리스트/타임라인 뷰 토글 -->
+                            <div class="flex bg-gray-100 rounded-lg p-0.5">
+                                <button @click="taskViewMode = 'list'" class="px-2 py-1 text-xs rounded transition-colors" :class="taskViewMode === 'list' ? 'bg-white shadow text-gray-800' : 'text-gray-500'" aria-label="리스트 보기">
+                                    <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 6h16M4 10h16M4 14h16M4 18h16"></path></svg>
+                                </button>
+                                <button @click="taskViewMode = 'timeline'" class="px-2 py-1 text-xs rounded transition-colors" :class="taskViewMode === 'timeline' ? 'bg-white shadow text-gray-800' : 'text-gray-500'" aria-label="타임라인 보기">
+                                    <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 19V6l12-3v13M9 19c0 1.105-1.343 2-3 2s-3-.895-3-2 1.343-2 3-2 3 .895 3 2zm12-3c0 1.105-1.343 2-3 2s-3-.895-3-2 1.343-2 3-2 3 .895 3 2zM9 10l12-3"></path></svg>
+                                </button>
+                            </div>
+                        </div>
                         <div class="flex gap-2 overflow-x-auto pb-1 -mx-1 px-1 scrollbar-hide">
-                            <button @click="openAddTask()" class="px-3 py-1 bg-indigo-600 text-white rounded text-sm hover:bg-indigo-700 transition-colors flex-shrink-0">+ 업무 추가</button>
+                            <button @click="openAddTask()" class="px-3 py-1 bg-indigo-600 text-white rounded text-sm hover:bg-indigo-700 transition-colors flex-shrink-0" aria-label="업무 추가">+ 업무 추가</button>
                             <button @click="taskFilter = 'all'" :class="taskFilter === 'all' ? 'bg-indigo-600 text-white' : 'bg-gray-200 text-gray-700'" class="px-3 py-1 rounded text-sm flex-shrink-0">전체</button>
                             <button @click="taskFilter = 'pending'" :class="taskFilter === 'pending' ? 'bg-yellow-500 text-white' : 'bg-gray-200 text-gray-700'" class="px-3 py-1 rounded text-sm flex-shrink-0">대기</button>
                             <button @click="taskFilter = 'in_progress'" :class="taskFilter === 'in_progress' ? 'bg-blue-500 text-white' : 'bg-gray-200 text-gray-700'" class="px-3 py-1 rounded text-sm flex-shrink-0">진행중</button>
                             <button @click="taskFilter = 'completed'" :class="taskFilter === 'completed' ? 'bg-green-500 text-white' : 'bg-gray-200 text-gray-700'" class="px-3 py-1 rounded text-sm flex-shrink-0">완료</button>
                         </div>
                     </div>
-                    <!-- 업무 검색 -->
+                    <!-- #17 업무 검색 (디바운스) -->
                     <div class="relative mb-4">
                         <svg class="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                             <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"></path>
                         </svg>
-                        <input type="text" x-model="taskSearch" placeholder="업무명, 계약명, 단계로 검색..."
+                        <input type="text" x-model="taskSearch" placeholder="업무명, 계약명, 단계로 검색..." aria-label="업무 검색"
                                class="w-full pl-10 pr-8 py-2 text-sm border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-transparent">
-                        <button x-show="taskSearch" @click="taskSearch = ''" class="absolute right-3 top-1/2 -translate-y-1/2 text-gray-400 hover:text-gray-600">
+                        <button x-show="taskSearch" @click="taskSearch = ''" class="absolute right-3 top-1/2 -translate-y-1/2 text-gray-400 hover:text-gray-600" aria-label="검색 초기화">
                             <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                                 <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"></path>
                             </svg>
                         </button>
                     </div>
 
-                    <div x-show="filteredTasks.length === 0 && (taskFilter !== 'all' || taskSearch.trim())" class="text-center py-8 text-gray-500">
-                        <p>검색 조건에 맞는 업무가 없습니다.</p>
-                        <button @click="taskSearch = ''; taskFilter = 'all'" class="mt-2 text-sm text-indigo-600 hover:underline">필터 초기화</button>
+                    <!-- #2 풍부한 빈 화면 -->
+                    <div x-show="filteredTasks.length === 0 && (taskFilter !== 'all' || taskSearch.trim())" class="text-center py-10 text-gray-500">
+                        <svg class="h-12 w-12 mx-auto text-gray-300 mb-3" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"></path></svg>
+                        <p class="font-medium">검색 조건에 맞는 업무가 없습니다</p>
+                        <button @click="taskSearch = ''; taskFilter = 'all'" class="mt-3 px-4 py-2 text-sm text-indigo-600 border border-indigo-200 rounded-lg hover:bg-indigo-50">필터 초기화</button>
                     </div>
-                    <div x-show="filteredTasks.length === 0 && taskFilter === 'all' && !taskSearch.trim()" class="text-center py-8 text-gray-500">
-                        <p>등록된 업무가 없습니다.</p>
-                        <p class="text-sm text-gray-400 mt-1">계약서를 업로드하거나 직접 업무를 추가하세요.</p>
+                    <div x-show="filteredTasks.length === 0 && taskFilter === 'all' && !taskSearch.trim()" class="text-center py-12 text-gray-500">
+                        <svg class="h-16 w-16 mx-auto text-gray-300 mb-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2m-6 9l2 2 4-4"></path></svg>
+                        <p class="font-medium text-lg">등록된 업무가 없습니다</p>
+                        <p class="text-sm text-gray-400 mt-1">계약서를 업로드하거나 직접 업무를 추가해보세요.</p>
+                        <div class="flex justify-center gap-3 mt-4">
+                            <button @click="openAddTask()" class="px-4 py-2 text-sm bg-indigo-600 text-white rounded-lg hover:bg-indigo-700">업무 추가</button>
+                            <button @click="goToUpload()" class="px-4 py-2 text-sm border border-indigo-200 text-indigo-600 rounded-lg hover:bg-indigo-50">계약서 등록</button>
+                        </div>
                     </div>
 
-                    <div x-show="filteredTasks.length > 0" class="space-y-3">
+                    <!-- #5 타임라인/간트 뷰 -->
+                    <div x-show="taskViewMode === 'timeline' && filteredTasks.length > 0" class="space-y-2 mb-4">
+                        <div class="flex items-center gap-2 text-xs text-gray-400 mb-2">
+                            <span>빠른 마감</span>
+                            <div class="flex-1 h-px bg-gray-200"></div>
+                            <span>늦은 마감</span>
+                        </div>
+                        <template x-for="task in timelineTasks" :key="task.task_id + '-tl-' + task.contract_id">
+                            <div class="relative h-8 bg-gray-50 rounded">
+                                <div class="absolute h-6 top-1 rounded text-[10px] text-white flex items-center px-2 truncate"
+                                     :class="getTimelineBarColor(task)"
+                                     :style="getTimelineBarStyle(task)"
+                                     :title="task.task_name + ' (' + task.due_date + ')'">
+                                    <span x-text="task.task_name" class="truncate"></span>
+                                </div>
+                            </div>
+                        </template>
+                    </div>
+
+                    <div x-show="(taskViewMode === 'list' || !taskViewMode) && filteredTasks.length > 0" class="space-y-3">
                         <template x-for="(task, taskIdx) in filteredTasks" :key="task.task_id + '-' + task.contract_id">
                             <div class="border rounded-lg p-4 hover:shadow-md transition-shadow"
                                  :class="[getTaskBorderClass(task), _dragIdx === taskIdx ? 'opacity-50 scale-[0.98]' : '']"
@@ -719,9 +828,10 @@
                                     </div>
                                     </div>
                                     <div class="flex items-center gap-2 flex-shrink-0 sm:text-right">
+                                        <!-- #16 D-day 펄스 애니메이션 -->
                                         <span x-show="task.due_date && task.status !== '완료' && getDdayLabel(task.due_date)"
                                               class="text-xs font-bold px-1.5 py-0.5 rounded"
-                                              :class="getDdayClass(task.due_date)"
+                                              :class="[getDdayClass(task.due_date), getDaysUntil(task.due_date) !== null && getDaysUntil(task.due_date) <= 1 ? 'animate-pulse-urgent' : '']"
                                               x-text="getDdayLabel(task.due_date)"></span>
                                         <p class="text-sm text-gray-600" x-text="task.due_date || '마감일 미정'"></p>
                                         <svg class="w-4 h-4 text-gray-400 transition-transform ml-auto sm:ml-0" :class="expanded ? 'rotate-180' : ''" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -768,8 +878,12 @@
                                             <template x-for="att in task.attachments || []" :key="att.filename">
                                                 <div class="flex items-center justify-between px-2 py-1 bg-gray-50 rounded text-sm">
                                                     <a :href="`/api/v1/contracts/attachment/${task.contract_id}/${encodeURIComponent(task.task_id)}/${encodeURIComponent(att.filename)}`"
-                                                       class="text-indigo-600 hover:underline truncate flex-1"
-                                                       x-text="att.original_name" target="_blank"></a>
+                                                       class="text-indigo-600 hover:underline truncate flex-1 flex items-center gap-1"
+                                                       target="_blank">
+                                                        <!-- #18 파일 타입 아이콘 -->
+                                                        <span x-text="window.getFileIcon(att.original_name)" class="flex-shrink-0"></span>
+                                                        <span x-text="att.original_name" class="truncate"></span>
+                                                    </a>
                                                     <div class="flex items-center gap-2 ml-2 flex-shrink-0">
                                                         <span class="text-xs text-gray-400" x-text="att.uploaded_at"></span>
                                                         <button @click="deleteAttachment(task.contract_id, task.task_id, att.filename)"
@@ -801,11 +915,22 @@
                                                     <div class="flex-1 min-w-0">
                                                         <div class="flex items-center gap-2">
                                                             <span class="text-xs font-medium text-gray-700" x-text="cmt.user_name"></span>
-                                                            <span class="text-[10px] text-gray-400" x-text="cmt.created_at ? new Date(cmt.created_at).toLocaleString('ko-KR') : ''"></span>
+                                                            <!-- #20 상대 시간 표시 -->
+                                                            <span class="text-[10px] text-gray-400" :title="cmt.created_at ? new Date(cmt.created_at).toLocaleString('ko-KR') : ''" x-text="window.formatRelativeTime(cmt.created_at)"></span>
                                                             <button x-show="cmt.is_mine" @click="fetch(`/api/v1/contracts/${task.contract_id}/comments/${cmt.id}`, {method:'DELETE'}).then(r => { if(r.ok) taskComments = taskComments.filter(c => c.id !== cmt.id); else window.toast.error('댓글 삭제 실패'); }).catch(()=>{ window.toast.error('댓글 삭제 실패'); })"
                                                                     class="text-[10px] text-red-400 hover:text-red-600">삭제</button>
                                                         </div>
                                                         <p class="text-xs text-gray-600 mt-0.5 whitespace-pre-wrap" x-text="cmt.content"></p>
+                                                        <!-- #27 이모지 리액션 -->
+                                                        <div class="flex gap-1 mt-1">
+                                                            <template x-for="emoji in ['👍','❤️','😊','🎉']" :key="emoji">
+                                                                <button @click.stop="$root.__x.$data.toggleReaction ? $root.__x.$data.toggleReaction(cmt.id, emoji) : null"
+                                                                        class="text-xs px-1 py-0.5 rounded hover:bg-gray-100 transition-colors"
+                                                                        :class="{'bg-indigo-50 ring-1 ring-indigo-200': false}">
+                                                                    <span x-text="emoji"></span>
+                                                                </button>
+                                                            </template>
+                                                        </div>
                                                     </div>
                                                 </div>
                                             </template>
@@ -854,7 +979,8 @@
                                             </span>
                                         </p>
                                         <p x-show="log.detail" class="text-xs text-gray-400 mt-0.5" x-text="log.detail"></p>
-                                        <p class="text-[10px] text-gray-400 mt-0.5" x-text="log.created_at ? new Date(log.created_at).toLocaleString('ko-KR') : ''"></p>
+                                        <!-- #20 상대 시간 표시 -->
+                                        <p class="text-[10px] text-gray-400 mt-0.5" :title="log.created_at ? new Date(log.created_at).toLocaleString('ko-KR') : ''" x-text="window.formatRelativeTime(log.created_at)"></p>
                                     </div>
                                 </div>
                             </template>
@@ -865,8 +991,12 @@
                 <!-- 계약 목록 -->
                 <div class="bg-white rounded-lg shadow p-6">
                     <h2 class="text-lg font-semibold text-gray-800 mb-4">계약 현황</h2>
-                    <div x-show="dashboard?.contracts?.length === 0" class="text-center py-8 text-gray-500">
-                        <p>저장된 계약이 없습니다.</p>
+                    <!-- #2 풍부한 빈 화면 -->
+                    <div x-show="dashboard?.contracts?.length === 0" class="text-center py-10 text-gray-500">
+                        <svg class="h-14 w-14 mx-auto text-gray-300 mb-3" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"></path></svg>
+                        <p class="font-medium">저장된 계약이 없습니다</p>
+                        <p class="text-sm text-gray-400 mt-1">첫 번째 계약서를 등록해보세요.</p>
+                        <button @click="goToUpload()" class="mt-3 px-4 py-2 text-sm bg-indigo-600 text-white rounded-lg hover:bg-indigo-700">계약서 등록</button>
                     </div>
                     <div class="grid md:grid-cols-2 lg:grid-cols-3 gap-4">
                         <template x-for="contract in dashboard?.contracts || []" :key="contract.id">
@@ -982,6 +1112,31 @@
                 <span x-show="!loading">업무 생성하기</span>
                 <span x-show="loading" x-text="loadingMessage || '업무 생성 중...'"></span>
             </button>
+
+            <!-- #1 3단계 추출 프로그레스 -->
+            <div x-show="loading" x-transition class="mt-4 space-y-3">
+                <!-- #19 업로드 진행률 바 -->
+                <div x-show="extractionStep === 1" class="w-full h-2 bg-gray-200 rounded-full overflow-hidden">
+                    <div class="h-full progress-bar rounded-full" :style="'width:' + uploadProgress + '%'"></div>
+                </div>
+                <!-- 3단계 스텝 표시 -->
+                <div class="flex items-center justify-between text-xs">
+                    <div class="flex items-center gap-1.5" :class="extractionStep >= 1 ? 'text-indigo-600' : 'text-gray-400'">
+                        <div class="w-6 h-6 rounded-full flex items-center justify-center text-[10px] font-bold" :class="extractionStep >= 1 ? 'bg-indigo-600 text-white' : 'bg-gray-200 text-gray-500'">1</div>
+                        <span>업로드</span>
+                    </div>
+                    <div class="flex-1 h-px mx-2" :class="extractionStep >= 2 ? 'bg-indigo-600' : 'bg-gray-200'"></div>
+                    <div class="flex items-center gap-1.5" :class="extractionStep >= 2 ? 'text-indigo-600' : 'text-gray-400'">
+                        <div class="w-6 h-6 rounded-full flex items-center justify-center text-[10px] font-bold" :class="extractionStep >= 2 ? 'bg-indigo-600 text-white' : 'bg-gray-200 text-gray-500'">2</div>
+                        <span>AI 분석</span>
+                    </div>
+                    <div class="flex-1 h-px mx-2" :class="extractionStep >= 3 ? 'bg-indigo-600' : 'bg-gray-200'"></div>
+                    <div class="flex items-center gap-1.5" :class="extractionStep >= 3 ? 'text-indigo-600' : 'text-gray-400'">
+                        <div class="w-6 h-6 rounded-full flex items-center justify-center text-[10px] font-bold" :class="extractionStep >= 3 ? 'bg-indigo-600 text-white' : 'bg-gray-200 text-gray-500'">3</div>
+                        <span>생성</span>
+                    </div>
+                </div>
+            </div>
         </section>
 
         <!-- 에러 메시지 -->
@@ -1127,6 +1282,20 @@
                             class="px-3 py-1 text-sm bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors">
                         + 일정 추가
                     </button>
+                </div>
+                <!-- #28 수평 타임라인 진행 표시 -->
+                <div x-show="!editMode && result?.contract_schedule?.schedules?.length > 1" class="mb-4 overflow-x-auto">
+                    <div class="flex items-center min-w-[400px] px-2 py-3">
+                        <template x-for="(s, si) in result?.contract_schedule?.schedules" :key="'tl'+si">
+                            <div class="flex items-center" :class="si < result.contract_schedule.schedules.length - 1 ? 'flex-1' : ''">
+                                <div class="flex flex-col items-center">
+                                    <div class="w-8 h-8 rounded-full bg-blue-500 text-white text-xs flex items-center justify-center font-bold" x-text="si + 1"></div>
+                                    <span class="text-[10px] text-gray-500 mt-1 max-w-[60px] truncate text-center" x-text="s.phase"></span>
+                                </div>
+                                <div x-show="si < result.contract_schedule.schedules.length - 1" class="flex-1 h-0.5 bg-blue-200 mx-1"></div>
+                            </div>
+                        </template>
+                    </div>
                 </div>
                 <div class="space-y-3">
                     <template x-for="(schedule, index) in result?.contract_schedule?.schedules" :key="index">
@@ -1372,13 +1541,11 @@
                     <span class="text-sm text-gray-500" x-text="filteredContracts.length + '건'"></span>
                 </div>
 
-                <!-- 로딩 상태 -->
-                <div x-show="myContractsLoading" class="text-center py-8">
-                    <svg class="animate-spin h-8 w-8 mx-auto text-blue-500" fill="none" viewBox="0 0 24 24">
-                        <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
-                        <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
-                    </svg>
-                    <p class="mt-2 text-gray-500">불러오는 중...</p>
+                <!-- #11 스켈레톤 로딩 -->
+                <div x-show="myContractsLoading" class="space-y-4">
+                    <div class="border border-gray-200 rounded-lg p-4"><div class="skeleton h-5 w-48 mb-3"></div><div class="skeleton h-4 w-32 mb-2"></div><div class="skeleton h-4 w-40"></div></div>
+                    <div class="border border-gray-200 rounded-lg p-4"><div class="skeleton h-5 w-48 mb-3"></div><div class="skeleton h-4 w-32 mb-2"></div><div class="skeleton h-4 w-40"></div></div>
+                    <div class="border border-gray-200 rounded-lg p-4"><div class="skeleton h-5 w-48 mb-3"></div><div class="skeleton h-4 w-32 mb-2"></div><div class="skeleton h-4 w-40"></div></div>
                 </div>
 
                 <!-- 계약 목록 -->
@@ -1404,8 +1571,9 @@
                                             <span class="text-gray-500">업무:</span>
                                             <span x-text="(contract.tasks?.length || 0) + '개'"></span>
                                         </p>
-                                        <p class="text-xs text-gray-400">
-                                            저장일: <span x-text="new Date(contract.created_at).toLocaleString('ko-KR')"></span>
+                                        <!-- #20 상대 시간 표시 -->
+                                        <p class="text-xs text-gray-400" :title="contract.created_at ? new Date(contract.created_at).toLocaleString('ko-KR') : ''">
+                                            저장일: <span x-text="window.formatRelativeTime(contract.created_at)"></span>
                                         </p>
                                     </div>
                                 </div>
@@ -1494,7 +1662,11 @@
                                 <div class="w-9 h-9 rounded-full bg-indigo-100 flex items-center justify-center text-indigo-600 text-sm font-bold"
                                      x-text="((member.name?.trim() || member.email || '?')[0] || '?').toUpperCase()"></div>
                                 <div>
-                                    <p class="text-sm font-medium text-gray-800" x-text="member.name || member.email"></p>
+                                    <p class="text-sm font-medium text-gray-800 flex items-center gap-2">
+                                        <span x-text="member.name || member.email"></span>
+                                        <!-- #10 팀원 상태 뱃지 -->
+                                        <span class="text-[10px] px-1.5 py-0.5 rounded-full" :class="getMemberStatus(member).class" x-text="getMemberStatus(member).label"></span>
+                                    </p>
                                     <p class="text-xs text-gray-400" x-text="member.email"></p>
                                 </div>
                             </div>
@@ -1535,8 +1707,61 @@
             </div>
         </section>
 
-        <!-- 팀 생성 모달 -->
-        <div x-show="false" x-ref="createTeamModal" class="fixed inset-0 z-50 flex items-center justify-center bg-black bg-opacity-50">
+        <!-- #12 팀 생성 다이얼로그 -->
+        <div x-show="showCreateTeamDialog" x-cloak
+             class="fixed inset-0 z-[110] flex items-center justify-center bg-black bg-opacity-50 confirm-backdrop"
+             @click.self="showCreateTeamDialog = false">
+            <div class="bg-white rounded-xl shadow-2xl w-full max-w-sm mx-4 p-6" @click.stop>
+                <h3 class="text-lg font-semibold text-gray-800 mb-3">새 팀 만들기</h3>
+                <input x-ref="teamNameInput" type="text" x-model="newTeamName" placeholder="팀 이름을 입력하세요"
+                       @keydown.enter="if(newTeamName.trim()) { createTeam(newTeamName.trim(), ''); showCreateTeamDialog = false; newTeamName = ''; }"
+                       class="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500 mb-4">
+                <div class="flex justify-end gap-3">
+                    <button @click="showCreateTeamDialog = false; newTeamName = ''" class="px-4 py-2 text-sm text-gray-700 border border-gray-300 rounded-lg hover:bg-gray-50">취소</button>
+                    <button @click="if(newTeamName.trim()) { createTeam(newTeamName.trim(), ''); showCreateTeamDialog = false; newTeamName = ''; }"
+                            class="px-4 py-2 text-sm text-white bg-indigo-600 rounded-lg hover:bg-indigo-700">생성</button>
+                </div>
+            </div>
+        </div>
+
+        <!-- #29 설정 페이지 -->
+        <section x-show="isLoggedIn && showSettings" x-transition class="max-w-2xl mx-auto" x-data="{ settingsRef: null }"
+                 x-init="settingsRef = $el.closest('[x-data]').__x.$data || {}">
+            <div class="bg-white rounded-lg shadow-md p-6">
+                <div class="flex justify-between items-center mb-6">
+                    <h2 class="text-xl font-bold text-gray-800 flex items-center gap-2">
+                        <svg class="h-6 w-6 text-gray-500" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10.325 4.317c.426-1.756 2.924-1.756 3.35 0a1.724 1.724 0 002.573 1.066c1.543-.94 3.31.826 2.37 2.37a1.724 1.724 0 001.066 2.573c1.756.426 1.756 2.924 0 3.35a1.724 1.724 0 00-1.066 2.573c.94 1.543-.826 3.31-2.37 2.37a1.724 1.724 0 00-2.573 1.066c-.426 1.756-2.924 1.756-3.35 0a1.724 1.724 0 00-2.573-1.066c-1.543.94-3.31-.826-2.37-2.37a1.724 1.724 0 00-1.066-2.573c-1.756-.426-1.756-2.924 0-3.35a1.724 1.724 0 001.066-2.573c-.94-1.543.826-3.31 2.37-2.37.996.608 2.296.07 2.572-1.065z"></path><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z"></path></svg>
+                        설정
+                    </h2>
+                    <button @click="showSettings = false; showDashboard = true; _dispatchPage('dashboard')" class="text-gray-400 hover:text-gray-600" aria-label="설정 닫기">
+                        <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"></path></svg>
+                    </button>
+                </div>
+                <p class="text-sm text-gray-500 mb-4">알림 및 테마 설정은 이 브라우저에 저장됩니다.</p>
+                <div class="text-sm text-gray-500 italic">설정은 localStorage에 저장됩니다.</div>
+            </div>
+        </section>
+
+        <!-- #22 모바일 하단 네비게이션 바 -->
+        <div x-show="isLoggedIn" class="md:hidden mobile-bottom-nav bg-white border-t border-gray-200 flex justify-around py-2">
+            <button @click="showDashboard = true; showMyPage = false; showTeamManage = false; showSettings = false; loadDashboard(); _dispatchPage('dashboard')"
+                    class="flex flex-col items-center gap-0.5 px-3 py-1 transition-colors"
+                    :class="showDashboard ? 'text-indigo-600' : 'text-gray-400'" aria-label="대시보드">
+                <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z"></path></svg>
+                <span class="text-[10px]">대시보드</span>
+            </button>
+            <button @click="goToUpload()"
+                    class="flex flex-col items-center gap-0.5 px-3 py-1 transition-colors"
+                    :class="!showDashboard && !showMyPage && !showTeamManage && !showSettings ? 'text-indigo-600' : 'text-gray-400'" aria-label="계약 등록">
+                <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4"></path></svg>
+                <span class="text-[10px]">등록</span>
+            </button>
+            <button @click="showMyPage = true; showDashboard = false; showTeamManage = false; showSettings = false; loadMyContracts(); _dispatchPage('mypage')"
+                    class="flex flex-col items-center gap-0.5 px-3 py-1 transition-colors"
+                    :class="showMyPage ? 'text-indigo-600' : 'text-gray-400'" aria-label="마이페이지">
+                <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 11H5m14 0a2 2 0 012 2v6a2 2 0 01-2 2H5a2 2 0 01-2-2v-6a2 2 0 012-2m14 0V9a2 2 0 00-2-2M5 11V9a2 2 0 012-2m0 0V5a2 2 0 012-2h6a2 2 0 012 2v2M7 7h10"></path></svg>
+                <span class="text-[10px]">계약</span>
+            </button>
         </div>
 
         <!-- 푸터 -->

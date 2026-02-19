@@ -1,5 +1,11 @@
 /* 추가 커스텀 스타일 */
 
+/* 한글 웹폰트 (#23) */
+@import url('https://fonts.googleapis.com/css2?family=Noto+Sans+KR:wght@300;400;500;600;700&display=swap');
+body {
+    font-family: 'Noto Sans KR', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+}
+
 /* 로딩 애니메이션 */
 @keyframes spin {
     from {
@@ -12,6 +18,94 @@
 
 .animate-spin {
     animation: spin 1s linear infinite;
+}
+
+/* D-day 긴급 펄스 (#16) */
+@keyframes pulse-urgent {
+    0%, 100% { opacity: 1; transform: scale(1); }
+    50% { opacity: 0.8; transform: scale(1.05); }
+}
+.animate-pulse-urgent {
+    animation: pulse-urgent 1.5s ease-in-out infinite;
+}
+
+/* 스켈레톤 로더 shimmer (#11) */
+@keyframes shimmer {
+    0% { background-position: -200% 0; }
+    100% { background-position: 200% 0; }
+}
+.skeleton {
+    background: linear-gradient(90deg, #e5e7eb 25%, #f3f4f6 50%, #e5e7eb 75%);
+    background-size: 200% 100%;
+    animation: shimmer 1.5s ease-in-out infinite;
+    border-radius: 0.375rem;
+}
+
+/* 업무 슬라이드 애니메이션 (#24) */
+@keyframes slideInDown {
+    from { opacity: 0; transform: translateY(-10px); }
+    to { opacity: 1; transform: translateY(0); }
+}
+.animate-slideIn {
+    animation: slideInDown 0.3s ease-out;
+}
+
+/* 축하 confetti (#30) */
+@keyframes confetti-fall {
+    0% { transform: translateY(-100%) rotate(0deg); opacity: 1; }
+    100% { transform: translateY(100vh) rotate(720deg); opacity: 0; }
+}
+.confetti-piece {
+    position: fixed;
+    top: -10px;
+    width: 10px;
+    height: 10px;
+    z-index: 200;
+    animation: confetti-fall 2.5s ease-in forwards;
+}
+
+/* 업로드 진행률 바 (#19) */
+.progress-bar {
+    transition: width 0.3s ease;
+    background: linear-gradient(90deg, #6366f1, #818cf8);
+}
+
+/* 커스텀 확인 다이얼로그 (#12) */
+.confirm-backdrop {
+    backdrop-filter: blur(4px);
+    -webkit-backdrop-filter: blur(4px);
+}
+
+/* 모바일 하단 네비게이션 (#22) */
+.mobile-bottom-nav {
+    position: fixed;
+    bottom: 0;
+    left: 0;
+    right: 0;
+    z-index: 40;
+    padding-bottom: env(safe-area-inset-bottom);
+}
+
+/* 멘션 자동완성 드롭다운 (#9) */
+.mention-dropdown {
+    position: absolute;
+    bottom: 100%;
+    left: 0;
+    max-height: 160px;
+    overflow-y: auto;
+    z-index: 60;
+}
+
+/* 포커스 인디케이터 (#8) */
+*:focus-visible {
+    outline: 2px solid #6366f1;
+    outline-offset: 2px;
+    border-radius: 2px;
+}
+
+/* 비밀번호 강도 미터 (#4) */
+.strength-meter {
+    transition: width 0.3s ease, background-color 0.3s ease;
 }
 
 /* 부드러운 전환 효과 */
@@ -172,10 +266,35 @@ html.dark .bg-lime-100 { background-color: rgba(132, 204, 22, 0.2) !important; }
 html.dark .bg-orange-100 { background-color: rgba(249, 115, 22, 0.2) !important; }
 html.dark .bg-teal-100 { background-color: rgba(20, 184, 166, 0.2) !important; }
 
+/* 다크 모드: 신규 UI 요소들 */
+html.dark .skeleton {
+    background: linear-gradient(90deg, #374151 25%, #4b5563 50%, #374151 75%);
+    background-size: 200% 100%;
+    animation: shimmer 1.5s ease-in-out infinite;
+}
+html.dark .confirm-backdrop {
+    background-color: rgba(0, 0, 0, 0.6);
+}
+html.dark .mobile-bottom-nav {
+    background-color: #1e293b;
+    border-color: #374151;
+}
+html.dark .mention-dropdown {
+    background-color: #1f2937;
+    border-color: #374151;
+}
+html.dark .progress-bar {
+    background: linear-gradient(90deg, #818cf8, #a5b4fc);
+}
+
 /* 모바일 반응형 보조 */
 @media (max-width: 640px) {
     .container {
         padding-left: 1rem;
         padding-right: 1rem;
+    }
+    /* 모바일 하단 네비 활성 시 바디 패딩 */
+    body.has-bottom-nav {
+        padding-bottom: 64px;
     }
 }

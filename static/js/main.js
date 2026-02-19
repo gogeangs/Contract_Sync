@@ -1,3 +1,62 @@
+// ============ 유틸리티 함수 ============
+
+// #12 커스텀 확인 다이얼로그 (Promise 기반)
+window.confirmDialog = function(message, { title = '확인', confirmText = '확인', cancelText = '취소', danger = false } = {}) {
+    return new Promise((resolve) => {
+        const backdrop = document.createElement('div');
+        backdrop.className = 'fixed inset-0 z-[110] flex items-center justify-center bg-black bg-opacity-50 confirm-backdrop';
+        backdrop.innerHTML = `
+            <div class="bg-white rounded-xl shadow-2xl w-full max-w-sm mx-4 p-6 transform transition-all">
+                <h3 class="text-lg font-semibold text-gray-800 mb-2">${title}</h3>
+                <p class="text-sm text-gray-600 mb-6">${message}</p>
+                <div class="flex justify-end gap-3">
+                    <button class="confirm-cancel px-4 py-2 text-sm text-gray-700 border border-gray-300 rounded-lg hover:bg-gray-50 transition-colors">
+                        ${cancelText}
+                    </button>
+                    <button class="confirm-ok px-4 py-2 text-sm text-white rounded-lg transition-colors ${danger ? 'bg-red-600 hover:bg-red-700' : 'bg-indigo-600 hover:bg-indigo-700'}">
+                        ${confirmText}
+                    </button>
+                </div>
+            </div>
+        `;
+        document.body.appendChild(backdrop);
+        backdrop.querySelector('.confirm-cancel').addEventListener('click', () => { backdrop.remove(); resolve(false); });
+        backdrop.querySelector('.confirm-ok').addEventListener('click', () => { backdrop.remove(); resolve(true); });
+        backdrop.addEventListener('click', (e) => { if (e.target === backdrop) { backdrop.remove(); resolve(false); } });
+    });
+};
+
+// #17 디바운스 유틸리티
+function debounce(fn, delay = 300) {
+    let timer;
+    return function(...args) {
+        clearTimeout(timer);
+        timer = setTimeout(() => fn.apply(this, args), delay);
+    };
+}
+
+// #20 상대 시간 포맷
+window.formatRelativeTime = function(isoStr) {
+    if (!isoStr) return '';
+    const diff = Date.now() - new Date(isoStr).getTime();
+    const mins = Math.floor(diff / 60000);
+    if (mins < 1) return '방금 전';
+    if (mins < 60) return `${mins}분 전`;
+    const hours = Math.floor(mins / 60);
+    if (hours < 24) return `${hours}시간 전`;
+    const days = Math.floor(hours / 24);
+    if (days < 30) return `${days}일 전`;
+    return new Date(isoStr).toLocaleDateString('ko-KR');
+};
+
+// #18 파일 타입 아이콘 반환
+window.getFileIcon = function(filename) {
+    if (!filename) return '📄';
+    const ext = filename.split('.').pop().toLowerCase();
+    const map = { pdf: '📕', doc: '📘', docx: '📘', hwp: '📗', hwpx: '📗', xls: '📊', xlsx: '📊', csv: '📊', ppt: '📙', pptx: '📙', jpg: '🖼️', jpeg: '🖼️', png: '🖼️', gif: '🖼️', zip: '📦', rar: '📦', txt: '📝' };
+    return map[ext] || '📄';
+};
+
 // Toast 알림 시스템
 function toastManager() {
     return {
@@ -57,9 +116,38 @@ function authState() {
         // 다크 모드
         darkMode: false,
 
+        // #13 비밀번호 표시/숨김
+        showPassword: false,
+        showPasswordConfirm: false,
+
+        // #29 설정 페이지
+        showSettings: false,
+        settings: {
+            notifComment: true,
+            notifAssign: true,
+            notifStatus: true,
+            notifInvite: true,
+        },
+
+        // #21 알림 카테고리 필터
+        notifFilter: 'all',
+
         async init() {
             this.initDarkMode();
+            this.loadSettings();
             await this.checkAuth();
+        },
+
+        // #29 설정 로드/저장
+        loadSettings() {
+            try {
+                const saved = localStorage.getItem('cs_settings');
+                if (saved) Object.assign(this.settings, JSON.parse(saved));
+            } catch (e) { /* ignore */ }
+        },
+        saveSettings() {
+            localStorage.setItem('cs_settings', JSON.stringify(this.settings));
+            window.toast.success('설정이 저장되었습니다.');
         },
 
         initDarkMode() {
@@ -377,6 +465,28 @@ function authState() {
             } catch (err) {
                 window.toast.error('로그아웃 실패');
             }
+        },
+
+        // #4 비밀번호 강도 계산
+        get passwordStrength() {
+            const p = this.password;
+            if (!p) return { score: 0, label: '', color: 'bg-gray-200', width: '0%' };
+            let score = 0;
+            if (p.length >= 8) score++;
+            if (p.length >= 12) score++;
+            if (/[A-Z]/.test(p)) score++;
+            if (/[a-z]/.test(p)) score++;
+            if (/\d/.test(p)) score++;
+            if (/[!@#$%^&*(),.?":{}|<>]/.test(p)) score++;
+            if (score <= 2) return { score, label: '약함', color: 'bg-red-500', width: '33%' };
+            if (score <= 4) return { score, label: '보통', color: 'bg-yellow-500', width: '66%' };
+            return { score, label: '강함', color: 'bg-green-500', width: '100%' };
+        },
+
+        // #21 필터된 알림
+        get filteredNotifications() {
+            if (this.notifFilter === 'all') return this.notifications;
+            return this.notifications.filter(n => n.type === this.notifFilter);
         }
     };
 }
@@ -420,6 +530,9 @@ function scheduleExtractor() {
         inviteEmail: '',
         inviteLoading: false,
 
+        // 설정 페이지
+        showSettings: false,
+
         // 업무 추가 폼
         showAddTask: false,
         newTask: {
@@ -433,8 +546,43 @@ function scheduleExtractor() {
         },
         addTaskLoading: false,
 
+        // #1 추출 3단계 프로그레스
+        extractionStep: 0, // 0=대기, 1=업로드, 2=분석, 3=생성
+
+        // #19 업로드 진행률
+        uploadProgress: 0,
+
+        // #30 축하 애니메이션
+        showCelebration: false,
+
+        // #5 타임라인/간트 뷰 토글
+        taskViewMode: 'list', // 'list' or 'timeline'
+
+        // #12 팀 생성 다이얼로그
+        showCreateTeamDialog: false,
+        newTeamName: '',
+
+        // #26 댓글 인용 답글
+        quotedComment: null,
+
+        // #9 멘션 자동완성
+        mentionQuery: '',
+        mentionResults: [],
+        mentionActive: false,
+        mentionIndex: 0,
+
+        // #27 이모지 리액션
+        _reactions: {},
+
         init() {
-            // 이벤트 리스너는 HTML에서 처리
+            // #17 검색 디바운스 적용
+            this._debouncedSearch = debounce((val) => { this.taskSearch = val; }, 300);
+
+            // #27 이모지 리액션 로드
+            try {
+                const saved = localStorage.getItem('cs_reactions');
+                if (saved) this._reactions = JSON.parse(saved);
+            } catch (e) { /* ignore */ }
         },
 
         async loadDashboard() {
@@ -444,6 +592,7 @@ function scheduleExtractor() {
                 const response = await fetch(`/api/v1/contracts/dashboard/summary${params}`);
                 if (response.ok) {
                     this.dashboard = await response.json();
+                    this.saveDashboardSnapshot();
                 } else if (response.status === 401) {
                     this.dashboard = null;
                 }
@@ -525,7 +674,7 @@ function scheduleExtractor() {
         },
 
         async removeMember(teamId, userId) {
-            if (!confirm('이 멤버를 제거하시겠습니까?')) return;
+            if (!await window.confirmDialog('이 멤버를 제거하시겠습니까?', { title: '멤버 제거', confirmText: '제거', danger: true })) return;
             try {
                 const response = await fetch(`/api/v1/teams/${teamId}/members/${userId}`, {
                     method: 'DELETE'
@@ -560,7 +709,7 @@ function scheduleExtractor() {
         },
 
         async deleteTeam(teamId) {
-            if (!confirm('이 팀을 삭제하시겠습니까? 팀 계약은 유지됩니다.')) return;
+            if (!await window.confirmDialog('이 팀을 삭제하시겠습니까? 팀 계약은 유지됩니다.', { title: '팀 삭제', confirmText: '삭제', danger: true })) return;
             try {
                 const response = await fetch(`/api/v1/teams/${teamId}`, { method: 'DELETE' });
                 if (!response.ok) {
@@ -808,6 +957,8 @@ function scheduleExtractor() {
             if (!this.file) return;
 
             this.loading = true;
+            this.extractionStep = 1;
+            this.uploadProgress = 0;
             this.loadingMessage = '파일 업로드 중...';
             this.error = null;
             this.result = null;
@@ -816,17 +967,42 @@ function scheduleExtractor() {
             formData.append('file', this.file);
 
             try {
-                this.loadingMessage = 'AI가 계약서를 분석하고 있습니다...';
-                const response = await fetch('/api/v1/upload-and-extract', {
-                    method: 'POST',
-                    body: formData
+                const data = await new Promise((resolve, reject) => {
+                    const xhr = new XMLHttpRequest();
+
+                    // #19 업로드 진행률 추적
+                    xhr.upload.addEventListener('progress', (e) => {
+                        if (e.lengthComputable) {
+                            this.uploadProgress = Math.round((e.loaded / e.total) * 100);
+                        }
+                    });
+
+                    xhr.upload.addEventListener('load', () => {
+                        this.extractionStep = 2;
+                        this.loadingMessage = 'AI가 계약서를 분석하고 있습니다...';
+                    });
+
+                    xhr.addEventListener('load', () => {
+                        this.extractionStep = 3;
+                        this.loadingMessage = '업무 목록 생성 중...';
+                        try {
+                            const result = JSON.parse(xhr.responseText);
+                            if (xhr.status >= 400) {
+                                reject(new Error(result.detail || '일정 추출에 실패했습니다.'));
+                            } else {
+                                resolve(result);
+                            }
+                        } catch (e) {
+                            reject(new Error('서버 응답을 파싱할 수 없습니다.'));
+                        }
+                    });
+
+                    xhr.addEventListener('error', () => reject(new Error('네트워크 오류가 발생했습니다.')));
+                    xhr.addEventListener('abort', () => reject(new Error('업로드가 취소되었습니다.')));
+
+                    xhr.open('POST', '/api/v1/upload-and-extract');
+                    xhr.send(formData);
                 });
-
-                const data = await response.json();
-
-                if (!response.ok) {
-                    throw new Error(data.detail || '일정 추출에 실패했습니다.');
-                }
 
                 if (!data || typeof data !== 'object' || !data.contract_schedule) {
                     throw new Error('서버 응답 형식이 올바르지 않습니다.');
@@ -838,6 +1014,8 @@ function scheduleExtractor() {
                 this.error = err.message;
             } finally {
                 this.loading = false;
+                this.extractionStep = 0;
+                this.uploadProgress = 0;
             }
         },
 
@@ -1088,6 +1266,7 @@ function scheduleExtractor() {
 
                 if (response.ok) {
                     window.toast.success('계약이 저장되었습니다.');
+                    this.triggerCelebration();
                 } else if (response.status === 401) {
                     window.toast.warning('로그인이 필요합니다.');
                 } else if (response.status === 409) {
@@ -1179,7 +1358,7 @@ function scheduleExtractor() {
         },
 
         async deleteContract(contractId) {
-            if (!confirm('이 계약을 삭제하시겠습니까?')) return;
+            if (!await window.confirmDialog('이 계약을 삭제하시겠습니까?', { title: '계약 삭제', confirmText: '삭제', danger: true })) return;
 
             try {
                 const response = await fetch(`/api/v1/contracts/${contractId}`, {
@@ -1414,7 +1593,7 @@ function scheduleExtractor() {
         },
 
         async deleteComment(contractId, commentId) {
-            if (!confirm('이 댓글을 삭제하시겠습니까?')) return;
+            if (!await window.confirmDialog('이 댓글을 삭제하시겠습니까?', { title: '댓글 삭제', confirmText: '삭제', danger: true })) return;
             try {
                 const res = await fetch(`/api/v1/contracts/${contractId}/comments/${commentId}`, { method: 'DELETE' });
                 if (res.ok) {
@@ -1494,7 +1673,7 @@ function scheduleExtractor() {
         },
 
         async deleteAttachment(contractId, taskId, filename) {
-            if (!confirm('이 파일을 삭제하시겠습니까?')) return;
+            if (!await window.confirmDialog('이 파일을 삭제하시겠습니까?', { title: '파일 삭제', confirmText: '삭제', danger: true })) return;
 
             try {
                 const response = await fetch(
@@ -1519,6 +1698,133 @@ function scheduleExtractor() {
             } catch (err) {
                 window.toast.error('파일 삭제 실패: ' + err.message);
             }
+        },
+
+        // #30 축하 confetti 애니메이션
+        triggerCelebration() {
+            this.showCelebration = true;
+            const colors = ['#6366f1', '#ec4899', '#f59e0b', '#10b981', '#3b82f6', '#8b5cf6'];
+            const container = document.createElement('div');
+            container.id = 'confetti-container';
+            document.body.appendChild(container);
+            for (let i = 0; i < 30; i++) {
+                const piece = document.createElement('div');
+                piece.className = 'confetti-piece';
+                piece.style.left = Math.random() * 100 + '%';
+                piece.style.backgroundColor = colors[Math.floor(Math.random() * colors.length)];
+                piece.style.animationDelay = Math.random() * 0.8 + 's';
+                piece.style.animationDuration = (1.5 + Math.random()) + 's';
+                piece.style.borderRadius = Math.random() > 0.5 ? '50%' : '0';
+                container.appendChild(piece);
+            }
+            setTimeout(() => { container.remove(); this.showCelebration = false; }, 3000);
+        },
+
+        // #27 이모지 리액션
+        toggleReaction(commentId, emoji) {
+            const key = `${commentId}`;
+            if (!this._reactions[key]) this._reactions[key] = {};
+            if (this._reactions[key][emoji]) {
+                delete this._reactions[key][emoji];
+            } else {
+                this._reactions[key][emoji] = true;
+            }
+            localStorage.setItem('cs_reactions', JSON.stringify(this._reactions));
+        },
+
+        getReactions(commentId) {
+            return this._reactions[`${commentId}`] || {};
+        },
+
+        hasReaction(commentId, emoji) {
+            return !!(this._reactions[`${commentId}`]?.[emoji]);
+        },
+
+        // #9 멘션 자동완성 처리
+        handleCommentInput(text, members) {
+            const match = text.match(/@(\S*)$/);
+            if (match && members.length > 0) {
+                this.mentionQuery = match[1].toLowerCase();
+                this.mentionResults = members.filter(m =>
+                    (m.name || m.email || '').toLowerCase().includes(this.mentionQuery)
+                ).slice(0, 5);
+                this.mentionActive = this.mentionResults.length > 0;
+                this.mentionIndex = 0;
+            } else {
+                this.mentionActive = false;
+                this.mentionResults = [];
+            }
+        },
+
+        insertMention(member, inputRef) {
+            const text = inputRef.value || '';
+            const newText = text.replace(/@\S*$/, `@${member.email} `);
+            inputRef.value = newText;
+            inputRef.dispatchEvent(new Event('input', { bubbles: true }));
+            this.mentionActive = false;
+            inputRef.focus();
+        },
+
+        // #15 대시보드 통계 트렌드 (localStorage 비교)
+        getDashboardTrend(key) {
+            try {
+                const prevStr = localStorage.getItem('cs_dashboard_prev');
+                if (!prevStr || !this.dashboard) return null;
+                const prev = JSON.parse(prevStr);
+                const current = this.dashboard[key] || 0;
+                const previous = prev[key] || 0;
+                if (current > previous) return 'up';
+                if (current < previous) return 'down';
+                return 'same';
+            } catch (e) { return null; }
+        },
+
+        saveDashboardSnapshot() {
+            if (this.dashboard) {
+                localStorage.setItem('cs_dashboard_prev', JSON.stringify({
+                    total_contracts: this.dashboard.total_contracts,
+                    pending_tasks: this.dashboard.pending_tasks,
+                    in_progress_tasks: this.dashboard.in_progress_tasks,
+                    completed_tasks: this.dashboard.completed_tasks,
+                }));
+            }
+        },
+
+        // #5 타임라인 뷰 데이터
+        get timelineTasks() {
+            if (!this.dashboard?.tasks) return [];
+            return this.dashboard.tasks.filter(t => t.due_date).sort((a, b) => a.due_date.localeCompare(b.due_date));
+        },
+
+        getTimelineBarStyle(task) {
+            if (!this.dashboard?.tasks) return '';
+            const tasks = this.timelineTasks;
+            if (tasks.length === 0) return '';
+            const dates = tasks.map(t => new Date(t.due_date).getTime());
+            const minDate = Math.min(...dates);
+            const maxDate = Math.max(...dates);
+            const range = maxDate - minDate || 1;
+            const taskDate = new Date(task.due_date).getTime();
+            const left = ((taskDate - minDate) / range) * 85;
+            return `left: ${left}%; width: 12%;`;
+        },
+
+        getTimelineBarColor(task) {
+            if (task.status === '완료') return 'bg-green-400';
+            if (task.status === '진행중') return 'bg-blue-400';
+            const days = this.getDaysUntil(task.due_date);
+            if (days !== null && days < 0) return 'bg-red-400';
+            return 'bg-yellow-400';
+        },
+
+        // #10 팀원 초대 상태
+        getMemberStatus(member) {
+            if (member.joined_at) {
+                const diff = Date.now() - new Date(member.joined_at).getTime();
+                if (diff < 86400000) return { label: '신규', class: 'bg-green-100 text-green-700' };
+                return { label: '활성', class: 'bg-blue-100 text-blue-700' };
+            }
+            return { label: '대기 중', class: 'bg-yellow-100 text-yellow-700' };
         }
     };
 }
