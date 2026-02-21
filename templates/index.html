@@ -88,7 +88,7 @@
                 <!-- 로그인 상태 -->
                 <div x-show="user" class="flex items-center gap-3">
                     <!-- 팀 선택 드롭다운 -->
-                    <div x-show="teams.length > 0" class="relative" x-data="{ teamDropdown: false, selectedTeamLabel: '개인' }"
+                    <div class="relative" x-data="{ teamDropdown: false, selectedTeamLabel: '개인' }"
                          @team-label-update.window="selectedTeamLabel = $event.detail">
                         <button @click="teamDropdown = !teamDropdown" class="px-3 py-1.5 rounded-lg text-sm font-medium transition-colors border border-gray-200 flex items-center gap-1.5 hover:bg-gray-50">
                             <svg class="w-4 h-4 text-gray-500" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17 20h5v-2a3 3 0 00-5.356-1.857M17 20H7m10 0v-2c0-.656-.126-1.283-.356-1.857M7 20H2v-2a3 3 0 015.356-1.857M7 20v-2c0-.656.126-1.283.356-1.857m0 0a5.002 5.002 0 019.288 0M15 7a3 3 0 11-6 0 3 3 0 016 0z"></path></svg>
@@ -519,6 +519,11 @@
                             class="px-3 py-2 border border-gray-300 text-gray-700 rounded-lg hover:bg-gray-50 transition-colors flex items-center gap-1 text-sm">
                         <svg class="h-4 w-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10.325 4.317c.426-1.756 2.924-1.756 3.35 0a1.724 1.724 0 002.573 1.066c1.543-.94 3.31.826 2.37 2.37a1.724 1.724 0 001.066 2.573c1.756.426 1.756 2.924 0 3.35a1.724 1.724 0 00-1.066 2.573c.94 1.543-.826 3.31-2.37 2.37a1.724 1.724 0 00-2.573 1.066c-.426 1.756-2.924 1.756-3.35 0a1.724 1.724 0 00-2.573-1.066c-1.543.94-3.31-.826-2.37-2.37a1.724 1.724 0 00-1.066-2.573c-1.756-.426-1.756-2.924 0-3.35a1.724 1.724 0 001.066-2.573c-.94-1.543.826-3.31 2.37-2.37.996.608 2.296.07 2.572-1.065z"></path><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z"></path></svg>
                         <span class="hidden sm:inline">팀 관리</span>
+                    </button>
+                    <button x-show="!selectedTeamId" @click="window.dispatchEvent(new CustomEvent('show-create-team'))"
+                            class="px-3 py-2 border border-gray-300 text-gray-700 rounded-lg hover:bg-gray-50 transition-colors flex items-center gap-1 text-sm">
+                        <svg class="h-4 w-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17 20h5v-2a3 3 0 00-5.356-1.857M17 20H7m10 0v-2c0-.656-.126-1.283-.356-1.857M7 20H2v-2a3 3 0 015.356-1.857M7 20v-2c0-.656.126-1.283.356-1.857m0 0a5.002 5.002 0 019.288 0M15 7a3 3 0 11-6 0 3 3 0 016 0z"></path></svg>
+                        <span class="hidden sm:inline">팀 만들기</span>
                     </button>
                     <button @click="goToUpload()" class="px-3 py-2 sm:px-4 bg-indigo-600 text-white rounded-lg hover:bg-indigo-700 transition-colors flex items-center gap-1 sm:gap-2 text-sm sm:text-base">
                         <svg class="h-5 w-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -1755,6 +1760,12 @@
                     :class="!showDashboard && !showMyPage && !showTeamManage && !showSettings ? 'text-indigo-600' : 'text-gray-400'" aria-label="계약 등록">
                 <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4"></path></svg>
                 <span class="text-[10px]">등록</span>
+            </button>
+            <button @click="selectedTeamId ? (showTeamManage = true, showDashboard = false, showMyPage = false, showSettings = false, loadTeamMembers(selectedTeamId), _dispatchPage('team')) : window.dispatchEvent(new CustomEvent('show-create-team'))"
+                    class="flex flex-col items-center gap-0.5 px-3 py-1 transition-colors"
+                    :class="showTeamManage ? 'text-indigo-600' : 'text-gray-400'" aria-label="팀">
+                <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17 20h5v-2a3 3 0 00-5.356-1.857M17 20H7m10 0v-2c0-.656-.126-1.283-.356-1.857M7 20H2v-2a3 3 0 015.356-1.857M7 20v-2c0-.656.126-1.283.356-1.857m0 0a5.002 5.002 0 019.288 0M15 7a3 3 0 11-6 0 3 3 0 016 0z"></path></svg>
+                <span class="text-[10px]">팀</span>
             </button>
             <button @click="showMyPage = true; showDashboard = false; showTeamManage = false; showSettings = false; loadMyContracts(); _dispatchPage('mypage')"
                     class="flex flex-col items-center gap-0.5 px-3 py-1 transition-colors"
