@@ -17,7 +17,7 @@ router = APIRouter()
 @limiter.limit("10/minute")
 async def upload_and_extract_schedule(
     request: Request,
-    file: UploadFile = File(..., description="계약서 파일 (PDF, DOCX, HWP)"),
+    file: UploadFile = File(..., description="계약서 파일 (PDF, DOCX, HWP, JPG, PNG 등)"),
     db: AsyncSession = Depends(get_db),
 ):
     """
@@ -68,9 +68,16 @@ async def upload_and_extract_schedule(
 
     except ValueError as e:
         raise HTTPException(status_code=400, detail=str(e))
+    except RuntimeError as e:
+        # Gemini 서비스에서 발생한 구체적 오류 전달
+        logger.error(f"계약서 분석 실패 (RuntimeError): {e}")
+        raise HTTPException(status_code=500, detail=str(e))
     except Exception as e:
-        logger.error(f"계약서 분석 실패: {e}")
-        raise HTTPException(status_code=500, detail="계약서 분석 중 오류가 발생했습니다.")
+        logger.error(f"계약서 분석 실패: {type(e).__name__}: {e}")
+        raise HTTPException(
+            status_code=500,
+            detail=f"계약서 분석 중 오류가 발생했습니다: {type(e).__name__}"
+        )
     finally:
         # 4. 임시 파일 정리
         if saved_path:

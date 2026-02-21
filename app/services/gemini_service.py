@@ -129,7 +129,9 @@ class GeminiService:
         supplementary_text: str = "",
     ) -> str:
         """이미지 기반 추출 (스캔 PDF) - Gemini 멀티모달"""
-        logger.info(f"이미지 기반 추출: {len(images)}페이지")
+        total_size = sum(len(img) for img in images)
+        logger.info(f"이미지 기반 추출: {len(images)}페이지, "
+                    f"총 {total_size:,} bytes")
 
         parts = [
             types.Part.from_text(
@@ -163,12 +165,21 @@ class GeminiService:
                 config=types.GenerateContentConfig(
                     temperature=self.config.temperature,
                     response_mime_type=self.config.response_mime_type,
-                    http_options=types.HttpOptions(timeout=120_000),
+                    http_options=types.HttpOptions(timeout=180_000),
                 ),
             )
+            if not response.text:
+                raise RuntimeError("Gemini가 빈 응답을 반환했습니다. 이미지 품질을 확인해 주세요.")
             return response.text
         except Exception as e:
-            logger.error(f"Gemini API 이미지 추출 실패: {type(e).__name__}: {e}")
+            error_msg = str(e)
+            logger.error(f"Gemini API 이미지 추출 실패: {type(e).__name__}: {error_msg}")
+            # 이미지 크기 관련 에러인 경우 구체적 안내
+            if "too large" in error_msg.lower() or "payload" in error_msg.lower():
+                raise RuntimeError(
+                    f"스캔 이미지 크기가 너무 큽니다 ({total_size // 1024 // 1024}MB). "
+                    f"더 낮은 해상도로 스캔하거나 페이지 수를 줄여주세요."
+                )
             raise
 
     def _build_system_prompt(self) -> str:

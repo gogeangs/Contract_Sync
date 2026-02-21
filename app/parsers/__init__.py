@@ -2,6 +2,7 @@ from app.parsers.base import BaseParser, ParseResult
 from app.parsers.pdf_parser import PDFParser
 from app.parsers.docx_parser import DocxParser
 from app.parsers.hwp_parser import HWPParser
+from app.parsers.image_parser import ImageParser
 
 
 class ParserFactory:
@@ -13,6 +14,13 @@ class ParserFactory:
         ".doc": DocxParser,
         ".hwp": HWPParser,
         ".hwpx": HWPParser,
+        ".jpg": ImageParser,
+        ".jpeg": ImageParser,
+        ".png": ImageParser,
+        ".tiff": ImageParser,
+        ".tif": ImageParser,
+        ".bmp": ImageParser,
+        ".webp": ImageParser,
     }
 
     @classmethod

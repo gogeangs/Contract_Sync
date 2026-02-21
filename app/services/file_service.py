@@ -24,6 +24,13 @@ class FileService:
         ".docx": (b"PK\x03\x04",),  # ZIP 기반
         ".hwp": (b"\xd0\xcf\x11\xe0", b"PK\x03\x04"),  # OLE 또는 ZIP(HWPX)
         ".hwpx": (b"PK\x03\x04",),
+        ".jpg": (b"\xff\xd8\xff",),
+        ".jpeg": (b"\xff\xd8\xff",),
+        ".png": (b"\x89PNG",),
+        ".tiff": (b"II\x2a\x00", b"MM\x00\x2a"),  # Little/Big endian
+        ".tif": (b"II\x2a\x00", b"MM\x00\x2a"),
+        ".bmp": (b"BM",),
+        ".webp": (b"RIFF",),
     }
 
     async def save_upload_file(self, file: UploadFile) -> Path:
