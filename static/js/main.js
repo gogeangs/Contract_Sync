@@ -632,6 +632,7 @@ function scheduleExtractor() {
 
         async switchTeam(teamId) {
             this.selectedTeamId = teamId || null;
+            this.clientFilter = '';
             if (this.selectedTeamId) {
                 await this.loadTeamMembers(this.selectedTeamId);
                 await this.loadPermissions(this.selectedTeamId);

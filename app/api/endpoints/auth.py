@@ -7,6 +7,7 @@ from sqlalchemy import select
 from datetime import datetime
 import secrets
 import bcrypt
+import re
 import logging
 
 from app.config import settings
@@ -389,6 +390,7 @@ class ProfileUpdate(BaseModel):
 
 
 @router.patch("/profile")
+@limiter.limit("10/minute")
 async def update_profile(
     data: ProfileUpdate,
     request: Request,
@@ -399,6 +401,9 @@ async def update_profile(
     name = data.name.strip()
     if not name or len(name) > 50:
         raise HTTPException(status_code=400, detail="이름은 1~50자 이내로 입력해주세요.")
+    # 제어문자, RTL 오버라이드 등 위험 문자 차단
+    if re.search(r'[\x00-\x1f\x7f\u200e-\u200f\u202a-\u202e]', name):
+        raise HTTPException(status_code=400, detail="이름에 사용할 수 없는 문자가 포함되어 있습니다.")
     user.name = name
     await db.commit()
     return {"message": "이름이 변경되었습니다.", "name": user.name}

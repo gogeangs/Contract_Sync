@@ -519,8 +519,8 @@ VALID_TASK_PRIORITIES = {"긴급", "높음", "보통", "낮음"}
 
 class TaskMoveRequest(BaseModel):
     task_id: str = Field(..., max_length=20)
-    source_contract_id: int
-    target_contract_id: int
+    source_contract_id: int = Field(..., ge=1)
+    target_contract_id: int = Field(..., ge=1)
 
 
 class TaskStatusUpdate(BaseModel):
@@ -924,13 +924,6 @@ async def move_task(
 
     new_task_id = task_to_move["task_id"]
 
-    # 증빙 파일 디렉토리 이동
-    old_evidence = EVIDENCE_DIR / str(move_data.source_contract_id) / str(old_task_id)
-    if old_evidence.exists():
-        new_evidence = EVIDENCE_DIR / str(move_data.target_contract_id) / str(new_task_id)
-        new_evidence.parent.mkdir(parents=True, exist_ok=True)
-        shutil.move(str(old_evidence), str(new_evidence))
-
     # 양쪽 계약 업데이트
     target_tasks.append(task_to_move)
     source.tasks = source_tasks
@@ -949,6 +942,16 @@ async def move_task(
         await db.rollback()
         logger.error(f"업무 이동 실패: {e}")
         raise HTTPException(status_code=500, detail="업무 이동 중 오류가 발생했습니다.")
+
+    # DB 커밋 성공 후 증빙 파일 디렉토리 이동 (실패해도 DB는 유지)
+    old_evidence = EVIDENCE_DIR / str(move_data.source_contract_id) / str(old_task_id)
+    if old_evidence.exists():
+        try:
+            new_evidence = EVIDENCE_DIR / str(move_data.target_contract_id) / str(new_task_id)
+            new_evidence.parent.mkdir(parents=True, exist_ok=True)
+            shutil.move(str(old_evidence), str(new_evidence))
+        except OSError as e:
+            logger.error(f"증빙 파일 이동 실패 (DB는 정상 반영): {e}")
 
     return {
         "message": "업무가 이동되었습니다",

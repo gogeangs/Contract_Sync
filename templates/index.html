@@ -981,7 +981,7 @@
                                             </template>
                                             <div class="relative mt-1">
                                                 <!-- 멘션 자동완성 드롭다운 -->
-                                                <div x-show="mentionActive" class="mention-dropdown bg-white border border-gray-200 rounded-lg shadow-lg w-full mb-1 overflow-hidden">
+                                                <div x-show="mentionActive" @click.away="mentionActive = false" class="mention-dropdown bg-white border border-gray-200 rounded-lg shadow-lg w-full mb-1 overflow-hidden">
                                                     <template x-for="(m, mi) in mentionResults" :key="m.email">
                                                         <button @mousedown.prevent="insertMention(m, $refs.cmtInput); commentText = $refs.cmtInput.value;"
                                                                 class="w-full text-left px-3 py-1.5 text-xs hover:bg-indigo-50 flex items-center gap-2 transition-colors"
