@@ -29,8 +29,9 @@ class CommentUpdate(BaseModel):
 
 
 def _extract_mentions(content: str) -> list[str]:
-    """@email 형식의 멘션 추출"""
-    return re.findall(r'@([\w.+-]+@[\w-]+\.[\w.-]+)', content)
+    """@email 형식의 멘션 추출 (최대 10명)"""
+    mentions = re.findall(r'@([\w.+-]+@[\w-]+\.[\w.-]+)', content)
+    return mentions[:10]
 
 
 async def _notify_mentions(db: AsyncSession, mentions: list[str], comment: Comment, user: User, contract: Contract):

@@ -60,6 +60,27 @@ async def _get_accessible_contract(
     return result.scalar_one_or_none()
 
 
+async def _check_team_permission(
+    db: AsyncSession, contract: Contract, user_id: int, permission: str
+):
+    """팀 계약일 경우 사용자의 팀 권한을 확인. 개인 계약이면 통과."""
+    if not contract.team_id:
+        return  # 개인 계약은 소유자만 접근 가능 (_accessible_filter에서 이미 검증)
+    result = await db.execute(
+        select(TeamMember).where(
+            TeamMember.team_id == contract.team_id,
+            TeamMember.user_id == user_id,
+        )
+    )
+    member = result.scalar_one_or_none()
+    if not member:
+        raise HTTPException(status_code=403, detail="팀 멤버가 아닙니다.")
+    from app.database import TEAM_PERMISSIONS
+    perms = TEAM_PERMISSIONS.get(member.role, set())
+    if permission not in perms:
+        raise HTTPException(status_code=403, detail="해당 작업에 대한 권한이 없습니다.")
+
+
 class ScheduleItem(BaseModel):
     phase: str
     schedule_type: str
@@ -133,10 +154,21 @@ async def save_contract(
         user = await require_current_user(request, db)
         team_ids = await _user_team_ids(db, user.id)
 
-        # 팀 계약인 경우 멤버 확인
+        # 팀 계약인 경우 멤버 및 권한 확인
         if contract_data.team_id:
             if contract_data.team_id not in team_ids:
                 raise HTTPException(status_code=403, detail="해당 팀의 멤버가 아닙니다.")
+            # 역할 기반 권한 검증
+            from app.database import TEAM_PERMISSIONS
+            _member_result = await db.execute(
+                select(TeamMember).where(
+                    TeamMember.team_id == contract_data.team_id,
+                    TeamMember.user_id == user.id,
+                )
+            )
+            _member = _member_result.scalar_one_or_none()
+            if not _member or "contract.create" not in TEAM_PERMISSIONS.get(_member.role, set()):
+                raise HTTPException(status_code=403, detail="해당 작업에 대한 권한이 없습니다.")
 
         # 동일한 계약명이 있는지 확인 (접근 가능 범위 내)
         dup_query = select(Contract).where(
@@ -378,6 +410,8 @@ async def update_contract(
         if not contract:
             raise HTTPException(status_code=404, detail="계약을 찾을 수 없습니다")
 
+        await _check_team_permission(db, contract, user.id, "contract.update")
+
         # 계약명 중복 확인 (변경 시)
         if update_data.contract_name and update_data.contract_name != contract.contract_name:
             dup_result = await db.execute(
@@ -571,6 +605,7 @@ async def add_standalone_task(
         contract = await _get_accessible_contract(db, task_data.contract_id, user.id, team_ids)
         if not contract:
             raise HTTPException(status_code=404, detail="계약을 찾을 수 없습니다")
+        await _check_team_permission(db, contract, user.id, "task.create")
     else:
         # 미분류 계약 조회 또는 생성
         result = await db.execute(
@@ -638,6 +673,8 @@ async def add_task(
     if not contract:
         raise HTTPException(status_code=404, detail="계약을 찾을 수 없습니다")
 
+    await _check_team_permission(db, contract, user.id, "task.create")
+
     if not contract.tasks:
         contract.tasks = []
 
@@ -688,6 +725,8 @@ async def update_task_status(
     if not contract:
         raise HTTPException(status_code=404, detail="계약을 찾을 수 없습니다")
 
+    await _check_team_permission(db, contract, user.id, "task.update")
+
     if not contract.tasks:
         raise HTTPException(status_code=404, detail="업무 목록이 없습니다")
 
@@ -737,6 +776,8 @@ async def update_task_note(
     if not contract or not contract.tasks:
         raise HTTPException(status_code=404, detail="업무를 찾을 수 없습니다")
 
+    await _check_team_permission(db, contract, user.id, "task.update")
+
     updated = False
     for task in contract.tasks:
         if str(task.get("task_id")) == str(update.task_id):
@@ -773,6 +814,8 @@ async def delete_task(
     if not contract or not contract.tasks:
         raise HTTPException(status_code=404, detail="업무를 찾을 수 없습니다")
 
+    await _check_team_permission(db, contract, user.id, "task.delete")
+
     original_len = len(contract.tasks)
     deleted_name = ""
     for t in contract.tasks:
@@ -784,14 +827,13 @@ async def delete_task(
     if len(contract.tasks) == original_len:
         raise HTTPException(status_code=404, detail="해당 업무를 찾을 수 없습니다")
 
-    await _log_activity(db, user.id, contract, "delete", "task", deleted_name)
-
     # 해당 업무의 증빙 파일도 삭제
     task_evidence_dir = EVIDENCE_DIR / str(contract_id) / str(task_id)
     if task_evidence_dir.exists():
         shutil.rmtree(task_evidence_dir, ignore_errors=True)
 
     flag_modified(contract, "tasks")
+    await _log_activity(db, user.id, contract, "delete", "task", deleted_name)
     try:
         await db.commit()
     except Exception as e:
@@ -820,6 +862,8 @@ async def upload_task_attachment(
     if not contract or not contract.tasks:
         raise HTTPException(status_code=404, detail="업무를 찾을 수 없습니다")
 
+    await _check_team_permission(db, contract, user.id, "task.update")
+
     # H-6: 파일 크기를 스트리밍으로 체크 (메모리 고갈 방지)
     max_size = 20 * 1024 * 1024
     chunks = []
@@ -842,10 +886,11 @@ async def upload_task_attachment(
     with open(save_path, "wb") as f:
         f.write(contents)
 
-    # 업무에 첨부파일 정보 추가
+    # 업무에 첨부파일 정보 추가 (원본 파일명에서 경로 제거)
+    safe_original_name = Path(file.filename).name if file.filename else saved_name
     attachment = {
         "filename": saved_name,
-        "original_name": file.filename,
+        "original_name": safe_original_name,
         "uploaded_at": utc_now().strftime("%Y-%m-%d %H:%M"),
     }
 
@@ -863,7 +908,13 @@ async def upload_task_attachment(
         raise HTTPException(status_code=404, detail="해당 업무를 찾을 수 없습니다")
 
     flag_modified(contract, "tasks")
-    await db.commit()
+    try:
+        await db.commit()
+    except Exception as e:
+        await db.rollback()
+        save_path.unlink(missing_ok=True)
+        logger.error(f"증빙 파일 업로드 DB 저장 실패: {e}")
+        raise HTTPException(status_code=500, detail="파일 업로드 중 오류가 발생했습니다.")
 
     return {"message": "파일이 업로드되었습니다", "attachment": attachment}
 
@@ -889,6 +940,8 @@ async def delete_task_attachment(
     contract = await _get_accessible_contract(db, contract_id, user.id, team_ids)
     if not contract or not contract.tasks:
         raise HTTPException(status_code=404, detail="업무를 찾을 수 없습니다")
+
+    await _check_team_permission(db, contract, user.id, "task.update")
 
     found = False
     for task in contract.tasks:
@@ -966,25 +1019,34 @@ async def delete_contract(
     db: AsyncSession = Depends(get_db)
 ):
     """계약 삭제"""
-    user = await require_current_user(request, db)
-    team_ids = await _user_team_ids(db, user.id)
+    try:
+        user = await require_current_user(request, db)
+        team_ids = await _user_team_ids(db, user.id)
 
-    contract = await _get_accessible_contract(db, contract_id, user.id, team_ids)
-    if not contract:
-        raise HTTPException(status_code=404, detail="계약을 찾을 수 없습니다")
+        contract = await _get_accessible_contract(db, contract_id, user.id, team_ids)
+        if not contract:
+            raise HTTPException(status_code=404, detail="계약을 찾을 수 없습니다")
 
-    # 활동 로그 (삭제 전에 기록)
-    await _log_activity(db, user.id, contract, "delete", "contract", contract.contract_name)
+        await _check_team_permission(db, contract, user.id, "contract.delete")
 
-    # 증빙 파일 디렉토리 삭제
-    evidence_dir = EVIDENCE_DIR / str(contract_id)
-    if evidence_dir.exists():
-        shutil.rmtree(evidence_dir, ignore_errors=True)
+        # 활동 로그 (삭제 전에 기록)
+        await _log_activity(db, user.id, contract, "delete", "contract", contract.contract_name)
 
-    await db.delete(contract)
-    await db.commit()
+        # 증빙 파일 디렉토리 삭제
+        evidence_dir = EVIDENCE_DIR / str(contract_id)
+        if evidence_dir.exists():
+            shutil.rmtree(evidence_dir, ignore_errors=True)
 
-    return {"message": "계약이 삭제되었습니다"}
+        await db.delete(contract)
+        await db.commit()
+
+        return {"message": "계약이 삭제되었습니다"}
+    except HTTPException:
+        raise
+    except Exception as e:
+        await db.rollback()
+        logger.error(f"계약 삭제 실패: {e}")
+        raise HTTPException(status_code=500, detail="계약 삭제 중 오류가 발생했습니다.")
 
 
 # ============ 담당자 지정 ============
@@ -1003,6 +1065,8 @@ async def update_task_assignee(
     contract = await _get_accessible_contract(db, contract_id, user.id, team_ids)
     if not contract or not contract.tasks:
         raise HTTPException(status_code=404, detail="업무를 찾을 수 없습니다")
+
+    await _check_team_permission(db, contract, user.id, "task.assign")
 
     assignee_info = await _resolve_assignee(db, update.assignee_id, contract)
 

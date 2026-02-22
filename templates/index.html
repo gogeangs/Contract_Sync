@@ -22,6 +22,7 @@
          "
          @toast.window="show($event.detail.message, $event.detail.type)"
          class="fixed top-4 right-4 z-[100] flex flex-col gap-2 pointer-events-none"
+         role="status" aria-live="polite"
          style="max-width: 400px;">
         <template x-for="t in toasts" :key="t.id">
             <div x-show="t.visible"
@@ -281,8 +282,9 @@
         <!-- 로그인/회원가입 모달 -->
         <div x-show="showModal" x-cloak
              class="fixed inset-0 z-50 flex items-center justify-center bg-black bg-opacity-50"
-             @click.self="closeModal()">
-            <div class="bg-white rounded-xl shadow-xl w-full max-w-md mx-4 p-6" @click.stop>
+             @click.self="closeModal()" @keydown.escape.window="if(showModal) closeModal()"
+             role="dialog" aria-modal="true" aria-label="인증">
+            <div class="bg-white dark:bg-gray-800 rounded-xl shadow-xl w-full max-w-md mx-4 p-6" @click.stop>
                 <!-- 모달 헤더 -->
                 <div class="flex justify-between items-center mb-6">
                     <h2 class="text-xl font-bold text-gray-800"
@@ -348,7 +350,7 @@
                         <label class="block text-sm font-medium text-gray-700 mb-1">인증코드</label>
                         <!-- #25 6자리 입력 시 자동 제출 -->
                         <input type="text" x-model="verificationCode" required maxlength="6" aria-label="인증코드 입력"
-                               @input="if(verificationCode.length === 6) verifyCode()"
+                               @input="if(verificationCode.length === 6 && !formLoading) verifyCode()"
                                class="w-full px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 text-center text-2xl tracking-widest"
                                placeholder="000000">
                     </div>
@@ -922,16 +924,16 @@
                                                             <span class="text-xs font-medium text-gray-700" x-text="cmt.user_name"></span>
                                                             <!-- #20 상대 시간 표시 -->
                                                             <span class="text-[10px] text-gray-400" :title="cmt.created_at ? new Date(cmt.created_at).toLocaleString('ko-KR') : ''" x-text="window.formatRelativeTime(cmt.created_at)"></span>
-                                                            <button x-show="cmt.is_mine" @click="fetch(`/api/v1/contracts/${task.contract_id}/comments/${cmt.id}`, {method:'DELETE'}).then(r => { if(r.ok) taskComments = taskComments.filter(c => c.id !== cmt.id); else window.toast.error('댓글 삭제 실패'); }).catch(()=>{ window.toast.error('댓글 삭제 실패'); })"
+                                                            <button x-show="cmt.is_mine" @click="if(cmt._deleting) return; window.confirmDialog('이 댓글을 삭제하시겠습니까?', {title:'댓글 삭제', confirmText:'삭제', danger:true}).then(ok => { if(!ok) return; cmt._deleting=true; fetch(`/api/v1/contracts/${task.contract_id}/comments/${cmt.id}`, {method:'DELETE'}).then(r => { if(r.ok) taskComments = taskComments.filter(c => c.id !== cmt.id); else window.toast.error('댓글 삭제 실패'); }).catch(()=>{ window.toast.error('댓글 삭제 실패'); }).finally(()=>{ cmt._deleting=false; }); })"
                                                                     class="text-[10px] text-red-400 hover:text-red-600">삭제</button>
                                                         </div>
                                                         <p class="text-xs text-gray-600 mt-0.5 whitespace-pre-wrap" x-text="cmt.content"></p>
                                                         <!-- #27 이모지 리액션 -->
                                                         <div class="flex gap-1 mt-1">
                                                             <template x-for="emoji in ['👍','❤️','😊','🎉']" :key="emoji">
-                                                                <button @click.stop="$root.__x.$data.toggleReaction ? $root.__x.$data.toggleReaction(cmt.id, emoji) : null"
+                                                                <button @click.stop="$dispatch('toggle-reaction', { commentId: cmt.id, emoji: emoji })"
                                                                         class="text-xs px-1 py-0.5 rounded hover:bg-gray-100 transition-colors"
-                                                                        :class="{'bg-indigo-50 ring-1 ring-indigo-200': false}">
+                                                                        :class="{'bg-indigo-50 ring-1 ring-indigo-200 dark:bg-indigo-900/30 dark:ring-indigo-700': hasReaction(cmt.id, emoji)}">
                                                                     <span x-text="emoji"></span>
                                                                 </button>
                                                             </template>
@@ -1715,7 +1717,8 @@
         <!-- #12 팀 생성 다이얼로그 -->
         <div x-show="showCreateTeamDialog" x-cloak
              class="fixed inset-0 z-[110] flex items-center justify-center bg-black bg-opacity-50 confirm-backdrop"
-             @click.self="showCreateTeamDialog = false">
+             @click.self="showCreateTeamDialog = false" @keydown.escape.window="if(showCreateTeamDialog) { showCreateTeamDialog = false; newTeamName = ''; }"
+             role="dialog" aria-modal="true" aria-label="새 팀 만들기">
             <div class="bg-white rounded-xl shadow-2xl w-full max-w-sm mx-4 p-6" @click.stop>
                 <h3 class="text-lg font-semibold text-gray-800 mb-3">새 팀 만들기</h3>
                 <input x-ref="teamNameInput" type="text" x-model="newTeamName" placeholder="팀 이름을 입력하세요"
@@ -1730,8 +1733,7 @@
         </div>
 
         <!-- #29 설정 페이지 -->
-        <section x-show="isLoggedIn && showSettings" x-transition class="max-w-2xl mx-auto" x-data="{ settingsRef: null }"
-                 x-init="settingsRef = $el.closest('[x-data]').__x.$data || {}">
+        <section x-show="isLoggedIn && showSettings" x-transition class="max-w-2xl mx-auto">
             <div class="bg-white rounded-lg shadow-md p-6">
                 <div class="flex justify-between items-center mb-6">
                     <h2 class="text-xl font-bold text-gray-800 flex items-center gap-2">

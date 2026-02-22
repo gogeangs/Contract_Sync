@@ -23,6 +23,8 @@ window.confirmDialog = function(message, { title = '확인', confirmText = '확�
         backdrop.querySelector('.confirm-cancel').addEventListener('click', () => { backdrop.remove(); resolve(false); });
         backdrop.querySelector('.confirm-ok').addEventListener('click', () => { backdrop.remove(); resolve(true); });
         backdrop.addEventListener('click', (e) => { if (e.target === backdrop) { backdrop.remove(); resolve(false); } });
+        const escHandler = (e) => { if (e.key === 'Escape') { document.removeEventListener('keydown', escHandler); backdrop.remove(); resolve(false); } };
+        document.addEventListener('keydown', escHandler);
     });
 };
 
@@ -179,9 +181,11 @@ function authState() {
                     this.user = data.user;
                     this.teams = data.teams || [];
                     this.loadUnreadCount();
-                    // 30초마다 알림 카운트 갱신
+                    // 30초마다 알림 카운트 갱신 (탭 활성화 시에만)
                     if (!this._notifInterval) {
-                        this._notifInterval = setInterval(() => this.loadUnreadCount(), 30000);
+                        this._notifInterval = setInterval(() => {
+                            if (!document.hidden) this.loadUnreadCount();
+                        }, 30000);
                     }
                     window.dispatchEvent(new CustomEvent('user-logged-in'));
                 } else {
@@ -583,6 +587,12 @@ function scheduleExtractor() {
                 const saved = localStorage.getItem('cs_reactions');
                 if (saved) this._reactions = JSON.parse(saved);
             } catch (e) { /* ignore */ }
+
+            // #27 이모지 리액션 이벤트 수신
+            this.$el?.addEventListener('toggle-reaction', (e) => {
+                const { commentId, emoji } = e.detail;
+                if (commentId && emoji) this.toggleReaction(commentId, emoji);
+            });
         },
 
         async loadDashboard() {
@@ -625,6 +635,7 @@ function scheduleExtractor() {
                 }
             } catch (err) {
                 console.error('팀 멤버 로드 실패');
+                window.toast.error('팀 멤버를 불러올 수 없습니다.');
             }
         },
 
@@ -1319,6 +1330,7 @@ function scheduleExtractor() {
                 }
             } catch (err) {
                 console.error('계약 목록 로드 실패');
+                window.toast.error('계약 목록을 불러올 수 없습니다.');
             } finally {
                 this.myContractsLoading = false;
             }
@@ -1580,7 +1592,8 @@ function scheduleExtractor() {
         },
 
         async submitComment() {
-            if (!this.newComment.trim() || !this.activeCommentContract) return;
+            if (!this.newComment.trim() || !this.activeCommentContract || this._commentSubmitting) return;
+            this._commentSubmitting = true;
             try {
                 const res = await fetch(`/api/v1/contracts/${this.activeCommentContract}/comments`, {
                     method: 'POST',
@@ -1599,6 +1612,7 @@ function scheduleExtractor() {
                     window.toast.error(data.detail || '댓글 작성에 실패했습니다.');
                 }
             } catch (err) { window.toast.error('댓글 작성 실패'); }
+            finally { this._commentSubmitting = false; }
         },
 
         async deleteComment(contractId, commentId) {
@@ -1607,6 +1621,9 @@ function scheduleExtractor() {
                 const res = await fetch(`/api/v1/contracts/${contractId}/comments/${commentId}`, { method: 'DELETE' });
                 if (res.ok) {
                     this.comments = this.comments.filter(c => c.id !== commentId);
+                    window.toast.success('댓글이 삭제되었습니다.');
+                } else {
+                    window.toast.error('댓글 삭제에 실패했습니다.');
                 }
             } catch (err) { window.toast.error('댓글 삭제 실패'); }
         },
@@ -1705,6 +1722,7 @@ function scheduleExtractor() {
                         task.attachments = task.attachments.filter(a => a.filename !== filename);
                     }
                 }
+                window.toast.success('파일이 삭제되었습니다.');
             } catch (err) {
                 window.toast.error('파일 삭제 실패: ' + err.message);
             }
