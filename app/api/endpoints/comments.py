@@ -29,9 +29,13 @@ class CommentUpdate(BaseModel):
 
 
 def _extract_mentions(content: str) -> list[str]:
-    """@email 형식의 멘션 추출 (최대 10명)"""
-    mentions = re.findall(r'@([\w.+-]+@[\w-]+\.[\w.-]+)', content)
-    return mentions[:10]
+    """@[이름](email) 또는 @email 형식의 멘션에서 이메일 추출 (최대 10명)"""
+    # 새 형식: @[표시이름](email)
+    new_format = re.findall(r'@\[[^\]]+\]\(([\w.+-]+@[\w-]+\.[\w.-]+)\)', content)
+    # 기존 형식: @email (하위 호환)
+    legacy = re.findall(r'(?<!\()@([\w.+-]+@[\w-]+\.[\w.-]+)', content)
+    combined = list(dict.fromkeys(new_format + legacy))  # 중복 제거, 순서 유지
+    return combined[:10]
 
 
 async def _notify_mentions(db: AsyncSession, mentions: list[str], comment: Comment, user: User, contract: Contract):

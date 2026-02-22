@@ -301,7 +301,8 @@ async def get_dashboard_summary(
                 all_tasks.append({
                     **task,
                     "contract_id": contract.id,
-                    "contract_name": contract.contract_name
+                    "contract_name": contract.contract_name,
+                    "client": contract.client or "",
                 })
 
     # 날짜순 정렬 (due_date 기준, 날짜 없는 항목은 맨 뒤로)
@@ -352,6 +353,7 @@ async def get_dashboard_summary(
             {
                 "id": c.id,
                 "contract_name": c.contract_name,
+                "client": c.client or "",
                 "contract_start_date": c.contract_start_date,
                 "contract_end_date": c.contract_end_date,
                 "task_count": len(c.tasks) if c.tasks else 0,
@@ -360,6 +362,26 @@ async def get_dashboard_summary(
             for c in contracts
         ]
     }
+
+
+@router.get("/clients")
+async def get_clients(
+    request: Request,
+    db: AsyncSession = Depends(get_db),
+):
+    """접근 가능한 계약의 발주처(client) 목록 반환"""
+    user = await require_current_user(request, db)
+    team_ids = await _user_team_ids(db, user.id)
+    access = _accessible_filter(user.id, team_ids)
+
+    result = await db.execute(
+        select(Contract.client)
+        .where(access, Contract.client != None, Contract.client != "")  # noqa: E711
+        .distinct()
+        .order_by(Contract.client)
+    )
+    clients = [row[0] for row in result.all()]
+    return {"clients": clients}
 
 
 @router.get("/{contract_id}", response_model=ContractResponse)
@@ -493,6 +515,12 @@ class StandaloneTaskCreate(BaseModel):
 
 VALID_TASK_STATUSES = {"대기", "진행중", "완료"}
 VALID_TASK_PRIORITIES = {"긴급", "높음", "보통", "낮음"}
+
+
+class TaskMoveRequest(BaseModel):
+    task_id: str = Field(..., max_length=20)
+    source_contract_id: int
+    target_contract_id: int
 
 
 class TaskStatusUpdate(BaseModel):
@@ -842,6 +870,92 @@ async def delete_task(
         raise HTTPException(status_code=500, detail="업무 삭제 중 오류가 발생했습니다.")
 
     return {"message": "업무가 삭제되었습니다", "task_id": task_id}
+
+
+@router.patch("/tasks/move")
+@limiter.limit("20/minute")
+async def move_task(
+    move_data: TaskMoveRequest,
+    request: Request,
+    db: AsyncSession = Depends(get_db),
+):
+    """업무를 다른 계약으로 이동"""
+    user = await require_current_user(request, db)
+    _validate_task_id(move_data.task_id)
+    team_ids = await _user_team_ids(db, user.id)
+
+    if move_data.source_contract_id == move_data.target_contract_id:
+        raise HTTPException(status_code=400, detail="같은 계약으로는 이동할 수 없습니다.")
+
+    source = await _get_accessible_contract(db, move_data.source_contract_id, user.id, team_ids)
+    if not source:
+        raise HTTPException(status_code=404, detail="출발 계약을 찾을 수 없습니다.")
+
+    target = await _get_accessible_contract(db, move_data.target_contract_id, user.id, team_ids)
+    if not target:
+        raise HTTPException(status_code=404, detail="도착 계약을 찾을 수 없습니다.")
+
+    await _check_team_permission(db, source, user.id, "task.update")
+    await _check_team_permission(db, target, user.id, "task.update")
+
+    # source에서 업무 찾아 제거
+    source_tasks = list(source.tasks or [])
+    task_to_move = None
+    for i, t in enumerate(source_tasks):
+        if str(t.get("task_id")) == str(move_data.task_id):
+            task_to_move = source_tasks.pop(i)
+            break
+
+    if not task_to_move:
+        raise HTTPException(status_code=404, detail="해당 업무를 찾을 수 없습니다.")
+
+    # target에 동일 task_id 충돌 시 재생성
+    target_tasks = list(target.tasks or [])
+    existing_ids = {str(t.get("task_id", "")) for t in target_tasks}
+    old_task_id = task_to_move["task_id"]
+
+    if old_task_id in existing_ids:
+        max_num = 0
+        for tid in existing_ids:
+            cleaned = str(tid).replace("TASK-", "")
+            if cleaned.isdigit():
+                max_num = max(max_num, int(cleaned))
+        task_to_move["task_id"] = f"TASK-{max_num + 1:03d}"
+
+    new_task_id = task_to_move["task_id"]
+
+    # 증빙 파일 디렉토리 이동
+    old_evidence = EVIDENCE_DIR / str(move_data.source_contract_id) / str(old_task_id)
+    if old_evidence.exists():
+        new_evidence = EVIDENCE_DIR / str(move_data.target_contract_id) / str(new_task_id)
+        new_evidence.parent.mkdir(parents=True, exist_ok=True)
+        shutil.move(str(old_evidence), str(new_evidence))
+
+    # 양쪽 계약 업데이트
+    target_tasks.append(task_to_move)
+    source.tasks = source_tasks
+    target.tasks = target_tasks
+    flag_modified(source, "tasks")
+    flag_modified(target, "tasks")
+
+    task_name = task_to_move.get("task_name", "")
+    detail = f"{source.contract_name} → {target.contract_name}"
+    await _log_activity(db, user.id, source, "move_out", "task", task_name, detail)
+    await _log_activity(db, user.id, target, "move_in", "task", task_name, detail)
+
+    try:
+        await db.commit()
+    except Exception as e:
+        await db.rollback()
+        logger.error(f"업무 이동 실패: {e}")
+        raise HTTPException(status_code=500, detail="업무 이동 중 오류가 발생했습니다.")
+
+    return {
+        "message": "업무가 이동되었습니다",
+        "task": {**task_to_move, "contract_id": target.id, "contract_name": target.contract_name},
+        "source_contract_id": source.id,
+        "target_contract_id": target.id,
+    }
 
 
 @router.post("/{contract_id}/tasks/attachment")

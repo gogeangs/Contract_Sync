@@ -633,7 +633,7 @@
                             <select x-model="newTask.contract_id" class="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500">
                                 <option value="">미분류</option>
                                 <template x-for="c in dashboard?.contracts || []" :key="c.id">
-                                    <option :value="c.id" x-text="c.contract_name"></option>
+                                        <option :value="c.id" x-text="c.client ? c.contract_name + ' (' + c.client + ')' : c.contract_name"></option>
                                 </template>
                             </select>
                         </div>
@@ -701,7 +701,7 @@
                         <div class="flex items-center gap-3">
                             <h2 class="text-lg font-semibold text-gray-800">업무 목록</h2>
                             <!-- #5 리스트/타임라인 뷰 토글 -->
-                            <div class="flex bg-gray-100 rounded-lg p-0.5">
+                            <div class="flex bg-gray-200 rounded-lg p-0.5">
                                 <button @click="taskViewMode = 'list'" class="px-2 py-1 text-xs rounded transition-colors" :class="taskViewMode === 'list' ? 'bg-white shadow text-gray-800' : 'text-gray-500'" aria-label="리스트 보기">
                                     <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 6h16M4 10h16M4 14h16M4 18h16"></path></svg>
                                 </button>
@@ -718,6 +718,23 @@
                             <button @click="taskFilter = 'completed'" :class="taskFilter === 'completed' ? 'bg-green-500 text-white' : 'bg-gray-200 text-gray-700'" class="px-3 py-1 rounded text-sm flex-shrink-0">완료</button>
                         </div>
                     </div>
+                    <!-- 발주처 필터 -->
+                    <div x-show="uniqueClients.length > 0" class="flex items-center gap-2 mb-3">
+                        <label class="text-xs font-medium text-gray-500 flex-shrink-0">
+                            <svg class="w-3.5 h-3.5 inline mr-0.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 21V5a2 2 0 00-2-2H7a2 2 0 00-2 2v16m14 0h2m-2 0h-5m-9 0H3m2 0h5M9 7h1m-1 4h1m4-4h1m-1 4h1m-5 10v-5a1 1 0 011-1h2a1 1 0 011 1v5m-4 0h4"></path>
+                            </svg>
+                            발주처
+                        </label>
+                        <select x-model="clientFilter"
+                                class="px-3 py-1.5 text-sm border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-indigo-500">
+                            <option value="">전체</option>
+                            <template x-for="cl in uniqueClients" :key="cl">
+                                <option :value="cl" x-text="cl"></option>
+                            </template>
+                        </select>
+                        <button x-show="clientFilter" @click="clientFilter = ''" class="text-xs text-gray-400 hover:text-gray-600">초기화</button>
+                    </div>
                     <!-- #17 업무 검색 (디바운스) -->
                     <div class="relative mb-4">
                         <svg class="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -733,12 +750,12 @@
                     </div>
 
                     <!-- #2 풍부한 빈 화면 -->
-                    <div x-show="filteredTasks.length === 0 && (taskFilter !== 'all' || taskSearch.trim())" class="text-center py-10 text-gray-500">
+                    <div x-show="filteredTasks.length === 0 && (taskFilter !== 'all' || clientFilter || taskSearch.trim())" class="text-center py-10 text-gray-500">
                         <svg class="h-12 w-12 mx-auto text-gray-300 mb-3" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"></path></svg>
                         <p class="font-medium">검색 조건에 맞는 업무가 없습니다</p>
-                        <button @click="taskSearch = ''; taskFilter = 'all'" class="mt-3 px-4 py-2 text-sm text-indigo-600 border border-indigo-200 rounded-lg hover:bg-indigo-50">필터 초기화</button>
+                        <button @click="taskSearch = ''; taskFilter = 'all'; clientFilter = ''" class="mt-3 px-4 py-2 text-sm text-indigo-600 border border-indigo-200 rounded-lg hover:bg-indigo-50">필터 초기화</button>
                     </div>
-                    <div x-show="filteredTasks.length === 0 && taskFilter === 'all' && !taskSearch.trim()" class="text-center py-12 text-gray-500">
+                    <div x-show="filteredTasks.length === 0 && taskFilter === 'all' && !clientFilter && !taskSearch.trim()" class="text-center py-12 text-gray-500">
                         <svg class="h-16 w-16 mx-auto text-gray-300 mb-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2m-6 9l2 2 4-4"></path></svg>
                         <p class="font-medium text-lg">등록된 업무가 없습니다</p>
                         <p class="text-sm text-gray-400 mt-1">계약서를 업로드하거나 직접 업무를 추가해보세요.</p>
@@ -795,7 +812,7 @@
                                                         'bg-yellow-100 text-yellow-800': task.status === '대기',
                                                         'bg-blue-100 text-blue-800': task.status === '진행중',
                                                         'bg-green-100 text-green-800': task.status === '완료',
-                                                        'bg-gray-100 text-gray-800': task.status === '보류'
+                                                        'bg-gray-200 text-gray-800': task.status === '보류'
                                                     }">
                                                 <option value="대기">대기</option>
                                                 <option value="진행중">진행중</option>
@@ -807,7 +824,7 @@
                                                       'bg-red-100 text-red-800': task.priority === '긴급',
                                                       'bg-orange-100 text-orange-800': task.priority === '높음',
                                                       'bg-blue-100 text-blue-800': task.priority === '보통',
-                                                      'bg-gray-100 text-gray-800': task.priority === '낮음'
+                                                      'bg-gray-200 text-gray-800': task.priority === '낮음'
                                                   }"
                                                   x-text="task.priority"></span>
                                             <span x-show="task.note" class="text-xs text-gray-400" title="처리 내용 있음">
@@ -823,6 +840,13 @@
                                                 <span class="w-1.5 h-1.5 rounded-full" :class="getContractColor(task.contract_name).dot"></span>
                                                 <span x-text="task.contract_name"></span>
                                             </span>
+                                            <template x-if="task.client">
+                                                <span class="inline-flex items-center gap-1 text-xs">
+                                                    <span class="text-gray-300">|</span>
+                                                    <svg class="w-3 h-3 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 21V5a2 2 0 00-2-2H7a2 2 0 00-2 2v16m14 0h2m-2 0h-5m-9 0H3m2 0h5M9 7h1m-1 4h1m4-4h1m-1 4h1m-5 10v-5a1 1 0 011-1h2a1 1 0 011 1v5m-4 0h4"></path></svg>
+                                                    <span class="text-gray-500" x-text="task.client"></span>
+                                                </span>
+                                            </template>
                                             <span class="text-gray-300">|</span>
                                             <span x-text="task.phase"></span>
                                             <template x-if="task.assignee_name">
@@ -859,6 +883,19 @@
                                             <option value="">미지정</option>
                                             <template x-for="m in teamMembers" :key="m.user_id">
                                                 <option :value="m.user_id" x-text="m.name || m.email"></option>
+                                            </template>
+                                        </select>
+                                    </div>
+                                    <!-- 소속 계약 (업무 이동) -->
+                                    <div class="mb-3" x-show="(dashboard?.contracts?.length || 0) > 1">
+                                        <label class="block text-xs font-medium text-gray-500 mb-1">소속 계약</label>
+                                        <select :value="task.contract_id"
+                                                @change="if(parseInt($event.target.value) !== task.contract_id) moveTask(task.contract_id, task.task_id, $event.target.value)"
+                                                class="px-3 py-1.5 text-sm border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-indigo-500">
+                                            <template x-for="c in dashboard?.contracts || []" :key="c.id">
+                                                <option :value="c.id"
+                                                        x-text="c.client ? c.contract_name + ' (' + c.client + ')' : c.contract_name"
+                                                        :selected="c.id === task.contract_id"></option>
                                             </template>
                                         </select>
                                     </div>
@@ -928,7 +965,7 @@
                                                             <button x-show="cmt.is_mine" @click="if(cmt._deleting) return; window.confirmDialog('이 댓글을 삭제하시겠습니까?', {title:'댓글 삭제', confirmText:'삭제', danger:true}).then(ok => { if(!ok) return; cmt._deleting=true; fetch(`/api/v1/contracts/${task.contract_id}/comments/${cmt.id}`, {method:'DELETE'}).then(r => { if(r.ok) taskComments = taskComments.filter(c => c.id !== cmt.id); else window.toast.error('댓글 삭제 실패'); }).catch(()=>{ window.toast.error('댓글 삭제 실패'); }).finally(()=>{ cmt._deleting=false; }); })"
                                                                     class="text-[10px] text-red-400 hover:text-red-600">삭제</button>
                                                         </div>
-                                                        <p class="text-xs text-gray-600 mt-0.5 whitespace-pre-wrap" x-text="cmt.content"></p>
+                                                        <p class="text-xs text-gray-600 mt-0.5 whitespace-pre-wrap" x-html="window.renderComment(cmt.content)"></p>
                                                         <!-- #27 이모지 리액션 -->
                                                         <div class="flex gap-1 mt-1">
                                                             <template x-for="emoji in ['👍','❤️','😊','🎉']" :key="emoji">
@@ -942,13 +979,34 @@
                                                     </div>
                                                 </div>
                                             </template>
-                                            <div class="flex gap-2 mt-1">
-                                                <input type="text" x-model="commentText" placeholder="댓글 입력... (@이메일로 멘션)"
-                                                       @keydown.enter="if(commentText.trim() && !cmtSubmitting) { cmtSubmitting=true; fetch(`/api/v1/contracts/${task.contract_id}/comments`, {method:'POST', headers:{'Content-Type':'application/json'}, body:JSON.stringify({content:commentText, task_id:task.task_id})}).then(r=>{ if(!r.ok) throw new Error(); return r.json(); }).then(d=>{ taskComments.push(d); commentText=''; }).catch(()=>{ window.toast.error('댓글 작성 실패'); }).finally(()=>{ cmtSubmitting=false; }); }"
-                                                       class="flex-1 px-2 py-1 text-xs border border-gray-200 rounded focus:outline-none focus:ring-1 focus:ring-indigo-500">
-                                                <button @click="if(commentText.trim() && !cmtSubmitting) { cmtSubmitting=true; fetch(`/api/v1/contracts/${task.contract_id}/comments`, {method:'POST', headers:{'Content-Type':'application/json'}, body:JSON.stringify({content:commentText, task_id:task.task_id})}).then(r=>{ if(!r.ok) throw new Error(); return r.json(); }).then(d=>{ taskComments.push(d); commentText=''; }).catch(()=>{ window.toast.error('댓글 작성 실패'); }).finally(()=>{ cmtSubmitting=false; }); }"
-                                                        :disabled="cmtSubmitting"
-                                                        class="px-2 py-1 text-xs bg-indigo-600 text-white rounded hover:bg-indigo-700 disabled:opacity-50">전송</button>
+                                            <div class="relative mt-1">
+                                                <!-- 멘션 자동완성 드롭다운 -->
+                                                <div x-show="mentionActive" class="mention-dropdown bg-white border border-gray-200 rounded-lg shadow-lg w-full mb-1 overflow-hidden">
+                                                    <template x-for="(m, mi) in mentionResults" :key="m.email">
+                                                        <button @mousedown.prevent="insertMention(m, $refs.cmtInput); commentText = $refs.cmtInput.value;"
+                                                                class="w-full text-left px-3 py-1.5 text-xs hover:bg-indigo-50 flex items-center gap-2 transition-colors"
+                                                                :class="mi === mentionIndex ? 'bg-indigo-50' : ''">
+                                                            <div class="w-5 h-5 rounded-full bg-indigo-100 flex items-center justify-center text-indigo-600 text-[9px] font-bold flex-shrink-0"
+                                                                 x-text="((m.name || m.email)[0] || '?').toUpperCase()"></div>
+                                                            <div class="min-w-0">
+                                                                <span class="font-medium text-gray-800" x-text="m.name || m.email"></span>
+                                                                <span x-show="m.name" class="text-gray-400 ml-1" x-text="m.email"></span>
+                                                            </div>
+                                                        </button>
+                                                    </template>
+                                                </div>
+                                                <div class="flex gap-2">
+                                                    <input x-ref="cmtInput" type="text" x-model="commentText" placeholder="댓글 입력... (@이름으로 멘션)"
+                                                           @input="handleCommentInput(commentText, teamMembers)"
+                                                           @keydown.escape="mentionActive = false"
+                                                           @keydown.up.prevent="if(mentionActive) mentionIndex = Math.max(0, mentionIndex - 1)"
+                                                           @keydown.down.prevent="if(mentionActive) mentionIndex = Math.min(mentionResults.length - 1, mentionIndex + 1)"
+                                                           @keydown.enter="if(mentionActive && mentionResults.length > 0) { insertMention(mentionResults[mentionIndex], $refs.cmtInput); commentText = $refs.cmtInput.value; $event.preventDefault(); } else if(commentText.trim() && !cmtSubmitting) { cmtSubmitting=true; fetch(`/api/v1/contracts/${task.contract_id}/comments`, {method:'POST', headers:{'Content-Type':'application/json'}, body:JSON.stringify({content:commentText, task_id:task.task_id})}).then(r=>{ if(!r.ok) throw new Error(); return r.json(); }).then(d=>{ taskComments.push(d); commentText=''; mentionActive=false; }).catch(()=>{ window.toast.error('댓글 작성 실패'); }).finally(()=>{ cmtSubmitting=false; }); }"
+                                                           class="flex-1 px-2 py-1 text-xs border border-gray-200 rounded focus:outline-none focus:ring-1 focus:ring-indigo-500">
+                                                    <button @click="if(commentText.trim() && !cmtSubmitting) { cmtSubmitting=true; fetch(`/api/v1/contracts/${task.contract_id}/comments`, {method:'POST', headers:{'Content-Type':'application/json'}, body:JSON.stringify({content:commentText, task_id:task.task_id})}).then(r=>{ if(!r.ok) throw new Error(); return r.json(); }).then(d=>{ taskComments.push(d); commentText=''; mentionActive=false; }).catch(()=>{ window.toast.error('댓글 작성 실패'); }).finally(()=>{ cmtSubmitting=false; }); }"
+                                                            :disabled="cmtSubmitting"
+                                                            class="px-2 py-1 text-xs bg-indigo-600 text-white rounded hover:bg-indigo-700 disabled:opacity-50">전송</button>
+                                                </div>
                                             </div>
                                         </div>
                                     </div>
@@ -1014,6 +1072,7 @@
                                     <span class="w-2.5 h-2.5 rounded-full flex-shrink-0" :class="getContractColor(contract.contract_name).dot"></span>
                                     <h3 class="font-medium text-gray-800 truncate" x-text="contract.contract_name"></h3>
                                 </div>
+                                <p x-show="contract.client" class="text-xs text-gray-400 truncate" x-text="contract.client"></p>
                                 <p class="text-sm text-gray-500 mt-1">
                                     <span x-text="(contract.contract_start_date || '미정') + ' ~ ' + (contract.contract_end_date || '미정')"></span>
                                 </p>
@@ -1456,7 +1515,7 @@
                                                     'bg-yellow-100 text-yellow-800': task.status === '대기',
                                                     'bg-blue-100 text-blue-800': task.status === '진행중',
                                                     'bg-green-100 text-green-800': task.status === '완료',
-                                                    'bg-gray-100 text-gray-800': task.status === '보류'
+                                                    'bg-gray-200 text-gray-800': task.status === '보류'
                                                 }">
                                             <option value="대기">대기</option>
                                             <option value="진행중">진행중</option>
@@ -1745,8 +1804,37 @@
                         <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"></path></svg>
                     </button>
                 </div>
+                <!-- 프로필 -->
+                <div class="mb-6" x-data="{ editingName: false, profileName: '' }">
+                    <h3 class="text-sm font-semibold text-gray-700 mb-3">프로필</h3>
+                    <div class="space-y-3">
+                        <div>
+                            <label class="block text-xs text-gray-500 mb-1">이메일</label>
+                            <p class="text-sm text-gray-800" x-text="user?.email || '-'"></p>
+                        </div>
+                        <div>
+                            <label class="block text-xs text-gray-500 mb-1">표시 이름</label>
+                            <div x-show="!editingName" class="flex items-center gap-2">
+                                <p class="text-sm text-gray-800" x-text="user?.name || '(미설정)'"></p>
+                                <button @click="profileName = user?.name || ''; editingName = true"
+                                        class="text-xs text-indigo-600 hover:text-indigo-800">변경</button>
+                            </div>
+                            <div x-show="editingName" class="flex items-center gap-2">
+                                <input type="text" x-model="profileName" maxlength="50" placeholder="이름을 입력하세요"
+                                       @keydown.enter="updateProfileName(profileName); editingName = false"
+                                       @keydown.escape="editingName = false"
+                                       class="px-3 py-1.5 text-sm border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-indigo-500 w-48">
+                                <button @click="updateProfileName(profileName); editingName = false"
+                                        class="px-3 py-1.5 text-xs bg-indigo-600 text-white rounded-lg hover:bg-indigo-700">저장</button>
+                                <button @click="editingName = false"
+                                        class="px-3 py-1.5 text-xs text-gray-500 hover:text-gray-700">취소</button>
+                            </div>
+                            <p class="text-[10px] text-gray-400 mt-1">멘션(@) 태그 시 이 이름이 표시됩니다.</p>
+                        </div>
+                    </div>
+                </div>
+                <hr class="mb-6">
                 <p class="text-sm text-gray-500 mb-4">알림 및 테마 설정은 이 브라우저에 저장됩니다.</p>
-                <div class="text-sm text-gray-500 italic">설정은 localStorage에 저장됩니다.</div>
             </div>
         </section>
 

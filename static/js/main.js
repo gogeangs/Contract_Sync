@@ -59,6 +59,22 @@ window.getFileIcon = function(filename) {
     return map[ext] || '📄';
 };
 
+// 댓글 멘션 렌더링: @[이름](email) → 하이라이트된 @이름
+window.renderComment = function(content) {
+    if (!content) return '';
+    // XSS 방지: HTML 이스케이프
+    const escaped = content.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
+    // @[이름](email) → 하이라이트
+    return escaped.replace(
+        /@\[([^\]]+)\]\([^)]+\)/g,
+        '<span class="text-indigo-600 font-medium">@$1</span>'
+    ).replace(
+        // 기존 @email 형식도 하이라이트
+        /(?<!\()@([\w.+-]+@[\w-]+\.[\w.-]+)/g,
+        '<span class="text-indigo-600 font-medium">@$1</span>'
+    );
+};
+
 // Toast 알림 시스템
 function toastManager() {
     return {
@@ -523,6 +539,7 @@ function scheduleExtractor() {
         dashboard: null,
         dashboardLoading: false,
         taskFilter: 'all', // all, pending, in_progress, completed
+        clientFilter: '',
         taskSearch: '',
 
         // 팀 상태
@@ -768,6 +785,43 @@ function scheduleExtractor() {
             }
         },
 
+        async moveTask(contractId, taskId, targetContractId) {
+            if (!contractId || !taskId || !targetContractId) return;
+            targetContractId = parseInt(targetContractId);
+            if (contractId === targetContractId) return;
+
+            const targetContract = this.dashboard?.contracts?.find(c => c.id === targetContractId);
+            const targetName = targetContract?.contract_name || '선택한 계약';
+
+            const confirmed = await window.confirmDialog(
+                `이 업무를 '${targetName}'(으)로 이동하시겠습니까?`,
+                { title: '업무 이동', confirmText: '이동' }
+            );
+            if (!confirmed) return;
+
+            try {
+                const response = await fetch('/api/v1/contracts/tasks/move', {
+                    method: 'PATCH',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({
+                        task_id: String(taskId),
+                        source_contract_id: contractId,
+                        target_contract_id: targetContractId
+                    })
+                });
+
+                if (!response.ok) {
+                    const data = await response.json();
+                    throw new Error(data.detail || '업무 이동 실패');
+                }
+
+                await this.loadDashboard();
+                window.toast.success('업무가 이동되었습니다.');
+            } catch (err) {
+                window.toast.error('업무 이동 실패: ' + err.message);
+            }
+        },
+
         get filteredTasks() {
             if (!this.dashboard?.tasks) return [];
             let tasks = this.dashboard.tasks;
@@ -782,17 +836,32 @@ function scheduleExtractor() {
                 tasks = tasks.filter(t => t.status === statusMap[this.taskFilter]);
             }
 
+            // 발주처 필터
+            if (this.clientFilter) {
+                tasks = tasks.filter(t => (t.client || '') === this.clientFilter);
+            }
+
             // 검색 필터
             if (this.taskSearch.trim()) {
                 const q = this.taskSearch.trim().toLowerCase();
                 tasks = tasks.filter(t =>
                     (t.task_name || '').toLowerCase().includes(q) ||
                     (t.contract_name || '').toLowerCase().includes(q) ||
-                    (t.phase || '').toLowerCase().includes(q)
+                    (t.phase || '').toLowerCase().includes(q) ||
+                    (t.client || '').toLowerCase().includes(q)
                 );
             }
 
             return tasks;
+        },
+
+        get uniqueClients() {
+            if (!this.dashboard?.tasks) return [];
+            const clients = new Set();
+            this.dashboard.tasks.forEach(t => {
+                if (t.client) clients.add(t.client);
+            });
+            return [...clients].sort();
         },
 
         // D-day 계산 헬퍼
@@ -1661,6 +1730,8 @@ function scheduleExtractor() {
                 'invite': '멤버 초대',
                 'remove': '멤버 제거',
                 'change_role': '역할 변경',
+                'move_out': '업무 이동(출발)',
+                'move_in': '업무 이동(도착)',
             };
             return labels[action] || action;
         },
@@ -1676,6 +1747,8 @@ function scheduleExtractor() {
                 'invite': 'text-indigo-600',
                 'remove': 'text-red-500',
                 'change_role': 'text-yellow-600',
+                'move_out': 'text-amber-600',
+                'move_in': 'text-teal-600',
             };
             return colors[action] || 'text-gray-600';
         },
@@ -1755,7 +1828,8 @@ function scheduleExtractor() {
             if (match && members.length > 0) {
                 this.mentionQuery = match[1].toLowerCase();
                 this.mentionResults = members.filter(m =>
-                    (m.name || m.email || '').toLowerCase().includes(this.mentionQuery)
+                    (m.name || '').toLowerCase().includes(this.mentionQuery) ||
+                    (m.email || '').toLowerCase().includes(this.mentionQuery)
                 ).slice(0, 5);
                 this.mentionActive = this.mentionResults.length > 0;
                 this.mentionIndex = 0;
@@ -1767,11 +1841,34 @@ function scheduleExtractor() {
 
         insertMention(member, inputRef) {
             const text = inputRef.value || '';
-            const newText = text.replace(/@\S*$/, `@${member.email} `);
+            const displayName = member.name || member.email;
+            const newText = text.replace(/@\S*$/, `@[${displayName}](${member.email}) `);
             inputRef.value = newText;
             inputRef.dispatchEvent(new Event('input', { bubbles: true }));
             this.mentionActive = false;
             inputRef.focus();
+        },
+
+        // 프로필 이름 수정
+        async updateProfileName(newName) {
+            if (!newName || !newName.trim()) return;
+            try {
+                const res = await fetch('/api/v1/auth/profile', {
+                    method: 'PATCH',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ name: newName.trim() })
+                });
+                if (res.ok) {
+                    const data = await res.json();
+                    this.user.name = data.name;
+                    window.toast.success('이름이 변경되었습니다.');
+                } else {
+                    const data = await res.json().catch(() => ({}));
+                    window.toast.error(data.detail || '이름 변경 실패');
+                }
+            } catch (err) {
+                window.toast.error('이름 변경 실패');
+            }
         },
 
         // #15 대시보드 통계 트렌드 (localStorage 비교)

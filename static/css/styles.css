@@ -211,6 +211,9 @@ html.dark .hover\:bg-gray-50:hover {
 html.dark .hover\:bg-gray-100:hover {
     background-color: #374151 !important;
 }
+html.dark .hover\:bg-gray-300:hover {
+    background-color: #6b7280 !important;
+}
 html.dark .divide-gray-200 > :not(:last-child) {
     border-color: #374151 !important;
 }
@@ -251,6 +254,21 @@ html.dark .bg-fuchsia-100 { background-color: rgba(217, 70, 239, 0.2) !important
 html.dark .bg-lime-100 { background-color: rgba(132, 204, 22, 0.2) !important; }
 html.dark .bg-orange-100 { background-color: rgba(249, 115, 22, 0.2) !important; }
 html.dark .bg-teal-100 { background-color: rgba(20, 184, 166, 0.2) !important; }
+
+/* 다크 모드: 버튼/뱃지 배경 */
+html.dark .bg-gray-200 { background-color: #4b5563 !important; }
+html.dark .bg-yellow-100 { background-color: rgba(245, 158, 11, 0.2) !important; }
+html.dark .bg-blue-100 { background-color: rgba(59, 130, 246, 0.2) !important; }
+html.dark .bg-red-100 { background-color: rgba(239, 68, 68, 0.2) !important; }
+html.dark .bg-green-100 { background-color: rgba(34, 197, 94, 0.2) !important; }
+html.dark .bg-indigo-50 { background-color: rgba(99, 102, 241, 0.15) !important; }
+
+/* 다크 모드: 뱃지/상태 텍스트 */
+html.dark .text-yellow-800 { color: #fbbf24 !important; }
+html.dark .text-blue-800 { color: #60a5fa !important; }
+html.dark .text-red-800 { color: #f87171 !important; }
+html.dark .text-orange-800 { color: #fb923c !important; }
+html.dark .text-green-800 { color: #4ade80 !important; }
 
 /* 다크 모드: 신규 UI 요소들 */
 html.dark .skeleton {

@@ -384,6 +384,26 @@ async def get_me(request: Request, db: AsyncSession = Depends(get_db)):
     }
 
 
+class ProfileUpdate(BaseModel):
+    name: str
+
+
+@router.patch("/profile")
+async def update_profile(
+    data: ProfileUpdate,
+    request: Request,
+    db: AsyncSession = Depends(get_db),
+):
+    """사용자 이름(표시명) 수정"""
+    user = await require_current_user(request, db)
+    name = data.name.strip()
+    if not name or len(name) > 50:
+        raise HTTPException(status_code=400, detail="이름은 1~50자 이내로 입력해주세요.")
+    user.name = name
+    await db.commit()
+    return {"message": "이름이 변경되었습니다.", "name": user.name}
+
+
 @router.post("/logout")
 async def logout(request: Request, db: AsyncSession = Depends(get_db)):
     """로그아웃"""
