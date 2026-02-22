@@ -612,9 +612,13 @@ async def add_standalone_task(
     contract.tasks.append(new_task)
     flag_modified(contract, "tasks")
 
-    await _log_activity(db, user.id, contract, "create", "task", task_data.task_name)
-
-    await db.commit()
+    try:
+        await _log_activity(db, user.id, contract, "create", "task", task_data.task_name)
+        await db.commit()
+    except Exception as e:
+        await db.rollback()
+        logger.error(f"독립 업무 추가 실패: {e}")
+        raise HTTPException(status_code=500, detail="업무 추가 중 오류가 발생했습니다.")
 
     return {"message": "업무가 추가되었습니다", "task": {**new_task, "contract_id": contract.id, "contract_name": contract.contract_name}}
 
@@ -658,9 +662,13 @@ async def add_task(
     contract.tasks.append(new_task)
     flag_modified(contract, "tasks")
 
-    await _log_activity(db, user.id, contract, "create", "task", task_data.task_name)
-
-    await db.commit()
+    try:
+        await _log_activity(db, user.id, contract, "create", "task", task_data.task_name)
+        await db.commit()
+    except Exception as e:
+        await db.rollback()
+        logger.error(f"업무 추가 실패: {e}")
+        raise HTTPException(status_code=500, detail="업무 추가 중 오류가 발생했습니다.")
 
     return {"message": "업무가 추가되었습니다", "task": {**new_task, "contract_id": contract_id, "contract_name": contract.contract_name}}
 
@@ -699,12 +707,17 @@ async def update_task_status(
 
     flag_modified(contract, "tasks")
 
-    await _log_activity(db, user.id, contract, "status_change", "task", task_name, f"{old_status} -> {update.status}")
-    await _notify_team_members(db, contract, user.id, "status_change",
-        f"{user.name or user.email}님이 '{task_name}' 상태를 변경했습니다",
-        f"{old_status} -> {update.status}")
+    try:
+        await _log_activity(db, user.id, contract, "status_change", "task", task_name, f"{old_status} -> {update.status}")
+        await _notify_team_members(db, contract, user.id, "status_change",
+            f"{user.name or user.email}님이 '{task_name}' 상태를 변경했습니다",
+            f"{old_status} -> {update.status}")
 
-    await db.commit()
+        await db.commit()
+    except Exception as e:
+        await db.rollback()
+        logger.error(f"업무 상태 변경 실패: {e}")
+        raise HTTPException(status_code=500, detail="업무 상태 변경 중 오류가 발생했습니다.")
 
     return {"message": "상태가 변경되었습니다", "task_id": update.task_id, "status": update.status}
 
@@ -735,7 +748,12 @@ async def update_task_note(
         raise HTTPException(status_code=404, detail="해당 업무를 찾을 수 없습니다")
 
     flag_modified(contract, "tasks")
-    await db.commit()
+    try:
+        await db.commit()
+    except Exception as e:
+        await db.rollback()
+        logger.error(f"처리 내용 저장 실패: {e}")
+        raise HTTPException(status_code=500, detail="처리 내용 저장 중 오류가 발생했습니다.")
 
     return {"message": "처리 내용이 저장되었습니다"}
 
@@ -774,7 +792,12 @@ async def delete_task(
         shutil.rmtree(task_evidence_dir, ignore_errors=True)
 
     flag_modified(contract, "tasks")
-    await db.commit()
+    try:
+        await db.commit()
+    except Exception as e:
+        await db.rollback()
+        logger.error(f"업무 삭제 실패: {e}")
+        raise HTTPException(status_code=500, detail="업무 삭제 중 오류가 발생했습니다.")
 
     return {"message": "업무가 삭제되었습니다", "task_id": task_id}
 
@@ -917,16 +940,21 @@ async def get_attachment(
     if not file_path.exists():
         raise HTTPException(status_code=404, detail="파일을 찾을 수 없습니다")
 
-    # 원본 파일명 조회
+    # 업무 내 첨부 파일 존재 확인 및 원본 파일명 조회
     original_name = filename
+    file_found_in_task = False
     if contract.tasks:
         for task in contract.tasks:
             if str(task.get("task_id")) == str(task_id):
                 for att in task.get("attachments", []):
                     if att.get("filename") == filename:
                         original_name = att.get("original_name", filename)
+                        file_found_in_task = True
                         break
                 break
+
+    if not file_found_in_task:
+        raise HTTPException(status_code=404, detail="첨부 파일을 찾을 수 없습니다")
 
     return FileResponse(file_path, filename=original_name)
 
@@ -1006,6 +1034,11 @@ async def update_task_assignee(
             link=json_mod.dumps({"contract_id": contract.id, "task_id": update.task_id}),
         ))
 
-    await db.commit()
+    try:
+        await db.commit()
+    except Exception as e:
+        await db.rollback()
+        logger.error(f"담당자 변경 실패: {e}")
+        raise HTTPException(status_code=500, detail="담당자 변경 중 오류가 발생했습니다.")
 
     return {"message": "담당자가 변경되었습니다", "task_id": update.task_id, **assignee_info}
