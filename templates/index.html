@@ -7,6 +7,7 @@
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <script src="https://cdn.tailwindcss.com"></script>
+    <script>tailwind.config = { darkMode: 'class' }</script>
     <script src="/static/js/main.js"></script>
     <script defer src="https://cdn.jsdelivr.net/npm/alpinejs@3.x.x/dist/cdn.min.js"></script>
     <link rel="stylesheet" href="/static/css/styles.css">
@@ -768,7 +769,7 @@
 
                     <div x-show="(taskViewMode === 'list' || !taskViewMode) && filteredTasks.length > 0" class="space-y-3">
                         <template x-for="(task, taskIdx) in filteredTasks" :key="task.task_id + '-' + task.contract_id">
-                            <div class="border rounded-lg p-4 hover:shadow-md transition-shadow"
+                            <div class="border rounded-lg p-4 shadow-sm hover:shadow-md transition-shadow"
                                  :class="[getTaskBorderClass(task), _dragIdx === taskIdx ? 'opacity-50 scale-[0.98]' : '']"
                                  :draggable="canDragTasks"
                                  @dragstart="handleTaskDragStart(taskIdx)"

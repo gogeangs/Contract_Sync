@@ -557,7 +557,6 @@ function scheduleExtractor() {
         uploadProgress: 0,
 
         // #30 축하 애니메이션
-        showCelebration: false,
 
         // #5 타임라인/간트 뷰 토글
         taskViewMode: 'list', // 'list' or 'timeline'
@@ -830,7 +829,6 @@ function scheduleExtractor() {
             if (task.status === '완료') return 'border-gray-200';
             const days = this.getDaysUntil(task.due_date);
             if (days === null) return 'border-gray-200';
-            if (days < 0) return 'border-red-400 border-l-4';
             if (days <= 3) return 'border-red-300 border-l-4';
             if (days <= 7) return 'border-orange-300 border-l-4';
             return 'border-gray-200';
@@ -1274,7 +1272,10 @@ function scheduleExtractor() {
 
                 if (response.ok) {
                     window.toast.success('계약이 저장되었습니다.');
-                    this.triggerCelebration();
+                    // 대시보드로 이동
+                    setTimeout(() => {
+                        window.dispatchEvent(new CustomEvent('toggle-dashboard'));
+                    }, 500);
                 } else if (response.status === 401) {
                     window.toast.warning('로그인이 필요합니다.');
                 } else if (response.status === 409) {
@@ -1726,26 +1727,6 @@ function scheduleExtractor() {
             } catch (err) {
                 window.toast.error('파일 삭제 실패: ' + err.message);
             }
-        },
-
-        // #30 축하 confetti 애니메이션
-        triggerCelebration() {
-            this.showCelebration = true;
-            const colors = ['#6366f1', '#ec4899', '#f59e0b', '#10b981', '#3b82f6', '#8b5cf6'];
-            const container = document.createElement('div');
-            container.id = 'confetti-container';
-            document.body.appendChild(container);
-            for (let i = 0; i < 30; i++) {
-                const piece = document.createElement('div');
-                piece.className = 'confetti-piece';
-                piece.style.left = Math.random() * 100 + '%';
-                piece.style.backgroundColor = colors[Math.floor(Math.random() * colors.length)];
-                piece.style.animationDelay = Math.random() * 0.8 + 's';
-                piece.style.animationDuration = (1.5 + Math.random()) + 's';
-                piece.style.borderRadius = Math.random() > 0.5 ? '50%' : '0';
-                container.appendChild(piece);
-            }
-            setTimeout(() => { container.remove(); this.showCelebration = false; }, 3000);
         },
 
         // #27 이모지 리액션

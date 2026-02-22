@@ -50,20 +50,6 @@ body {
     animation: slideInDown 0.3s ease-out;
 }
 
-/* 축하 confetti (#30) */
-@keyframes confetti-fall {
-    0% { transform: translateY(-100%) rotate(0deg); opacity: 1; }
-    100% { transform: translateY(100vh) rotate(720deg); opacity: 0; }
-}
-.confetti-piece {
-    position: fixed;
-    top: -10px;
-    width: 10px;
-    height: 10px;
-    z-index: 200;
-    animation: confetti-fall 2.5s ease-in forwards;
-}
-
 /* 업로드 진행률 바 (#19) */
 .progress-bar {
     transition: width 0.3s ease;
