@@ -588,8 +588,7 @@ function scheduleExtractor() {
         async loadDashboard() {
             this.dashboardLoading = true;
             try {
-                const params = this.selectedTeamId ? `?team_id=${this.selectedTeamId}` : '';
-                const response = await fetch(`/api/v1/contracts/dashboard/summary${params}`);
+                const response = await fetch('/api/v1/contracts/dashboard/summary');
                 if (response.ok) {
                     this.dashboard = await response.json();
                     this.saveDashboardSnapshot();
@@ -611,9 +610,6 @@ function scheduleExtractor() {
             } else {
                 this.teamMembers = [];
                 this.teamPermissions = [];
-            }
-            if (this.showDashboard) {
-                await this.loadDashboard();
             }
         },
 
@@ -1240,7 +1236,6 @@ function scheduleExtractor() {
                 const cs = this.result.contract_schedule;
                 const contractData = {
                     contract_name: cs?.contract_name || '제목 없음',
-                    team_id: this.selectedTeamId || null,
                     file_name: this.file?.name || null,
                     company_name: cs?.company_name || null,
                     contractor: cs?.contractor || null,
@@ -1315,8 +1310,7 @@ function scheduleExtractor() {
             this.contractFilterYear = '';
             this.contractFilterMonth = '';
             try {
-                const params = this.selectedTeamId ? `?team_id=${this.selectedTeamId}` : '';
-                const response = await fetch(`/api/v1/contracts/list${params}`);
+                const response = await fetch('/api/v1/contracts/list');
                 if (response.ok) {
                     const data = await response.json();
                     this.myContracts = data.items || data;
@@ -1612,7 +1606,6 @@ function scheduleExtractor() {
             try {
                 let params = '';
                 if (contractId) params = `?contract_id=${contractId}`;
-                else if (this.selectedTeamId) params = `?team_id=${this.selectedTeamId}`;
                 const res = await fetch(`/api/v1/activity${params}`);
                 if (res.ok) {
                     const data = await res.json();
