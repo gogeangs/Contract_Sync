@@ -130,9 +130,9 @@ async def send_verification_code(request: Request, data: SendCodeRequest, db: As
     await db.commit()
 
     # 이메일 발송
-    sent = await send_verification_email(data.email, code)
+    sent, smtp_error = await send_verification_email(data.email, code)
     if not sent:
-        raise HTTPException(status_code=500, detail="이메일 발송에 실패했습니다.")
+        raise HTTPException(status_code=500, detail=f"이메일 발송에 실패했습니다. ({smtp_error})")
 
     # SMTP 미설정시 (개발 모드) 인증코드를 응답에 포함
     response = {"message": "인증코드가 발송되었습니다.", "email": data.email}

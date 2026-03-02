@@ -77,28 +77,28 @@ async def _send_smtp_message(message: MIMEMultipart, recipients: list[str], labe
 
         await smtp.quit()
         logger.info(f"이메일 발송 성공: {label}")
-        return True
+        return True, ""
 
     except Exception as e:
         err_msg = f"{type(e).__name__}: {e}"
         print(f"[EMAIL] 발송 실패: {err_msg}", flush=True)
         logger.error(f"이메일 발송 실패 [{label}]: {err_msg}")
-        return False
+        return False, err_msg
 
 
-async def send_verification_email(to_email: str, code: str) -> bool:
-    """이메일로 인증코드 발송"""
+async def send_verification_email(to_email: str, code: str) -> tuple[bool, str]:
+    """이메일로 인증코드 발송. (성공여부, 에러메시지) 반환"""
 
     # 테스트용 도메인은 실제 발송하지 않음
     domain = to_email.split("@")[-1].lower() if "@" in to_email else ""
     if domain in _TEST_DOMAINS:
         logger.debug(f"테스트 도메인 발송 스킵: {to_email}")
-        return True
+        return True, ""
 
     # SMTP 설정이 없으면 개발 모드
     if not settings.smtp_host or not settings.smtp_username:
         logger.info(f"[DEV] SMTP 미설정 - 인증코드 발송 시뮬레이션: {to_email}")
-        return True
+        return True, ""
 
     print(f"[EMAIL] 인증코드 발송 요청: {to_email}", flush=True)
 
