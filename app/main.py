@@ -111,7 +111,7 @@ logger.info("Session middleware configured")
 
 # H-1: CORS 설정 - 프로덕션에서는 와일드카드 차단
 if settings.allowed_origins:
-    allowed_origins = settings.allowed_origins
+    allowed_origins = [o.strip() for o in settings.allowed_origins.split(",") if o.strip()]
 elif settings.debug:
     allowed_origins = ["*"]
     logger.warning("개발 모드: CORS 모든 도메인 허용. 프로덕션에서는 ALLOWED_ORIGINS를 설정하세요.")

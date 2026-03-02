@@ -23,8 +23,8 @@ class Settings(BaseSettings):
     upload_dir: str = "uploads"
     data_dir: str = ""  # Railway Volume 마운트 경로 (예: /data). 비어있으면 프로젝트 루트 사용
 
-    # CORS 허용 도메인 (쉼표 구분, 비어있으면 모든 도메인 허용)
-    allowed_origins: list[str] = []
+    # CORS 허용 도메인 (쉼표 구분 문자열, 비어있으면 debug 시 전체 허용)
+    allowed_origins: str = ""
 
     # Google OAuth
     google_client_id: str = ""
