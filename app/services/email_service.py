@@ -72,6 +72,7 @@ async def send_verification_email(to_email: str, code: str) -> bool:
         message.attach(MIMEText(html_content, "html"))
 
         # M-13: SMTP 타임아웃 설정 (30초)
+        logger.info(f"SMTP 연결 시도: {settings.smtp_host}:{settings.smtp_port} (start_tls={settings.smtp_use_tls})")
         async with SMTP(
             hostname=settings.smtp_host,
             port=settings.smtp_port,
@@ -82,10 +83,10 @@ async def send_verification_email(to_email: str, code: str) -> bool:
         ) as smtp:
             await smtp.send_message(message)
 
+        logger.info(f"인증코드 이메일 발송 성공: {to_email}")
         return True
     except Exception as e:
-        # H-2: logger 사용 (print 대신)
-        logger.error(f"이메일 발송 실패: {e}")
+        logger.error(f"이메일 발송 실패: {type(e).__name__}: {e}")
         return False
 
 
