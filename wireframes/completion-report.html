@@ -1,0 +1,953 @@
+<!DOCTYPE html>
+<html lang="ko" class="">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Contract Sync v2 - 완료 보고 작성</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <script defer src="https://cdn.jsdelivr.net/npm/alpinejs@3.x.x/dist/cdn.min.js"></script>
+  <script>
+    tailwind.config = { darkMode: 'class' }
+  </script>
+  <style>
+    [x-cloak] { display: none !important; }
+    @keyframes shimmer { 0% { background-position: -200% 0; } 100% { background-position: 200% 0; } }
+    .skeleton { background: linear-gradient(90deg, #e5e7eb 25%, #f3f4f6 50%, #e5e7eb 75%); background-size: 200% 100%; animation: shimmer 1.5s infinite; border-radius: 4px; }
+    html.dark .skeleton { background: linear-gradient(90deg, #374151 25%, #4b5563 50%, #374151 75%); background-size: 200% 100%; }
+    @keyframes sparkle { 0%, 100% { opacity: 1; transform: scale(1); } 50% { opacity: 0.6; transform: scale(1.1); } }
+    .sparkle-animate { animation: sparkle 1.5s ease-in-out infinite; }
+    @keyframes pulse-dot { 0%, 100% { opacity: 0.4; } 50% { opacity: 1; } }
+    .ai-loading-dot { animation: pulse-dot 1.2s ease-in-out infinite; }
+    .ai-loading-dot:nth-child(2) { animation-delay: 0.2s; }
+    .ai-loading-dot:nth-child(3) { animation-delay: 0.4s; }
+  </style>
+</head>
+<body class="bg-gray-50 dark:bg-gray-900 text-gray-800 dark:text-gray-100 transition-colors duration-300">
+
+<div x-data="appLayout()" class="flex h-screen overflow-hidden">
+
+  <!-- 좌측 사이드바 (데스크톱) -->
+  <aside class="hidden lg:flex lg:flex-col w-64 bg-white dark:bg-gray-800 border-r border-gray-200 dark:border-gray-700 fixed inset-y-0 left-0 z-30">
+    <!-- 로고 -->
+    <div class="flex items-center gap-3 px-6 py-5 border-b border-gray-200 dark:border-gray-700">
+      <div class="w-8 h-8 bg-indigo-600 rounded-lg flex items-center justify-center">
+        <svg class="w-5 h-5 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"/></svg>
+      </div>
+      <span class="text-lg font-bold text-gray-800 dark:text-white">Contract Sync</span>
+    </div>
+
+    <!-- 팀 선택 -->
+    <div class="px-4 py-3">
+      <div class="relative" x-data="{ open: false }">
+        <button @click="open = !open" class="w-full flex items-center justify-between px-3 py-2 text-sm bg-gray-50 dark:bg-gray-700 rounded-lg hover:bg-gray-100 dark:hover:bg-gray-600 transition-colors">
+          <div class="flex items-center gap-2">
+            <svg class="w-4 h-4 text-gray-500 dark:text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17 20h5v-2a3 3 0 00-5.356-1.857M17 20H7m10 0v-2c0-.656-.126-1.283-.356-1.857M7 20H2v-2a3 3 0 015.356-1.857M7 20v-2c0-.656.126-1.283.356-1.857m0 0a5.002 5.002 0 019.288 0M15 7a3 3 0 11-6 0 3 3 0 016 0z"/></svg>
+            <span class="text-gray-700 dark:text-gray-200">디자인팀</span>
+          </div>
+          <svg class="w-4 h-4 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7"/></svg>
+        </button>
+        <div x-show="open" @click.away="open = false" x-cloak class="absolute top-full left-0 right-0 mt-1 bg-white dark:bg-gray-700 rounded-lg shadow-lg border border-gray-200 dark:border-gray-600 z-50">
+          <button class="w-full text-left px-4 py-2 text-sm hover:bg-gray-50 dark:hover:bg-gray-600 rounded-t-lg text-gray-700 dark:text-gray-200">디자인팀</button>
+          <button class="w-full text-left px-4 py-2 text-sm hover:bg-gray-50 dark:hover:bg-gray-600 text-gray-700 dark:text-gray-200">개발팀</button>
+          <button class="w-full text-left px-4 py-2 text-sm hover:bg-gray-50 dark:hover:bg-gray-600 rounded-b-lg text-gray-700 dark:text-gray-200">마케팅팀</button>
+        </div>
+      </div>
+    </div>
+
+    <!-- 네비게이션 메뉴 -->
+    <nav class="flex-1 px-3 py-2 space-y-1 overflow-y-auto">
+      <a href="dashboard.html" class="flex items-center gap-3 px-3 py-2.5 rounded-lg text-gray-600 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700 text-sm transition-colors">
+        <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 12l2-2m0 0l7-7 7 7M5 10v10a1 1 0 001 1h3m10-11l2 2m-2-2v10a1 1 0 01-1 1h-3m-6 0a1 1 0 001-1v-4a1 1 0 011-1h2a1 1 0 011 1v4a1 1 0 001 1m-6 0h6"/></svg>
+        <span>대시보드</span>
+      </a>
+      <a href="clients.html" class="flex items-center gap-3 px-3 py-2.5 rounded-lg text-gray-600 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700 text-sm transition-colors">
+        <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 21V5a2 2 0 00-2-2H7a2 2 0 00-2 2v16m14 0h2m-2 0h-5m-9 0H3m2 0h5M9 7h1m-1 4h1m4-4h1m-1 4h1m-5 10v-5a1 1 0 011-1h2a1 1 0 011 1v5m-4 0h4"/></svg>
+        <span>발주처</span>
+      </a>
+      <a href="projects.html" class="flex items-center gap-3 px-3 py-2.5 rounded-lg text-gray-600 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700 text-sm transition-colors">
+        <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 7v10a2 2 0 002 2h14a2 2 0 002-2V9a2 2 0 00-2-2h-6l-2-2H5a2 2 0 00-2 2z"/></svg>
+        <span>프로젝트</span>
+      </a>
+      <a href="tasks.html" class="flex items-center gap-3 px-3 py-2.5 rounded-lg bg-indigo-50 dark:bg-indigo-900/30 text-indigo-600 dark:text-indigo-400 font-medium text-sm">
+        <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2m-6 9l2 2 4-4"/></svg>
+        <span>업무</span>
+      </a>
+      <a href="#" class="flex items-center gap-3 px-3 py-2.5 rounded-lg text-gray-600 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700 text-sm transition-colors">
+        <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 17v-2m3 2v-4m3 4v-6m2 10H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"/></svg>
+        <span>보고서</span>
+      </a>
+      <a href="#" class="flex items-center gap-3 px-3 py-2.5 rounded-lg text-gray-600 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700 text-sm transition-colors">
+        <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8c-1.657 0-3 .895-3 2s1.343 2 3 2 3 .895 3 2-1.343 2-3 2m0-8c1.11 0 2.08.402 2.599 1M12 8V7m0 1v8m0 0v1m0-1c-1.11 0-2.08-.402-2.599-1M21 12a9 9 0 11-18 0 9 9 0 0118 0z"/></svg>
+        <span>수금</span>
+      </a>
+    </nav>
+
+    <!-- 하단 설정 -->
+    <div class="px-3 py-3 border-t border-gray-200 dark:border-gray-700">
+      <a href="#" class="flex items-center gap-3 px-3 py-2.5 rounded-lg text-gray-600 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700 text-sm transition-colors">
+        <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10.325 4.317c.426-1.756 2.924-1.756 3.35 0a1.724 1.724 0 002.573 1.066c1.543-.94 3.31.826 2.37 2.37a1.724 1.724 0 001.066 2.573c1.756.426 1.756 2.924 0 3.35a1.724 1.724 0 00-1.066 2.573c.94 1.543-.826 3.31-2.37 2.37a1.724 1.724 0 00-2.573 1.066c-.426 1.756-2.924 1.756-3.35 0a1.724 1.724 0 00-2.573-1.066c-1.543.94-3.31-.826-2.37-2.37a1.724 1.724 0 00-1.066-2.573c-1.756-.426-1.756-2.924 0-3.35a1.724 1.724 0 001.066-2.573c-.94-1.543.826-3.31 2.37-2.37.996.608 2.296.07 2.572-1.065z"/><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z"/></svg>
+        <span>설정</span>
+      </a>
+    </div>
+  </aside>
+
+  <!-- 메인 영역 -->
+  <div class="flex-1 flex flex-col lg:ml-64 overflow-hidden">
+
+    <!-- 상단 헤더 -->
+    <header class="bg-white dark:bg-gray-800 border-b border-gray-200 dark:border-gray-700 px-4 lg:px-6 py-3 flex items-center justify-between sticky top-0 z-20">
+      <!-- 모바일 메뉴 버튼 -->
+      <button @click="mobileMenu = !mobileMenu" class="lg:hidden p-2 rounded-lg hover:bg-gray-100 dark:hover:bg-gray-700">
+        <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 6h16M4 12h16M4 18h16"/></svg>
+      </button>
+
+      <div class="flex items-center gap-4">
+        <h1 class="text-lg font-semibold hidden sm:block">업무 상세</h1>
+      </div>
+
+      <div class="flex items-center gap-2">
+        <!-- 알림 -->
+        <button class="relative p-2 rounded-lg hover:bg-gray-100 dark:hover:bg-gray-700 transition-colors">
+          <svg class="w-5 h-5 text-gray-500 dark:text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 17h5l-1.405-1.405A2.032 2.032 0 0118 14.158V11a6.002 6.002 0 00-4-5.659V5a2 2 0 10-4 0v.341C7.67 6.165 6 8.388 6 11v3.159c0 .538-.214 1.055-.595 1.436L4 17h5m6 0v1a3 3 0 11-6 0v-1m6 0H9"/></svg>
+          <span class="absolute -top-0.5 -right-0.5 w-4 h-4 bg-red-500 text-white text-[10px] rounded-full flex items-center justify-center">3</span>
+        </button>
+        <!-- 다크모드 토글 -->
+        <button @click="toggleDark()" class="p-2 rounded-lg hover:bg-gray-100 dark:hover:bg-gray-700 transition-colors">
+          <svg x-show="!darkMode" class="w-5 h-5 text-gray-500" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M20.354 15.354A9 9 0 018.646 3.646 9.003 9.003 0 0012 21a9.003 9.003 0 008.354-5.646z"/></svg>
+          <svg x-show="darkMode" x-cloak class="w-5 h-5 text-yellow-400" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 3v1m0 16v1m9-9h-1M4 12H3m15.364 6.364l-.707-.707M6.343 6.343l-.707-.707m12.728 0l-.707.707M6.343 17.657l-.707.707M16 12a4 4 0 11-8 0 4 4 0 018 0z"/></svg>
+        </button>
+        <!-- 프로필 -->
+        <div class="flex items-center gap-2 pl-2 border-l border-gray-200 dark:border-gray-600">
+          <div class="w-8 h-8 bg-indigo-500 rounded-full flex items-center justify-center text-white text-sm font-medium">홍</div>
+          <span class="text-sm text-gray-700 dark:text-gray-200 hidden sm:block">홍길동</span>
+        </div>
+      </div>
+    </header>
+
+    <!-- 모바일 사이드바 오버레이 -->
+    <div x-show="mobileMenu" x-cloak @click="mobileMenu = false" class="fixed inset-0 bg-black bg-opacity-50 z-40 lg:hidden"></div>
+    <aside x-show="mobileMenu" x-cloak x-transition:enter="transition ease-out duration-300" x-transition:enter-start="-translate-x-full" x-transition:enter-end="translate-x-0" x-transition:leave="transition ease-in duration-200" x-transition:leave-start="translate-x-0" x-transition:leave-end="-translate-x-full" class="fixed inset-y-0 left-0 w-64 bg-white dark:bg-gray-800 z-50 lg:hidden shadow-xl">
+      <!-- 모바일 사이드바 내용 -->
+      <div class="flex items-center justify-between px-6 py-5 border-b border-gray-200 dark:border-gray-700">
+        <div class="flex items-center gap-3">
+          <div class="w-8 h-8 bg-indigo-600 rounded-lg flex items-center justify-center">
+            <svg class="w-5 h-5 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"/></svg>
+          </div>
+          <span class="text-lg font-bold">Contract Sync</span>
+        </div>
+        <button @click="mobileMenu = false" class="p-1 rounded hover:bg-gray-100 dark:hover:bg-gray-700">
+          <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"/></svg>
+        </button>
+      </div>
+      <nav class="px-3 py-4 space-y-1">
+        <a href="dashboard.html" class="flex items-center gap-3 px-3 py-2.5 rounded-lg text-gray-600 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700 text-sm">
+          <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 12l2-2m0 0l7-7 7 7M5 10v10a1 1 0 001 1h3m10-11l2 2m-2-2v10a1 1 0 01-1 1h-3m-6 0a1 1 0 001-1v-4a1 1 0 011-1h2a1 1 0 011 1v4a1 1 0 001 1m-6 0h6"/></svg>
+          <span>대시보드</span>
+        </a>
+        <a href="clients.html" class="flex items-center gap-3 px-3 py-2.5 rounded-lg text-gray-600 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700 text-sm">
+          <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 21V5a2 2 0 00-2-2H7a2 2 0 00-2 2v16m14 0h2m-2 0h-5m-9 0H3m2 0h5M9 7h1m-1 4h1m4-4h1m-1 4h1m-5 10v-5a1 1 0 011-1h2a1 1 0 011 1v5m-4 0h4"/></svg>
+          <span>발주처</span>
+        </a>
+        <a href="projects.html" class="flex items-center gap-3 px-3 py-2.5 rounded-lg text-gray-600 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700 text-sm">
+          <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 7v10a2 2 0 002 2h14a2 2 0 002-2V9a2 2 0 00-2-2h-6l-2-2H5a2 2 0 00-2 2z"/></svg>
+          <span>프로젝트</span>
+        </a>
+        <a href="tasks.html" class="flex items-center gap-3 px-3 py-2.5 rounded-lg bg-indigo-50 dark:bg-indigo-900/30 text-indigo-600 dark:text-indigo-400 font-medium text-sm">
+          <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2m-6 9l2 2 4-4"/></svg>
+          <span>업무</span>
+        </a>
+        <a href="#" class="flex items-center gap-3 px-3 py-2.5 rounded-lg text-gray-600 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700 text-sm">
+          <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 17v-2m3 2v-4m3 4v-6m2 10H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"/></svg>
+          <span>보고서</span>
+        </a>
+        <a href="#" class="flex items-center gap-3 px-3 py-2.5 rounded-lg text-gray-600 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700 text-sm">
+          <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8c-1.657 0-3 .895-3 2s1.343 2 3 2 3 .895 3 2-1.343 2-3 2m0-8c1.11 0 2.08.402 2.599 1M12 8V7m0 1v8m0 0v1m0-1c-1.11 0-2.08-.402-2.599-1M21 12a9 9 0 11-18 0 9 9 0 0118 0z"/></svg>
+          <span>수금</span>
+        </a>
+        <a href="#" class="flex items-center gap-3 px-3 py-2.5 rounded-lg text-gray-600 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700 text-sm">
+          <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10.325 4.317c.426-1.756 2.924-1.756 3.35 0a1.724 1.724 0 002.573 1.066c1.543-.94 3.31.826 2.37 2.37a1.724 1.724 0 001.066 2.573c1.756.426 1.756 2.924 0 3.35a1.724 1.724 0 00-1.066 2.573c.94 1.543-.826 3.31-2.37 2.37a1.724 1.724 0 00-2.573 1.066c-.426 1.756-2.924 1.756-3.35 0a1.724 1.724 0 00-2.573-1.066c-1.543.94-3.31-.826-2.37-2.37a1.724 1.724 0 00-1.066-2.573c-1.756-.426-1.756-2.924 0-3.35a1.724 1.724 0 001.066-2.573c-.94-1.543.826-3.31 2.37-2.37.996.608 2.296.07 2.572-1.065z"/><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z"/></svg>
+          <span>설정</span>
+        </a>
+      </nav>
+    </aside>
+
+    <!-- 메인 콘텐츠 -->
+    <main class="flex-1 overflow-y-auto p-4 lg:p-6 pb-20 lg:pb-6" x-data="completionReportPage()">
+
+      <!-- 뒤로가기 & 브레드크럼 -->
+      <div class="flex items-center gap-2 mb-4 text-sm">
+        <a href="tasks.html" class="flex items-center gap-1 text-gray-500 dark:text-gray-400 hover:text-indigo-600 dark:hover:text-indigo-400 transition-colors">
+          <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 19l-7-7 7-7"/></svg>
+          업무 목록
+        </a>
+        <span class="text-gray-300 dark:text-gray-600">/</span>
+        <span class="text-gray-700 dark:text-gray-300 font-medium">T-001</span>
+      </div>
+
+      <!-- 토스트 알림 -->
+      <div x-show="showToast" x-cloak
+        x-transition:enter="transition ease-out duration-300" x-transition:enter-start="opacity-0 -translate-y-4" x-transition:enter-end="opacity-100 translate-y-0"
+        x-transition:leave="transition ease-in duration-200" x-transition:leave-start="opacity-100 translate-y-0" x-transition:leave-end="opacity-0 -translate-y-4"
+        class="fixed top-4 right-4 z-[70] flex items-center gap-3 px-5 py-3 text-white rounded-lg shadow-lg"
+        :class="toastType === 'error' ? 'bg-red-600' : 'bg-green-600'">
+        <svg x-show="toastType === 'success'" class="w-5 h-5 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7"/></svg>
+        <svg x-show="toastType === 'error'" x-cloak class="w-5 h-5 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8v4m0 4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"/></svg>
+        <span class="text-sm font-medium" x-text="toastMessage"></span>
+      </div>
+
+      <!-- 업무 선택 카드 -->
+      <div class="bg-white dark:bg-gray-800 rounded-lg shadow-sm border border-gray-100 dark:border-gray-700 p-4 lg:p-6 mb-4">
+        <div class="flex items-center justify-between mb-3">
+          <h3 class="text-sm font-semibold text-gray-800 dark:text-white flex items-center gap-2">
+            <svg class="w-4 h-4 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2m-6 9l2 2 4-4"/></svg>
+            완료 보고 대상 업무 선택
+          </h3>
+          <button @click="showTaskSelect = !showTaskSelect" class="text-xs text-indigo-600 dark:text-indigo-400 hover:underline" x-text="showTaskSelect ? '접기' : '변경'"></button>
+        </div>
+
+        <!-- 현재 선택된 업무 -->
+        <div class="flex items-center gap-3 p-3 bg-indigo-50 dark:bg-indigo-900/20 rounded-lg border border-indigo-200 dark:border-indigo-800">
+          <svg class="w-5 h-5 text-indigo-600 dark:text-indigo-400 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7"/></svg>
+          <div class="flex-1 min-w-0">
+            <span class="text-xs text-indigo-500 dark:text-indigo-400 font-mono" x-text="availableTasks.find(t => t.id === selectedTaskId)?.code"></span>
+            <p class="text-sm font-medium text-gray-800 dark:text-gray-200" x-text="availableTasks.find(t => t.id === selectedTaskId)?.name"></p>
+          </div>
+          <span class="text-xs text-gray-500 dark:text-gray-400" x-text="'담당: ' + (availableTasks.find(t => t.id === selectedTaskId)?.assignee || '')"></span>
+        </div>
+
+        <!-- 업무 선택 목록 -->
+        <div x-show="showTaskSelect" x-cloak class="mt-3 space-y-2">
+          <template x-for="task in availableTasks" :key="task.id">
+            <button @click="selectTask(task.id)" class="w-full flex items-center gap-3 p-3 rounded-lg border transition-all text-left"
+              :class="task.id === selectedTaskId
+                ? 'border-indigo-300 dark:border-indigo-700 bg-indigo-50 dark:bg-indigo-900/20'
+                : 'border-gray-200 dark:border-gray-600 hover:bg-gray-50 dark:hover:bg-gray-700'">
+              <div class="w-5 h-5 rounded-full border-2 flex items-center justify-center flex-shrink-0"
+                :class="task.id === selectedTaskId ? 'border-indigo-600 bg-indigo-600' : 'border-gray-300 dark:border-gray-500'">
+                <svg x-show="task.id === selectedTaskId" class="w-3 h-3 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7"/></svg>
+              </div>
+              <div class="flex-1 min-w-0">
+                <div class="flex items-center gap-2">
+                  <span class="text-xs font-mono text-gray-400" x-text="task.code"></span>
+                  <span class="text-sm font-medium text-gray-800 dark:text-gray-200" x-text="task.name"></span>
+                </div>
+                <div class="flex items-center gap-3 mt-0.5 text-xs text-gray-500 dark:text-gray-400">
+                  <span x-text="'담당: ' + task.assignee"></span>
+                  <span x-text="'마감: ' + task.dueDate"></span>
+                </div>
+              </div>
+            </button>
+          </template>
+        </div>
+      </div>
+
+      <!-- 예약 발송 대기 -->
+      <template x-if="scheduledReports.length > 0">
+        <div class="bg-amber-50 dark:bg-amber-900/20 border border-amber-200 dark:border-amber-800 rounded-lg p-4 mb-4">
+          <h4 class="text-sm font-semibold text-amber-800 dark:text-amber-300 mb-3 flex items-center gap-2">
+            <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z"/></svg>
+            예약 발송 대기
+          </h4>
+          <div class="space-y-2">
+            <template x-for="sr in scheduledReports" :key="sr.id">
+              <div class="flex items-center justify-between p-3 bg-white dark:bg-gray-800 rounded-lg">
+                <div>
+                  <div class="flex items-center gap-2">
+                    <span class="text-xs font-mono text-gray-400" x-text="sr.taskCode"></span>
+                    <span class="text-sm font-medium text-gray-800 dark:text-gray-200" x-text="sr.taskName"></span>
+                  </div>
+                  <p class="text-xs text-gray-500 dark:text-gray-400 mt-0.5" x-text="sr.scheduledDate + ' ' + sr.scheduledTime + ' 예약'"></p>
+                </div>
+                <div class="flex items-center gap-2">
+                  <button @click="editScheduled(sr)" class="text-xs text-indigo-600 dark:text-indigo-400 hover:underline">편집</button>
+                  <button @click="cancelScheduled(sr.id)" class="text-xs text-red-500 hover:underline">취소</button>
+                </div>
+              </div>
+            </template>
+          </div>
+        </div>
+      </template>
+
+      <!-- 업무 상세 헤더 -->
+      <div class="bg-white dark:bg-gray-800 rounded-lg shadow-sm border border-gray-100 dark:border-gray-700 p-4 lg:p-6 mb-4">
+        <div class="flex flex-col sm:flex-row sm:items-start sm:justify-between gap-3 mb-4">
+          <div>
+            <div class="flex items-center gap-2 mb-2">
+              <span class="text-xs font-mono text-gray-400 dark:text-gray-500 bg-gray-100 dark:bg-gray-700 px-2 py-0.5 rounded">T-001</span>
+              <span class="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-blue-100 text-blue-700 dark:bg-blue-900/30 dark:text-blue-400">진행중</span>
+              <span class="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-xs font-medium bg-amber-50 text-amber-700 dark:bg-amber-900/30 dark:text-amber-400 border border-amber-200 dark:border-amber-800">
+                <svg class="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z"/><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z"/></svg>
+                고객 공유
+              </span>
+            </div>
+            <h2 class="text-xl font-bold text-gray-800 dark:text-white">메인 페이지 디자인 시안</h2>
+            <a href="project-detail.html" class="inline-flex items-center gap-1 text-sm text-indigo-600 dark:text-indigo-400 hover:underline mt-1">
+              <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 7v10a2 2 0 002 2h14a2 2 0 002-2V9a2 2 0 00-2-2h-6l-2-2H5a2 2 0 00-2 2z"/></svg>
+              더존 ERP 연동 개발
+            </a>
+          </div>
+          <button @click="showModal = true" class="inline-flex items-center gap-2 px-4 py-2 bg-indigo-600 hover:bg-indigo-700 text-white text-sm font-medium rounded-lg transition-colors shadow-sm flex-shrink-0">
+            <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 8l7.89 5.26a2 2 0 002.22 0L21 8M5 19h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z"/></svg>
+            완료 보고 작성
+          </button>
+        </div>
+
+        <!-- 업무 정보 그리드 -->
+        <div class="grid grid-cols-2 md:grid-cols-4 gap-4 pt-4 border-t border-gray-100 dark:border-gray-700">
+          <div>
+            <p class="text-xs text-gray-500 dark:text-gray-400 mb-1">담당자</p>
+            <div class="flex items-center gap-2">
+              <div class="w-6 h-6 rounded-full bg-indigo-100 dark:bg-indigo-900 flex items-center justify-center text-xs font-medium text-indigo-600 dark:text-indigo-400">홍</div>
+              <span class="text-sm font-medium text-gray-800 dark:text-gray-200">홍길동</span>
+            </div>
+          </div>
+          <div>
+            <p class="text-xs text-gray-500 dark:text-gray-400 mb-1">우선순위</p>
+            <span class="inline-flex items-center px-2 py-0.5 rounded text-xs font-medium bg-orange-100 text-orange-700 dark:bg-orange-900/30 dark:text-orange-400">높음</span>
+          </div>
+          <div>
+            <p class="text-xs text-gray-500 dark:text-gray-400 mb-1">시작일</p>
+            <span class="text-sm text-gray-800 dark:text-gray-200">2026-02-15</span>
+          </div>
+          <div>
+            <p class="text-xs text-gray-500 dark:text-gray-400 mb-1">마감일</p>
+            <span class="text-sm text-gray-800 dark:text-gray-200">2026-03-05</span>
+          </div>
+        </div>
+      </div>
+
+      <!-- 처리 내용 & 산출물 -->
+      <div class="grid grid-cols-1 lg:grid-cols-2 gap-4">
+        <!-- 처리 내용 -->
+        <div class="bg-white dark:bg-gray-800 rounded-lg shadow-sm border border-gray-100 dark:border-gray-700 p-4 lg:p-6">
+          <h3 class="text-sm font-semibold text-gray-800 dark:text-white mb-3 flex items-center gap-2">
+            <svg class="w-4 h-4 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z"/></svg>
+            처리 내용
+          </h3>
+          <textarea rows="6" class="w-full px-3 py-2 text-sm border border-gray-200 dark:border-gray-600 rounded-lg bg-gray-50 dark:bg-gray-700 text-gray-800 dark:text-gray-200 focus:ring-2 focus:ring-indigo-500 focus:border-transparent outline-none resize-none" placeholder="처리 내용을 입력하세요...">메인 페이지 디자인 시안 작업을 완료했습니다.
+
+- 히어로 섹션 레이아웃 3가지 시안 제작
+- 주요 기능 소개 섹션 디자인
+- 반응형 모바일 레이아웃 포함
+- 클라이언트 피드백 반영 (v2)</textarea>
+        </div>
+
+        <!-- 산출물 -->
+        <div class="bg-white dark:bg-gray-800 rounded-lg shadow-sm border border-gray-100 dark:border-gray-700 p-4 lg:p-6">
+          <h3 class="text-sm font-semibold text-gray-800 dark:text-white mb-3 flex items-center gap-2">
+            <svg class="w-4 h-4 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15.172 7l-6.586 6.586a2 2 0 102.828 2.828l6.414-6.586a4 4 0 00-5.656-5.656l-6.415 6.585a6 6 0 108.486 8.486L20.5 13"/></svg>
+            산출물
+          </h3>
+          <div class="space-y-2">
+            <!-- 파일 1 -->
+            <div class="flex items-center gap-3 p-3 bg-gray-50 dark:bg-gray-700 rounded-lg group hover:bg-gray-100 dark:hover:bg-gray-600 transition-colors">
+              <div class="w-10 h-10 bg-red-100 dark:bg-red-900/30 rounded-lg flex items-center justify-center flex-shrink-0">
+                <svg class="w-5 h-5 text-red-600 dark:text-red-400" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M7 21h10a2 2 0 002-2V9.414a1 1 0 00-.293-.707l-5.414-5.414A1 1 0 0012.586 3H7a2 2 0 00-2 2v14a2 2 0 002 2z"/></svg>
+              </div>
+              <div class="flex-1 min-w-0">
+                <p class="text-sm font-medium text-gray-800 dark:text-gray-200 truncate">main_design_v2.pdf</p>
+                <p class="text-xs text-gray-500 dark:text-gray-400">2.4 MB</p>
+              </div>
+              <button class="p-1.5 rounded-lg hover:bg-gray-200 dark:hover:bg-gray-500 opacity-0 group-hover:opacity-100 transition-opacity">
+                <svg class="w-4 h-4 text-gray-500 dark:text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4"/></svg>
+              </button>
+            </div>
+            <!-- 파일 2 -->
+            <div class="flex items-center gap-3 p-3 bg-gray-50 dark:bg-gray-700 rounded-lg group hover:bg-gray-100 dark:hover:bg-gray-600 transition-colors">
+              <div class="w-10 h-10 bg-red-100 dark:bg-red-900/30 rounded-lg flex items-center justify-center flex-shrink-0">
+                <svg class="w-5 h-5 text-red-600 dark:text-red-400" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M7 21h10a2 2 0 002-2V9.414a1 1 0 00-.293-.707l-5.414-5.414A1 1 0 0012.586 3H7a2 2 0 00-2 2v14a2 2 0 002 2z"/></svg>
+              </div>
+              <div class="flex-1 min-w-0">
+                <p class="text-sm font-medium text-gray-800 dark:text-gray-200 truncate">design_guide.pdf</p>
+                <p class="text-xs text-gray-500 dark:text-gray-400">1.1 MB</p>
+              </div>
+              <button class="p-1.5 rounded-lg hover:bg-gray-200 dark:hover:bg-gray-500 opacity-0 group-hover:opacity-100 transition-opacity">
+                <svg class="w-4 h-4 text-gray-500 dark:text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4"/></svg>
+              </button>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- 보고 이력 -->
+      <div class="bg-white dark:bg-gray-800 rounded-lg shadow-sm border border-gray-100 dark:border-gray-700 p-4 lg:p-6 mt-4">
+        <h3 class="text-sm font-semibold text-gray-800 dark:text-white mb-4 flex items-center gap-2">
+          <svg class="w-4 h-4 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z"/></svg>
+          완료 보고 이력
+        </h3>
+        <div class="overflow-x-auto">
+          <table class="w-full text-sm">
+            <thead>
+              <tr class="border-b border-gray-200 dark:border-gray-700">
+                <th class="px-3 py-2 text-left text-xs font-medium text-gray-500 dark:text-gray-400">업무</th>
+                <th class="px-3 py-2 text-left text-xs font-medium text-gray-500 dark:text-gray-400 hidden sm:table-cell">수신자</th>
+                <th class="px-3 py-2 text-left text-xs font-medium text-gray-500 dark:text-gray-400">발송일</th>
+                <th class="px-3 py-2 text-left text-xs font-medium text-gray-500 dark:text-gray-400">상태</th>
+              </tr>
+            </thead>
+            <tbody class="divide-y divide-gray-100 dark:divide-gray-700">
+              <template x-for="rh in reportHistory" :key="rh.id">
+                <tr class="hover:bg-gray-50 dark:hover:bg-gray-700/50">
+                  <td class="px-3 py-2.5">
+                    <div class="flex items-center gap-2">
+                      <span class="text-xs font-mono text-gray-400" x-text="rh.taskCode"></span>
+                      <span class="text-sm text-gray-800 dark:text-gray-200" x-text="rh.taskName"></span>
+                    </div>
+                  </td>
+                  <td class="px-3 py-2.5 hidden sm:table-cell text-gray-500 dark:text-gray-400" x-text="rh.recipient"></td>
+                  <td class="px-3 py-2.5 text-gray-500 dark:text-gray-400" x-text="rh.sentDate"></td>
+                  <td class="px-3 py-2.5">
+                    <span class="px-2 py-0.5 rounded-full text-xs font-medium" :class="getReportStatusClass(rh.status)" x-text="getReportStatusLabel(rh.status)"></span>
+                  </td>
+                </tr>
+              </template>
+            </tbody>
+          </table>
+        </div>
+        <template x-if="reportHistory.length === 0">
+          <p class="text-sm text-gray-400 dark:text-gray-500 text-center py-6">아직 보고 이력이 없습니다.</p>
+        </template>
+      </div>
+
+      <!-- ============================== -->
+      <!-- 완료 보고 작성 모달 -->
+      <!-- ============================== -->
+      <div x-show="showModal" x-cloak class="fixed inset-0 z-50 flex items-start justify-center p-4 pt-8 lg:pt-16 overflow-y-auto">
+        <!-- 오버레이 -->
+        <div x-show="showModal" x-transition:enter="transition ease-out duration-200" x-transition:enter-start="opacity-0" x-transition:enter-end="opacity-100" x-transition:leave="transition ease-in duration-150" x-transition:leave-start="opacity-100" x-transition:leave-end="opacity-0" @click="showModal = false" class="fixed inset-0 bg-black bg-opacity-50"></div>
+
+        <!-- 모달 콘텐츠 -->
+        <div x-show="showModal" x-transition:enter="transition ease-out duration-300" x-transition:enter-start="opacity-0 translate-y-4 scale-95" x-transition:enter-end="opacity-100 translate-y-0 scale-100" x-transition:leave="transition ease-in duration-200" x-transition:leave-start="opacity-100 translate-y-0 scale-100" x-transition:leave-end="opacity-0 translate-y-4 scale-95" class="relative bg-white dark:bg-gray-800 rounded-xl shadow-xl w-full max-w-2xl z-10 mb-8">
+
+          <!-- 모달 헤더 -->
+          <div class="flex items-center justify-between px-6 py-4 border-b border-gray-200 dark:border-gray-700">
+            <h3 class="text-lg font-bold text-gray-800 dark:text-white flex items-center gap-2">
+              <svg class="w-5 h-5 text-indigo-600 dark:text-indigo-400" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 8l7.89 5.26a2 2 0 002.22 0L21 8M5 19h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z"/></svg>
+              완료 보고 작성
+            </h3>
+            <button @click="showModal = false" class="p-1.5 rounded-lg hover:bg-gray-100 dark:hover:bg-gray-700 transition-colors">
+              <svg class="w-5 h-5 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"/></svg>
+            </button>
+          </div>
+
+          <!-- 모달 본문 -->
+          <div class="px-6 py-4 space-y-4 max-h-[calc(100vh-12rem)] overflow-y-auto">
+
+            <!-- 수신자 -->
+            <div>
+              <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1.5">수신자</label>
+              <div class="flex items-center gap-2">
+                <input type="email" x-model="recipient" class="flex-1 px-3 py-2 text-sm border border-gray-200 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-gray-800 dark:text-gray-200 focus:ring-2 focus:ring-indigo-500 focus:border-transparent outline-none" placeholder="수신자 이메일">
+                <span class="text-xs text-gray-400 dark:text-gray-500 flex-shrink-0 hidden sm:inline">발주처 담당자</span>
+              </div>
+            </div>
+
+            <!-- 참조(CC) -->
+            <div>
+              <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1.5">참조 (CC)</label>
+              <div class="flex flex-wrap items-center gap-1.5 p-2 border border-gray-200 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 min-h-[38px] focus-within:ring-2 focus-within:ring-indigo-500 focus-within:border-transparent">
+                <template x-for="(email, index) in ccEmails" :key="index">
+                  <span class="inline-flex items-center gap-1 px-2 py-0.5 bg-indigo-50 dark:bg-indigo-900/40 text-indigo-700 dark:text-indigo-300 rounded-md text-xs font-medium">
+                    <span x-text="email"></span>
+                    <button @click="removeCC(index)" class="hover:text-red-500 transition-colors">
+                      <svg class="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"/></svg>
+                    </button>
+                  </span>
+                </template>
+                <input type="email" x-model="ccInput" @keydown.enter.prevent="addCC()" @keydown.tab.prevent="addCC()" class="flex-1 sm:min-w-[120px] px-1 py-0.5 text-sm bg-transparent text-gray-800 dark:text-gray-200 outline-none" placeholder="이메일 입력 후 Enter">
+              </div>
+            </div>
+
+            <!-- 제목 -->
+            <div>
+              <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1.5">제목</label>
+              <div class="relative">
+                <input type="text" x-model="subject" class="w-full px-3 py-2 text-sm border border-gray-200 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-gray-800 dark:text-gray-200 focus:ring-2 focus:ring-indigo-500 focus:border-transparent outline-none pr-20">
+                <span class="absolute right-2 top-1/2 -translate-y-1/2 text-[10px] text-gray-400 dark:text-gray-500 bg-gray-100 dark:bg-gray-600 px-1.5 py-0.5 rounded">AI 생성</span>
+              </div>
+            </div>
+
+            <!-- 본문 -->
+            <div>
+              <div class="flex items-center justify-between mb-1.5">
+                <label class="block text-sm font-medium text-gray-700 dark:text-gray-300">본문</label>
+                <button @click="generateAIDraft()" :disabled="isGeneratingAI" class="inline-flex items-center gap-1.5 px-3 py-1.5 bg-purple-600 hover:bg-purple-700 disabled:bg-purple-400 text-white text-xs font-medium rounded-lg transition-colors shadow-sm">
+                  <template x-if="!isGeneratingAI">
+                    <span class="inline-flex items-center gap-1.5">
+                      <svg class="w-3.5 h-3.5 sparkle-animate" fill="currentColor" viewBox="0 0 24 24"><path d="M12 2L9.19 8.63L2 9.24L7.46 13.97L5.82 21L12 17.27L18.18 21L16.54 13.97L22 9.24L14.81 8.63L12 2Z"/></svg>
+                      AI 초안 생성
+                    </span>
+                  </template>
+                  <template x-if="isGeneratingAI">
+                    <span class="inline-flex items-center gap-1.5">
+                      <svg class="w-3.5 h-3.5 animate-spin" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15"/></svg>
+                      생성 중...
+                    </span>
+                  </template>
+                </button>
+              </div>
+              <textarea x-model="body" rows="12" class="w-full px-3 py-2 text-sm border border-gray-200 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-gray-800 dark:text-gray-200 focus:ring-2 focus:ring-indigo-500 focus:border-transparent outline-none resize-none leading-relaxed font-sans"></textarea>
+            </div>
+
+            <!-- 첨부파일 -->
+            <div>
+              <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1.5">첨부파일</label>
+              <div class="space-y-2">
+                <!-- 자동 첨부된 산출물 -->
+                <template x-for="(file, index) in attachments" :key="'att-' + index">
+                  <div class="flex items-center gap-3 p-2.5 border border-gray-200 dark:border-gray-600 rounded-lg" :class="file.checked ? 'bg-indigo-50/50 dark:bg-indigo-900/10 border-indigo-200 dark:border-indigo-800' : 'bg-white dark:bg-gray-700'">
+                    <label class="flex items-center cursor-pointer">
+                      <input type="checkbox" :checked="file.checked" @change="toggleAttachment(index)" class="w-4 h-4 text-indigo-600 border-gray-300 dark:border-gray-500 rounded focus:ring-indigo-500 dark:bg-gray-600">
+                    </label>
+                    <div class="w-8 h-8 bg-red-100 dark:bg-red-900/30 rounded flex items-center justify-center flex-shrink-0">
+                      <svg class="w-4 h-4 text-red-600 dark:text-red-400" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M7 21h10a2 2 0 002-2V9.414a1 1 0 00-.293-.707l-5.414-5.414A1 1 0 0012.586 3H7a2 2 0 00-2 2v14a2 2 0 002 2z"/></svg>
+                    </div>
+                    <div class="flex-1 min-w-0">
+                      <p class="text-sm font-medium text-gray-800 dark:text-gray-200 truncate" x-text="file.name"></p>
+                      <p class="text-xs text-gray-500 dark:text-gray-400" x-text="file.size"></p>
+                    </div>
+                    <span class="text-[10px] text-gray-400 dark:text-gray-500 bg-gray-100 dark:bg-gray-600 px-1.5 py-0.5 rounded flex-shrink-0">산출물</span>
+                  </div>
+                </template>
+
+                <!-- 추가 파일 -->
+                <template x-for="(file, index) in additionalFiles" :key="'add-' + index">
+                  <div class="flex items-center gap-3 p-2.5 bg-white dark:bg-gray-700 border border-gray-200 dark:border-gray-600 rounded-lg">
+                    <div class="w-8 h-8 bg-blue-100 dark:bg-blue-900/30 rounded flex items-center justify-center flex-shrink-0">
+                      <svg class="w-4 h-4 text-blue-600 dark:text-blue-400" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M7 21h10a2 2 0 002-2V9.414a1 1 0 00-.293-.707l-5.414-5.414A1 1 0 0012.586 3H7a2 2 0 00-2 2v14a2 2 0 002 2z"/></svg>
+                    </div>
+                    <div class="flex-1 min-w-0">
+                      <p class="text-sm font-medium text-gray-800 dark:text-gray-200 truncate" x-text="file.name"></p>
+                      <p class="text-xs text-gray-500 dark:text-gray-400" x-text="file.size"></p>
+                    </div>
+                    <button @click="additionalFiles.splice(index, 1)" class="p-1 rounded hover:bg-gray-100 dark:hover:bg-gray-600 transition-colors">
+                      <svg class="w-4 h-4 text-gray-400 hover:text-red-500" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"/></svg>
+                    </button>
+                  </div>
+                </template>
+
+                <!-- 파일 추가 버튼 -->
+                <button @click="additionalFiles.push({ name: 'meeting_notes.docx', size: '324 KB' })" class="w-full flex items-center justify-center gap-2 p-2.5 border-2 border-dashed border-gray-200 dark:border-gray-600 rounded-lg text-sm text-gray-500 dark:text-gray-400 hover:border-indigo-300 dark:hover:border-indigo-700 hover:text-indigo-600 dark:hover:text-indigo-400 transition-colors">
+                  <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4"/></svg>
+                  파일 추가
+                </button>
+              </div>
+            </div>
+
+            <!-- 발송 옵션 -->
+            <div>
+              <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">발송 옵션</label>
+              <div class="flex items-center gap-4">
+                <label class="flex items-center gap-2 cursor-pointer">
+                  <input type="radio" x-model="sendOption" value="now" class="w-4 h-4 text-indigo-600 border-gray-300 dark:border-gray-500 focus:ring-indigo-500 dark:bg-gray-600">
+                  <span class="text-sm text-gray-700 dark:text-gray-300">지금 발송</span>
+                </label>
+                <label class="flex items-center gap-2 cursor-pointer">
+                  <input type="radio" x-model="sendOption" value="scheduled" class="w-4 h-4 text-indigo-600 border-gray-300 dark:border-gray-500 focus:ring-indigo-500 dark:bg-gray-600">
+                  <span class="text-sm text-gray-700 dark:text-gray-300">예약 발송</span>
+                </label>
+              </div>
+
+              <!-- 예약 발송 날짜/시간 선택 -->
+              <div x-show="sendOption === 'scheduled'" x-cloak x-transition class="mt-3 flex items-center gap-3">
+                <div class="flex-1">
+                  <label class="block text-xs text-gray-500 dark:text-gray-400 mb-1">날짜</label>
+                  <input type="date" x-model="scheduledDate" class="w-full px-3 py-2 text-sm border border-gray-200 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-gray-800 dark:text-gray-200 focus:ring-2 focus:ring-indigo-500 focus:border-transparent outline-none">
+                </div>
+                <div class="flex-1">
+                  <label class="block text-xs text-gray-500 dark:text-gray-400 mb-1">시간</label>
+                  <input type="time" x-model="scheduledTime" class="w-full px-3 py-2 text-sm border border-gray-200 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-gray-800 dark:text-gray-200 focus:ring-2 focus:ring-indigo-500 focus:border-transparent outline-none">
+                </div>
+              </div>
+            </div>
+
+          </div>
+
+          <!-- 모달 푸터 -->
+          <div class="flex flex-col-reverse sm:flex-row items-center justify-end gap-2 px-6 py-4 border-t border-gray-200 dark:border-gray-700 bg-gray-50 dark:bg-gray-800/50 rounded-b-xl">
+            <button @click="showModal = false" class="w-full sm:w-auto px-4 py-2 text-sm font-medium text-gray-700 dark:text-gray-300 bg-white dark:bg-gray-700 border border-gray-300 dark:border-gray-600 rounded-lg hover:bg-gray-50 dark:hover:bg-gray-600 transition-colors">
+              취소
+            </button>
+            <button @click="showPreview = true" class="w-full sm:w-auto px-4 py-2 text-sm font-medium text-indigo-600 dark:text-indigo-400 bg-white dark:bg-gray-700 border border-indigo-300 dark:border-indigo-700 rounded-lg hover:bg-indigo-50 dark:hover:bg-indigo-900/20 transition-colors">
+              미리보기
+            </button>
+            <button @click="sendReport()" class="w-full sm:w-auto px-5 py-2 text-sm font-medium text-white bg-indigo-600 hover:bg-indigo-700 rounded-lg transition-colors shadow-sm">
+              <span x-text="sendOption === 'now' ? '발송' : '예약 발송'"></span>
+            </button>
+          </div>
+
+        </div>
+      </div>
+
+      <!-- ============================== -->
+      <!-- 미리보기 모달 (중첩) -->
+      <!-- ============================== -->
+      <div x-show="showPreview" x-cloak class="fixed inset-0 z-[60] flex items-start justify-center p-4 pt-8 lg:pt-12 overflow-y-auto">
+        <!-- 오버레이 -->
+        <div x-show="showPreview" x-transition:enter="transition ease-out duration-200" x-transition:enter-start="opacity-0" x-transition:enter-end="opacity-100" x-transition:leave="transition ease-in duration-150" x-transition:leave-start="opacity-100" x-transition:leave-end="opacity-0" @click="showPreview = false" class="fixed inset-0 bg-black bg-opacity-60"></div>
+
+        <!-- 미리보기 콘텐츠 -->
+        <div x-show="showPreview" x-transition:enter="transition ease-out duration-300" x-transition:enter-start="opacity-0 translate-y-4 scale-95" x-transition:enter-end="opacity-100 translate-y-0 scale-100" x-transition:leave="transition ease-in duration-200" x-transition:leave-start="opacity-100 translate-y-0 scale-100" x-transition:leave-end="opacity-0 translate-y-4 scale-95" class="relative bg-gray-100 dark:bg-gray-900 rounded-xl shadow-2xl w-full max-w-xl z-10 mb-8">
+
+          <!-- 미리보기 헤더 -->
+          <div class="flex items-center justify-between px-5 py-3 bg-white dark:bg-gray-800 rounded-t-xl border-b border-gray-200 dark:border-gray-700">
+            <h4 class="text-sm font-semibold text-gray-700 dark:text-gray-300 flex items-center gap-2">
+              <svg class="w-4 h-4 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z"/><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z"/></svg>
+              이메일 미리보기
+            </h4>
+            <button @click="showPreview = false" class="p-1 rounded-lg hover:bg-gray-100 dark:hover:bg-gray-700 transition-colors">
+              <svg class="w-4 h-4 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"/></svg>
+            </button>
+          </div>
+
+          <!-- 이메일 미리보기 카드 -->
+          <div class="p-5">
+            <div class="bg-white dark:bg-gray-800 rounded-lg shadow-md overflow-hidden">
+              <!-- 로고 영역 -->
+              <div class="bg-indigo-600 px-6 py-4">
+                <div class="flex items-center gap-2">
+                  <div class="w-7 h-7 bg-white rounded-md flex items-center justify-center">
+                    <svg class="w-4 h-4 text-indigo-600" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"/></svg>
+                  </div>
+                  <span class="text-white font-bold text-sm">Contract Sync</span>
+                </div>
+              </div>
+
+              <!-- 이메일 내용 -->
+              <div class="px-6 py-5">
+                <h5 class="text-base font-bold text-gray-800 dark:text-white mb-4" x-text="subject"></h5>
+
+                <div class="text-sm text-gray-600 dark:text-gray-300 space-y-3 leading-relaxed">
+                  <p>안녕하세요, 더존비즈온 김담당님.</p>
+                  <p>아래 업무가 완료되어 안내 드립니다.</p>
+
+                  <div class="bg-gray-50 dark:bg-gray-700 rounded-lg p-4 my-4">
+                    <table class="w-full text-sm">
+                      <tr class="border-b border-gray-200 dark:border-gray-600">
+                        <td class="py-1.5 text-gray-500 dark:text-gray-400 w-24">프로젝트</td>
+                        <td class="py-1.5 font-medium text-gray-800 dark:text-gray-200">더존 ERP 연동 개발</td>
+                      </tr>
+                      <tr class="border-b border-gray-200 dark:border-gray-600">
+                        <td class="py-1.5 text-gray-500 dark:text-gray-400">업무명</td>
+                        <td class="py-1.5 font-medium text-gray-800 dark:text-gray-200">메인 페이지 디자인 시안</td>
+                      </tr>
+                      <tr class="border-b border-gray-200 dark:border-gray-600">
+                        <td class="py-1.5 text-gray-500 dark:text-gray-400">완료일</td>
+                        <td class="py-1.5 font-medium text-gray-800 dark:text-gray-200">2026-03-01</td>
+                      </tr>
+                      <tr>
+                        <td class="py-1.5 text-gray-500 dark:text-gray-400">담당자</td>
+                        <td class="py-1.5 font-medium text-gray-800 dark:text-gray-200">홍길동</td>
+                      </tr>
+                    </table>
+                  </div>
+
+                  <p class="font-medium text-gray-700 dark:text-gray-200">처리 내용:</p>
+                  <ul class="list-disc list-inside text-gray-600 dark:text-gray-300 space-y-1 pl-1">
+                    <li>히어로 섹션 레이아웃 3가지 시안 제작</li>
+                    <li>주요 기능 소개 섹션 디자인</li>
+                    <li>반응형 모바일 레이아웃 포함</li>
+                    <li>클라이언트 피드백 반영 (v2)</li>
+                  </ul>
+
+                  <p class="font-medium text-gray-700 dark:text-gray-200 mt-3">첨부 산출물:</p>
+                  <div class="space-y-1.5">
+                    <div class="flex items-center gap-2 text-indigo-600 dark:text-indigo-400">
+                      <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15.172 7l-6.586 6.586a2 2 0 102.828 2.828l6.414-6.586a4 4 0 00-5.656-5.656l-6.415 6.585a6 6 0 108.486 8.486L20.5 13"/></svg>
+                      <span class="text-sm underline">main_design_v2.pdf (2.4 MB)</span>
+                    </div>
+                    <div class="flex items-center gap-2 text-indigo-600 dark:text-indigo-400">
+                      <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15.172 7l-6.586 6.586a2 2 0 102.828 2.828l6.414-6.586a4 4 0 00-5.656-5.656l-6.415 6.585a6 6 0 108.486 8.486L20.5 13"/></svg>
+                      <span class="text-sm underline">design_guide.pdf (1.1 MB)</span>
+                    </div>
+                  </div>
+                </div>
+              </div>
+
+              <!-- 피드백 영역 -->
+              <div class="px-6 py-4 bg-gray-50 dark:bg-gray-700/50 border-t border-gray-100 dark:border-gray-700">
+                <p class="text-xs text-gray-500 dark:text-gray-400 text-center mb-3">아래 버튼을 클릭하여 결과를 확인해 주세요.</p>
+                <div class="flex items-center justify-center gap-2 flex-wrap">
+                  <button class="px-4 py-2 bg-green-600 text-white text-xs font-medium rounded-lg cursor-default shadow-sm">확인 완료</button>
+                  <button class="px-4 py-2 bg-amber-500 text-white text-xs font-medium rounded-lg cursor-default shadow-sm">수정 요청</button>
+                  <button class="px-4 py-2 bg-gray-600 text-white text-xs font-medium rounded-lg cursor-default shadow-sm">의견 남기기</button>
+                </div>
+                <p class="text-[10px] text-gray-400 dark:text-gray-500 text-center mt-2">Powered by Contract Sync</p>
+              </div>
+            </div>
+          </div>
+
+          <!-- 미리보기 푸터 -->
+          <div class="flex items-center justify-end px-5 py-3 bg-white dark:bg-gray-800 rounded-b-xl border-t border-gray-200 dark:border-gray-700">
+            <button @click="showPreview = false" class="px-4 py-2 text-sm font-medium text-gray-700 dark:text-gray-300 bg-white dark:bg-gray-700 border border-gray-300 dark:border-gray-600 rounded-lg hover:bg-gray-50 dark:hover:bg-gray-600 transition-colors">
+              닫기
+            </button>
+          </div>
+        </div>
+      </div>
+
+    </main>
+
+    <!-- 모바일 하단 탭바 -->
+    <nav class="lg:hidden fixed bottom-0 left-0 right-0 bg-white dark:bg-gray-800 border-t border-gray-200 dark:border-gray-700 z-30">
+      <div class="flex justify-around py-2">
+        <a href="dashboard.html" class="flex flex-col items-center gap-1 px-3 py-1 text-gray-400 dark:text-gray-500">
+          <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 12l2-2m0 0l7-7 7 7M5 10v10a1 1 0 001 1h3m10-11l2 2m-2-2v10a1 1 0 01-1 1h-3m-6 0a1 1 0 001-1v-4a1 1 0 011-1h2a1 1 0 011 1v4a1 1 0 001 1m-6 0h6"/></svg>
+          <span class="text-[10px]">대시보드</span>
+        </a>
+        <a href="projects.html" class="flex flex-col items-center gap-1 px-3 py-1 text-gray-400 dark:text-gray-500">
+          <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 7v10a2 2 0 002 2h14a2 2 0 002-2V9a2 2 0 00-2-2h-6l-2-2H5a2 2 0 00-2 2z"/></svg>
+          <span class="text-[10px]">프로젝트</span>
+        </a>
+        <a href="tasks.html" class="flex flex-col items-center gap-1 px-3 py-1 text-indigo-600 dark:text-indigo-400">
+          <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2m-6 9l2 2 4-4"/></svg>
+          <span class="text-[10px] font-medium">업무</span>
+        </a>
+        <button class="flex flex-col items-center gap-1 px-3 py-1 text-gray-400 dark:text-gray-500">
+          <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 12h.01M12 12h.01M19 12h.01M6 12a1 1 0 11-2 0 1 1 0 012 0zm7 0a1 1 0 11-2 0 1 1 0 012 0zm7 0a1 1 0 11-2 0 1 1 0 012 0z"/></svg>
+          <span class="text-[10px]">더보기</span>
+        </button>
+      </div>
+    </nav>
+  </div>
+</div>
+
+<script>
+function appLayout() {
+  return {
+    mobileMenu: false,
+    darkMode: localStorage.getItem('darkMode') === 'true' || window.matchMedia('(prefers-color-scheme: dark)').matches,
+    init() {
+      this.applyDark();
+    },
+    toggleDark() {
+      this.darkMode = !this.darkMode;
+      localStorage.setItem('darkMode', this.darkMode);
+      this.applyDark();
+    },
+    applyDark() {
+      document.documentElement.classList.toggle('dark', this.darkMode);
+    }
+  }
+}
+
+function completionReportPage() {
+  return {
+    showModal: true,
+    showPreview: false,
+    showTaskSelect: false,
+    showToast: false,
+    toastMessage: '',
+    toastType: 'success',
+    sendOption: 'now',
+    ccEmails: ['team@example.com'],
+    ccInput: '',
+    recipient: 'kim@douzone.com',
+    subject: '[더존 ERP 연동 개발] "메인 페이지 디자인 시안" 완료 안내',
+
+    // 업무 선택
+    selectedTaskId: 1,
+    availableTasks: [
+      { id: 1, code: 'T-001', name: '메인 페이지 디자인 시안', status: 'in_progress', assignee: '홍길동', dueDate: '2026-03-05' },
+      { id: 2, code: 'T-002', name: 'DB 스키마 설계', status: 'in_progress', assignee: '김개발', dueDate: '2026-03-10' },
+      { id: 3, code: 'T-003', name: 'API 엔드포인트 개발', status: 'in_progress', assignee: '박백엔', dueDate: '2026-03-20' },
+      { id: 4, code: 'T-004', name: '로그인 모듈 구현', status: 'completed', assignee: '이프론', dueDate: '2026-02-28' }
+    ],
+
+    // 보고 이력
+    reportHistory: [
+      { id: 1, taskCode: 'T-005', taskName: '요구사항 분석서', sentDate: '2026-02-20 14:30', recipient: 'kim@douzone.com', status: 'confirmed', confirmedDate: '2026-02-22' },
+      { id: 2, taskCode: 'T-006', taskName: 'IA 설계 문서', sentDate: '2026-02-15 10:00', recipient: 'kim@douzone.com', status: 'revision', feedbackDate: '2026-02-17' },
+      { id: 3, taskCode: 'T-007', taskName: '기술 검토 보고서', sentDate: '2026-02-10 09:00', recipient: 'kim@douzone.com', status: 'auto_confirmed', confirmedDate: '2026-02-17' }
+    ],
+
+    // 예약 발송
+    scheduledReports: [
+      { id: 1, taskCode: 'T-002', taskName: 'DB 스키마 설계', scheduledDate: '2026-03-10', scheduledTime: '09:00', recipient: 'kim@douzone.com' }
+    ],
+    body: `안녕하세요, 더존비즈온 김담당님.
+
+아래 업무가 완료되어 안내 드립니다.
+
+■ 프로젝트: 더존 ERP 연동 개발
+■ 업무명: 메인 페이지 디자인 시안
+■ 완료일: 2026-03-01
+■ 담당자: 홍길동
+
+[처리 내용]
+- 히어로 섹션 레이아웃 3가지 시안 제작
+- 주요 기능 소개 섹션 디자인
+- 반응형 모바일 레이아웃 포함
+- 클라이언트 피드백 반영 (v2)
+
+[산출물]
+1. main_design_v2.pdf (2.4 MB)
+2. design_guide.pdf (1.1 MB)
+
+검토 후 확인 부탁드립니다.
+감사합니다.
+
+홍길동 드림`,
+    attachments: [
+      { name: 'main_design_v2.pdf', size: '2.4 MB', checked: true },
+      { name: 'design_guide.pdf', size: '1.1 MB', checked: true }
+    ],
+    additionalFiles: [],
+    scheduledDate: '2026-03-02',
+    scheduledTime: '09:00',
+    isGeneratingAI: false,
+
+    addCC() {
+      const email = this.ccInput.trim();
+      if (email && email.includes('@') && !this.ccEmails.includes(email)) {
+        this.ccEmails.push(email);
+        this.ccInput = '';
+      }
+    },
+
+    removeCC(index) {
+      this.ccEmails.splice(index, 1);
+    },
+
+    toggleAttachment(index) {
+      this.attachments[index].checked = !this.attachments[index].checked;
+    },
+
+    selectTask(id) {
+      this.selectedTaskId = id;
+      const task = this.availableTasks.find(t => t.id === id);
+      if (task) {
+        this.subject = '[더존 ERP 연동 개발] "' + task.name + '" 완료 안내';
+      }
+      this.showTaskSelect = false;
+    },
+
+    sendReport() {
+      // 수신자 이메일 검증
+      if (!this.recipient || !this.recipient.includes('@')) {
+        this.showToastMsg('유효한 이메일 주소를 입력해주세요.', 'error');
+        return;
+      }
+      // 제목 검증
+      if (!this.subject.trim()) {
+        this.showToastMsg('메일 제목을 입력해주세요.', 'error');
+        return;
+      }
+
+      if (this.sendOption === 'scheduled') {
+        if (!this.scheduledDate || !this.scheduledTime) {
+          this.showToastMsg('예약 날짜와 시간을 설정해주세요.', 'error');
+          return;
+        }
+        this.scheduledReports.push({
+          id: Date.now(),
+          taskCode: this.availableTasks.find(t => t.id === this.selectedTaskId)?.code || 'T-001',
+          taskName: this.availableTasks.find(t => t.id === this.selectedTaskId)?.name || '',
+          scheduledDate: this.scheduledDate,
+          scheduledTime: this.scheduledTime,
+          recipient: this.recipient
+        });
+        this.showToastMsg('예약 발송이 등록되었습니다 (' + this.scheduledDate + ' ' + this.scheduledTime + ')');
+      } else {
+        // 발송 시뮬레이션 (실제 구현 시 API 호출 + try/catch)
+        const sendSuccess = Math.random() > 0.1; // 90% 성공 시뮬레이션
+        if (sendSuccess) {
+          this.reportHistory.unshift({
+            id: Date.now(),
+            taskCode: this.availableTasks.find(t => t.id === this.selectedTaskId)?.code || 'T-001',
+            taskName: this.availableTasks.find(t => t.id === this.selectedTaskId)?.name || '',
+            sentDate: new Date().toISOString().slice(0, 16).replace('T', ' '),
+            recipient: this.recipient,
+            status: 'sent',
+            confirmedDate: null
+          });
+          this.showToastMsg('완료 보고가 발송되었습니다');
+        } else {
+          this.showToastMsg('발송에 실패했습니다. 잠시 후 다시 시도해주세요.', 'error');
+          return;
+        }
+      }
+      this.showModal = false;
+    },
+
+    cancelScheduled(id) {
+      this.scheduledReports = this.scheduledReports.filter(r => r.id !== id);
+      this.showToastMsg('예약 발송이 취소되었습니다');
+    },
+
+    editScheduled(report) {
+      this.selectedTaskId = this.availableTasks.find(t => t.code === report.taskCode)?.id || 1;
+      this.scheduledDate = report.scheduledDate;
+      this.scheduledTime = report.scheduledTime;
+      this.sendOption = 'scheduled';
+      this.showModal = true;
+      this.cancelScheduled(report.id);
+    },
+
+    showToastMsg(msg, type = 'success') {
+      this.toastType = type;
+      this.toastMessage = msg;
+      this.showToast = true;
+      setTimeout(() => { this.showToast = false; }, 3000);
+    },
+
+    getReportStatusClass(s) {
+      return {
+        'sent': 'bg-blue-100 text-blue-700 dark:bg-blue-900/30 dark:text-blue-400',
+        'confirmed': 'bg-green-100 text-green-700 dark:bg-green-900/30 dark:text-green-400',
+        'revision': 'bg-red-100 text-red-700 dark:bg-red-900/30 dark:text-red-400',
+        'auto_confirmed': 'bg-emerald-100 text-emerald-700 dark:bg-emerald-900/30 dark:text-emerald-400'
+      }[s] || '';
+    },
+
+    getReportStatusLabel(s) {
+      return { 'sent': '발송됨', 'confirmed': '확인됨', 'revision': '수정요청', 'auto_confirmed': '자동확인' }[s] || s;
+    },
+
+    generateAIDraft() {
+      if (this.isGeneratingAI) return;
+      this.isGeneratingAI = true;
+      this.body = '';
+
+      const lines = [
+        '안녕하세요, 더존비즈온 김담당님.',
+        '',
+        '아래 업무가 완료되어 안내 드립니다.',
+        '',
+        '■ 프로젝트: 더존 ERP 연동 개발',
+        '■ 업무명: 메인 페이지 디자인 시안',
+        '■ 완료일: 2026-03-01',
+        '■ 담당자: 홍길동',
+        '',
+        '[처리 내용]',
+        '- 히어로 섹션 레이아웃 3가지 시안 제작',
+        '- 주요 기능 소개 섹션 디자인',
+        '- 반응형 모바일 레이아웃 포함',
+        '- 클라이언트 피드백 반영 (v2)',
+        '',
+        '[산출물]',
+        '1. main_design_v2.pdf (2.4 MB)',
+        '2. design_guide.pdf (1.1 MB)',
+        '',
+        '검토 후 확인 부탁드립니다.',
+        '감사합니다.',
+        '',
+        '홍길동 드림'
+      ];
+
+      let i = 0;
+      const interval = setInterval(() => {
+        if (i < lines.length) {
+          this.body += (i > 0 ? '\n' : '') + lines[i];
+          i++;
+        } else {
+          clearInterval(interval);
+          this.isGeneratingAI = false;
+        }
+      }, 80);
+    }
+  }
+}
+</script>
+</body>
+</html>

@@ -1,0 +1,627 @@
+<!DOCTYPE html>
+<html lang="ko" class="">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Contract Sync - 클라이언트 포털</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <script defer src="https://cdn.jsdelivr.net/npm/alpinejs@3.x.x/dist/cdn.min.js"></script>
+  <script>
+    tailwind.config = { darkMode: 'class' }
+  </script>
+  <style>
+    [x-cloak] { display: none !important; }
+  </style>
+</head>
+<body class="bg-gray-50 dark:bg-gray-900 text-gray-800 dark:text-gray-100 transition-colors duration-300 min-h-screen flex flex-col">
+
+<div x-data="{ ...portalLayout(), ...clientPortalPage() }" x-init="init()">
+
+  <!-- 상단 네비게이션 바 -->
+  <header class="bg-white dark:bg-gray-800 border-b border-gray-200 dark:border-gray-700 sticky top-0 z-30">
+    <div class="max-w-6xl mx-auto px-4 sm:px-6 py-3 flex items-center justify-between">
+      <!-- 좌측: 로고 -->
+      <div class="flex items-center gap-3">
+        <div class="w-8 h-8 bg-indigo-600 rounded-lg flex items-center justify-center">
+          <svg class="w-5 h-5 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"/></svg>
+        </div>
+        <span class="text-lg font-bold text-gray-800 dark:text-white hidden sm:block">Contract Sync</span>
+      </div>
+
+      <!-- 중앙: 프로젝트명 -->
+      <div class="text-center">
+        <h1 class="text-sm sm:text-base font-semibold text-gray-800 dark:text-white" x-text="project.name"></h1>
+      </div>
+
+      <!-- 우측: 다크모드 토글 + 발주처 배지 -->
+      <div class="flex items-center gap-2 sm:gap-3">
+        <button @click="toggleDark()" class="p-2 rounded-lg hover:bg-gray-100 dark:hover:bg-gray-700 transition-colors">
+          <svg x-show="!darkMode" class="w-5 h-5 text-gray-500" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M20.354 15.354A9 9 0 018.646 3.646 9.003 9.003 0 0012 21a9.003 9.003 0 008.354-5.646z"/></svg>
+          <svg x-show="darkMode" x-cloak class="w-5 h-5 text-yellow-400" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 3v1m0 16v1m9-9h-1M4 12H3m15.364 6.364l-.707-.707M6.343 6.343l-.707-.707m12.728 0l-.707.707M6.343 17.657l-.707.707M16 12a4 4 0 11-8 0 4 4 0 018 0z"/></svg>
+        </button>
+        <div class="hidden sm:flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-medium"
+          :class="isTokenExpired ? 'bg-red-100 text-red-700 dark:bg-red-900/30 dark:text-red-400' : 'bg-green-100 text-green-700 dark:bg-green-900/30 dark:text-green-400'">
+          <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z"/></svg>
+          <span x-text="isTokenExpired ? '링크 만료됨' : tokenExpiry + ' 까지'"></span>
+        </div>
+        <span class="hidden sm:inline-flex items-center px-3 py-1 rounded-full text-xs font-medium bg-indigo-100 text-indigo-700 dark:bg-indigo-900/30 dark:text-indigo-400">
+          발주처: <span x-text="project.client" class="ml-1"></span>
+        </span>
+      </div>
+    </div>
+  </header>
+
+  <!-- 메인 콘텐츠 -->
+  <main class="flex-1 max-w-6xl mx-auto w-full px-4 sm:px-6 py-6 space-y-6">
+
+    <!-- 모바일 발주처 배지 -->
+    <div class="sm:hidden">
+      <span class="inline-flex items-center px-3 py-1 rounded-full text-xs font-medium bg-indigo-100 text-indigo-700 dark:bg-indigo-900/30 dark:text-indigo-400">
+        발주처: <span x-text="project.client" class="ml-1"></span>
+      </span>
+    </div>
+
+    <!-- 프로젝트 개요 카드 -->
+    <div class="bg-white dark:bg-gray-800 rounded-lg shadow-sm border border-gray-100 dark:border-gray-700 p-6">
+      <div class="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4 mb-5">
+        <div>
+          <div class="flex items-center gap-3 mb-1">
+            <h2 class="text-xl font-bold text-gray-900 dark:text-white" x-text="project.name"></h2>
+            <span class="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-blue-100 text-blue-700 dark:bg-blue-900/30 dark:text-blue-400">진행중</span>
+            <span class="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium" :class="getProjectTypeBadge(project.type).class" x-text="getProjectTypeBadge(project.type).label"></span>
+          </div>
+          <p class="text-sm text-gray-500 dark:text-gray-400">
+            <span x-text="project.startDate"></span> ~ <span x-text="project.endDate"></span>
+          </p>
+        </div>
+      </div>
+
+      <!-- 전체 진행률 -->
+      <div class="mb-6">
+        <div class="flex items-center justify-between mb-2">
+          <span class="text-sm font-medium text-gray-700 dark:text-gray-300">전체 진행률</span>
+          <span class="text-sm font-semibold text-indigo-600 dark:text-indigo-400">45% (완료 9/20 업무)</span>
+        </div>
+        <div class="w-full bg-gray-200 dark:bg-gray-700 rounded-full h-3">
+          <div class="bg-indigo-600 h-3 rounded-full transition-all duration-500" style="width: 45%"></div>
+        </div>
+      </div>
+
+      <!-- 통계 카드 3개 -->
+      <div class="grid grid-cols-1 sm:grid-cols-3 gap-3 sm:gap-4">
+        <div class="bg-gray-50 dark:bg-gray-700/50 rounded-lg p-3 sm:p-4 text-center">
+          <div class="text-2xl sm:text-3xl font-bold text-gray-900 dark:text-white">20</div>
+          <div class="text-xs sm:text-sm text-gray-500 dark:text-gray-400 mt-1">전체 업무</div>
+        </div>
+        <div class="bg-gray-50 dark:bg-gray-700/50 rounded-lg p-3 sm:p-4 text-center">
+          <div class="text-2xl sm:text-3xl font-bold text-green-600 dark:text-green-400">9</div>
+          <div class="text-xs sm:text-sm text-gray-500 dark:text-gray-400 mt-1">완료 업무</div>
+        </div>
+        <div class="bg-gray-50 dark:bg-gray-700/50 rounded-lg p-3 sm:p-4 text-center">
+          <div class="text-2xl sm:text-3xl font-bold text-orange-600 dark:text-orange-400">2</div>
+          <div class="text-xs sm:text-sm text-gray-500 dark:text-gray-400 mt-1">피드백 대기</div>
+        </div>
+      </div>
+    </div>
+
+    <!-- 탭 네비게이션 -->
+    <div class="border-b border-gray-200 dark:border-gray-700">
+      <nav class="flex space-x-1 overflow-x-auto" aria-label="Tabs">
+        <template x-for="tab in tabs" :key="tab.id">
+          <button
+            @click="activeTab = tab.id"
+            :class="activeTab === tab.id
+              ? 'border-indigo-500 text-indigo-600 dark:text-indigo-400'
+              : 'border-transparent text-gray-500 dark:text-gray-400 hover:text-gray-700 dark:hover:text-gray-300 hover:border-gray-300 dark:hover:border-gray-600'"
+            class="whitespace-nowrap py-3 px-4 border-b-2 font-medium text-sm transition-colors"
+          >
+            <span x-text="tab.label"></span>
+            <span x-show="tab.count !== null" class="ml-1.5 inline-flex items-center justify-center w-5 h-5 text-xs rounded-full"
+              :class="activeTab === tab.id ? 'bg-indigo-100 text-indigo-600 dark:bg-indigo-900/40 dark:text-indigo-400' : 'bg-gray-100 text-gray-500 dark:bg-gray-700 dark:text-gray-400'"
+              x-text="tab.count"></span>
+          </button>
+        </template>
+      </nav>
+    </div>
+
+    <!-- ===================== 업무 현황 탭 ===================== -->
+    <div x-show="activeTab === 'tasks'" x-cloak>
+      <template x-for="phase in phases" :key="phase.name">
+        <div class="mb-6">
+          <!-- 단계 헤더 -->
+          <div class="flex items-center justify-between mb-3">
+            <div class="flex items-center gap-3">
+              <h3 class="text-base font-semibold text-gray-900 dark:text-white" x-text="phase.name + ' 단계'"></h3>
+              <span class="text-xs text-gray-500 dark:text-gray-400" x-text="getPhaseProgress(phase)"></span>
+            </div>
+            <div class="flex items-center gap-2">
+              <div class="w-24 bg-gray-200 dark:bg-gray-700 rounded-full h-1.5">
+                <div class="bg-indigo-600 h-1.5 rounded-full transition-all duration-500" :style="'width: ' + getPhasePercent(phase) + '%'"></div>
+              </div>
+              <span class="text-xs font-medium text-gray-600 dark:text-gray-400" x-text="getPhasePercent(phase) + '%'"></span>
+            </div>
+          </div>
+
+          <!-- 업무 테이블 -->
+          <div class="bg-white dark:bg-gray-800 rounded-lg shadow-sm border border-gray-100 dark:border-gray-700 overflow-hidden">
+            <table class="w-full">
+              <thead class="bg-gray-50 dark:bg-gray-750">
+                <tr class="border-b border-gray-200 dark:border-gray-700">
+                  <th class="px-4 py-2.5 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase">업무명</th>
+                  <th class="px-4 py-2.5 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase">상태</th>
+                  <th class="px-4 py-2.5 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase hidden sm:table-cell">마감일</th>
+                  <th class="px-4 py-2.5 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase hidden md:table-cell">완료일</th>
+                </tr>
+              </thead>
+              <tbody class="divide-y divide-gray-100 dark:divide-gray-700">
+                <template x-for="task in phase.tasks.filter(t => t.isClientFacing)" :key="task.name">
+                  <tr class="hover:bg-gray-50 dark:hover:bg-gray-750 transition-colors">
+                    <td class="px-4 py-3">
+                      <span class="text-sm font-medium text-gray-900 dark:text-white" x-text="task.name"></span>
+                    </td>
+                    <td class="px-4 py-3">
+                      <span class="inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium" :class="getStatusClass(task.status)" x-text="getStatusLabel(task.status)"></span>
+                    </td>
+                    <td class="px-4 py-3 hidden sm:table-cell">
+                      <span class="text-sm text-gray-600 dark:text-gray-400" x-text="task.dueDate"></span>
+                    </td>
+                    <td class="px-4 py-3 hidden md:table-cell">
+                      <span class="text-sm text-gray-600 dark:text-gray-400" x-text="task.completedDate || '-'"></span>
+                    </td>
+                  </tr>
+                </template>
+              </tbody>
+            </table>
+          </div>
+        </div>
+      </template>
+    </div>
+
+    <!-- ===================== 산출물 탭 ===================== -->
+    <div x-show="activeTab === 'deliverables'" x-cloak>
+      <div class="bg-white dark:bg-gray-800 rounded-lg shadow-sm border border-gray-100 dark:border-gray-700 overflow-hidden">
+        <div class="px-4 py-3 border-b border-gray-200 dark:border-gray-700">
+          <h3 class="text-sm font-semibold text-gray-900 dark:text-white">완료된 산출물</h3>
+          <p class="text-xs text-gray-500 dark:text-gray-400 mt-0.5">완료 보고가 발송된 업무의 산출물을 확인하실 수 있습니다.</p>
+        </div>
+
+        <!-- 데스크톱 테이블 -->
+        <div class="hidden sm:block">
+          <table class="w-full">
+            <thead class="bg-gray-50 dark:bg-gray-750">
+              <tr class="border-b border-gray-200 dark:border-gray-700">
+                <th class="px-4 py-2.5 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase">업무명</th>
+                <th class="px-4 py-2.5 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase">파일명</th>
+                <th class="px-4 py-2.5 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase hidden md:table-cell">파일 크기</th>
+                <th class="px-4 py-2.5 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase hidden lg:table-cell">제출일</th>
+                <th class="px-4 py-2.5 text-right text-xs font-medium text-gray-500 dark:text-gray-400 uppercase"></th>
+              </tr>
+            </thead>
+            <tbody class="divide-y divide-gray-100 dark:divide-gray-700">
+              <template x-for="item in deliverables" :key="item.fileName">
+                <tr class="hover:bg-gray-50 dark:hover:bg-gray-750 transition-colors">
+                  <td class="px-4 py-3">
+                    <span class="text-sm font-medium text-gray-900 dark:text-white" x-text="item.taskName"></span>
+                  </td>
+                  <td class="px-4 py-3">
+                    <div class="flex items-center gap-2">
+                      <svg class="w-4 h-4 text-gray-400 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M7 21h10a2 2 0 002-2V9.414a1 1 0 00-.293-.707l-5.414-5.414A1 1 0 0012.586 3H7a2 2 0 00-2 2v14a2 2 0 002 2z"/></svg>
+                      <span class="text-sm text-gray-600 dark:text-gray-400" x-text="item.fileName"></span>
+                    </div>
+                  </td>
+                  <td class="px-4 py-3 hidden md:table-cell">
+                    <span class="text-sm text-gray-500 dark:text-gray-400" x-text="item.fileSize"></span>
+                  </td>
+                  <td class="px-4 py-3 hidden lg:table-cell">
+                    <span class="text-sm text-gray-500 dark:text-gray-400" x-text="item.submittedDate"></span>
+                  </td>
+                  <td class="px-4 py-3 text-right">
+                    <button class="inline-flex items-center gap-1.5 px-3 py-1.5 text-xs font-medium text-indigo-600 dark:text-indigo-400 bg-indigo-50 dark:bg-indigo-900/20 rounded-lg hover:bg-indigo-100 dark:hover:bg-indigo-900/40 transition-colors">
+                      <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4"/></svg>
+                      다운로드
+                    </button>
+                  </td>
+                </tr>
+              </template>
+            </tbody>
+          </table>
+        </div>
+
+        <!-- 모바일 카드 리스트 -->
+        <div class="sm:hidden divide-y divide-gray-100 dark:divide-gray-700">
+          <template x-for="item in deliverables" :key="item.fileName">
+            <div class="p-4">
+              <div class="flex items-start justify-between gap-3">
+                <div class="min-w-0">
+                  <p class="text-sm font-medium text-gray-900 dark:text-white" x-text="item.taskName"></p>
+                  <div class="flex items-center gap-1.5 mt-1">
+                    <svg class="w-3.5 h-3.5 text-gray-400 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M7 21h10a2 2 0 002-2V9.414a1 1 0 00-.293-.707l-5.414-5.414A1 1 0 0012.586 3H7a2 2 0 00-2 2v14a2 2 0 002 2z"/></svg>
+                    <span class="text-xs text-gray-500 dark:text-gray-400 truncate" x-text="item.fileName"></span>
+                  </div>
+                  <div class="flex items-center gap-3 mt-1">
+                    <span class="text-xs text-gray-400" x-text="item.fileSize"></span>
+                    <span class="text-xs text-gray-400" x-text="item.submittedDate"></span>
+                  </div>
+                </div>
+                <button class="flex-shrink-0 inline-flex items-center gap-1 px-2.5 py-1.5 text-xs font-medium text-indigo-600 dark:text-indigo-400 bg-indigo-50 dark:bg-indigo-900/20 rounded-lg hover:bg-indigo-100 dark:hover:bg-indigo-900/40 transition-colors">
+                  <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4"/></svg>
+                  다운로드
+                </button>
+              </div>
+            </div>
+          </template>
+        </div>
+      </div>
+    </div>
+
+    <!-- ===================== 피드백 대기 탭 ===================== -->
+    <div x-show="activeTab === 'feedback'" x-cloak>
+      <!-- 안내 배너 -->
+      <div class="bg-amber-50 dark:bg-amber-900/20 border border-amber-200 dark:border-amber-800 rounded-lg p-4 mb-4">
+        <div class="flex items-start gap-3">
+          <svg class="w-5 h-5 text-amber-500 flex-shrink-0 mt-0.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-2.5L13.732 4c-.77-.833-1.964-.833-2.732 0L4.082 16.5c-.77.833.192 2.5 1.732 2.5z"/></svg>
+          <div>
+            <p class="text-sm font-medium text-amber-800 dark:text-amber-300">피드백 확인 안내</p>
+            <p class="text-xs text-amber-700 dark:text-amber-400 mt-1">완료 보고 발송 후 7일 무응답 시 자동 확인 처리됩니다. 수정이 필요한 경우 기한 내에 피드백을 보내주세요.</p>
+          </div>
+        </div>
+      </div>
+
+      <!-- 피드백 대기 카드 목록 -->
+      <div class="space-y-4">
+        <template x-for="item in pendingFeedback" :key="item.taskName">
+          <div class="bg-white dark:bg-gray-800 rounded-lg shadow-sm border border-gray-100 dark:border-gray-700 p-5">
+            <div class="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
+              <div class="flex-1">
+                <div class="flex items-center gap-3 mb-2">
+                  <h4 class="text-base font-semibold text-gray-900 dark:text-white" x-text="item.taskName"></h4>
+                  <span class="inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium bg-orange-100 text-orange-700 dark:bg-orange-900/30 dark:text-orange-400">피드백 대기</span>
+                </div>
+                <div class="flex flex-wrap items-center gap-x-4 gap-y-1 text-sm text-gray-500 dark:text-gray-400">
+                  <span class="flex items-center gap-1.5">
+                    <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z"/></svg>
+                    완료일: <span x-text="item.completedDate"></span>
+                  </span>
+                  <span class="flex items-center gap-1.5" :class="item.daysRemaining <= 2 ? 'text-red-500 dark:text-red-400 font-medium' : ''">
+                    <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z"/></svg>
+                    남은 기간: <span x-text="item.daysRemaining + '일'"></span>
+                  </span>
+                </div>
+                <p class="text-xs text-gray-400 dark:text-gray-500 mt-2" x-text="'자동 확인 예정일: ' + item.autoConfirmDate"></p>
+              </div>
+              <div class="flex-shrink-0">
+                <a :href="'feedback.html?token=' + token" class="inline-flex items-center gap-2 px-4 py-2 text-sm font-medium text-white bg-indigo-600 rounded-lg hover:bg-indigo-700 transition-colors shadow-sm">
+                  <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 12h.01M12 12h.01M16 12h.01M21 12c0 4.418-4.03 8-9 8a9.863 9.863 0 01-4.255-.949L3 20l1.395-3.72C3.512 15.042 3 13.574 3 12c0-4.418 4.03-8 9-8s9 3.582 9 8z"/></svg>
+                  피드백 보내기
+                </a>
+              </div>
+            </div>
+          </div>
+        </template>
+
+        <!-- 피드백 대기 없을 때 -->
+        <template x-if="pendingFeedback.length === 0">
+          <div class="bg-white dark:bg-gray-800 rounded-lg shadow-sm border border-gray-100 dark:border-gray-700 p-12 text-center">
+            <svg class="w-12 h-12 text-gray-300 dark:text-gray-600 mx-auto mb-3" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z"/></svg>
+            <p class="text-sm text-gray-500 dark:text-gray-400">현재 피드백 대기 중인 업무가 없습니다.</p>
+          </div>
+        </template>
+      </div>
+    </div>
+
+    <!-- ===================== 보고서 탭 ===================== -->
+    <div x-show="activeTab === 'reports'" x-cloak>
+      <div class="bg-white dark:bg-gray-800 rounded-lg shadow-sm border border-gray-100 dark:border-gray-700 overflow-hidden">
+        <div class="px-4 py-3 border-b border-gray-200 dark:border-gray-700">
+          <h3 class="text-sm font-semibold text-gray-900 dark:text-white">발송된 보고서</h3>
+        </div>
+
+        <div class="divide-y divide-gray-100 dark:divide-gray-700">
+          <template x-for="report in reports" :key="report.id">
+            <div class="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 p-4 hover:bg-gray-50 dark:hover:bg-gray-750 transition-colors">
+              <div class="flex items-start gap-3">
+                <div class="w-9 h-9 rounded-lg flex items-center justify-center flex-shrink-0"
+                  :class="report.type === '정기' ? 'bg-blue-100 dark:bg-blue-900/30' : 'bg-green-100 dark:bg-green-900/30'">
+                  <svg class="w-4.5 h-4.5" :class="report.type === '정기' ? 'text-blue-600 dark:text-blue-400' : 'text-green-600 dark:text-green-400'" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 17v-2m3 2v-4m3 4v-6m2 10H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"/></svg>
+                </div>
+                <div>
+                  <p class="text-sm font-medium text-gray-900 dark:text-white" x-text="report.title"></p>
+                  <div class="flex items-center gap-3 mt-1">
+                    <span class="inline-flex items-center px-2 py-0.5 rounded text-xs font-medium"
+                      :class="report.type === '정기' ? 'bg-blue-100 text-blue-700 dark:bg-blue-900/30 dark:text-blue-400' : 'bg-green-100 text-green-700 dark:bg-green-900/30 dark:text-green-400'"
+                      x-text="report.type + ' 보고'"></span>
+                    <span class="text-xs text-gray-500 dark:text-gray-400" x-text="'발송일: ' + report.sentDate"></span>
+                  </div>
+                </div>
+              </div>
+              <button @click="openReport(report)" class="inline-flex items-center gap-1.5 px-3 py-1.5 text-xs font-medium text-indigo-600 dark:text-indigo-400 bg-indigo-50 dark:bg-indigo-900/20 rounded-lg hover:bg-indigo-100 dark:hover:bg-indigo-900/40 transition-colors self-start sm:self-center">
+                <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z"/><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z"/></svg>
+                열람
+              </button>
+            </div>
+          </template>
+        </div>
+      </div>
+    </div>
+
+    <!-- 보고서 열람 모달 -->
+    <div x-show="showReportModal" x-cloak class="fixed inset-0 z-50 overflow-y-auto" aria-labelledby="modal-title" role="dialog" aria-modal="true">
+      <div class="flex items-end sm:items-center justify-center min-h-screen px-4 pt-4 pb-20 sm:p-0">
+        <!-- 배경 오버레이 -->
+        <div x-show="showReportModal" x-transition:enter="ease-out duration-300" x-transition:enter-start="opacity-0" x-transition:enter-end="opacity-100" x-transition:leave="ease-in duration-200" x-transition:leave-start="opacity-100" x-transition:leave-end="opacity-0" @click="showReportModal = false" class="fixed inset-0 bg-gray-500 bg-opacity-75 dark:bg-gray-900 dark:bg-opacity-80 transition-opacity"></div>
+
+        <!-- 모달 패널 -->
+        <div x-show="showReportModal" x-transition:enter="ease-out duration-300" x-transition:enter-start="opacity-0 translate-y-4 sm:translate-y-0 sm:scale-95" x-transition:enter-end="opacity-100 translate-y-0 sm:scale-100" x-transition:leave="ease-in duration-200" x-transition:leave-start="opacity-100 translate-y-0 sm:scale-100" x-transition:leave-end="opacity-0 translate-y-4 sm:translate-y-0 sm:scale-95" class="relative bg-white dark:bg-gray-800 rounded-lg shadow-xl w-full max-w-2xl mx-4 sm:mx-auto z-10">
+
+          <!-- 모달 헤더 -->
+          <div class="flex items-center justify-between px-6 py-4 border-b border-gray-200 dark:border-gray-700">
+            <div>
+              <h3 class="text-lg font-semibold text-gray-900 dark:text-white" x-text="selectedReport?.title"></h3>
+              <div class="flex items-center gap-3 mt-1">
+                <span class="inline-flex items-center px-2 py-0.5 rounded text-xs font-medium"
+                  :class="selectedReport?.type === '정기' ? 'bg-blue-100 text-blue-700 dark:bg-blue-900/30 dark:text-blue-400' : 'bg-green-100 text-green-700 dark:bg-green-900/30 dark:text-green-400'"
+                  x-text="selectedReport?.type + ' 보고'"></span>
+                <span class="text-xs text-gray-500 dark:text-gray-400" x-text="'발송일: ' + selectedReport?.sentDate"></span>
+              </div>
+            </div>
+            <button @click="showReportModal = false" class="p-1.5 rounded-lg hover:bg-gray-100 dark:hover:bg-gray-700 transition-colors">
+              <svg class="w-5 h-5 text-gray-500 dark:text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"/></svg>
+            </button>
+          </div>
+
+          <!-- 모달 본문 -->
+          <div class="px-6 py-5 max-h-96 overflow-y-auto">
+            <div class="prose prose-sm dark:prose-invert max-w-none">
+              <template x-if="selectedReport">
+                <div>
+                  <h4 class="text-sm font-semibold text-gray-900 dark:text-white mb-2">보고 요약</h4>
+                  <p class="text-sm text-gray-600 dark:text-gray-400 mb-4" x-text="selectedReport.summary"></p>
+
+                  <template x-if="selectedReport.completedTasks && selectedReport.completedTasks.length > 0">
+                    <div class="mb-4">
+                      <h4 class="text-sm font-semibold text-gray-900 dark:text-white mb-2">완료된 업무</h4>
+                      <ul class="list-disc list-inside space-y-1">
+                        <template x-for="task in selectedReport.completedTasks" :key="task">
+                          <li class="text-sm text-gray-600 dark:text-gray-400" x-text="task"></li>
+                        </template>
+                      </ul>
+                    </div>
+                  </template>
+
+                  <template x-if="selectedReport.nextPlan">
+                    <div>
+                      <h4 class="text-sm font-semibold text-gray-900 dark:text-white mb-2">향후 계획</h4>
+                      <p class="text-sm text-gray-600 dark:text-gray-400" x-text="selectedReport.nextPlan"></p>
+                    </div>
+                  </template>
+                </div>
+              </template>
+            </div>
+          </div>
+
+          <!-- 모달 푸터 -->
+          <div class="flex justify-end px-6 py-4 border-t border-gray-200 dark:border-gray-700">
+            <button @click="showReportModal = false" class="px-4 py-2 text-sm font-medium text-gray-700 dark:text-gray-300 bg-gray-100 dark:bg-gray-700 rounded-lg hover:bg-gray-200 dark:hover:bg-gray-600 transition-colors">
+              닫기
+            </button>
+          </div>
+        </div>
+      </div>
+    </div>
+
+  </main>
+
+  <!-- 푸터 -->
+  <footer class="bg-white dark:bg-gray-800 border-t border-gray-200 dark:border-gray-700 mt-auto">
+    <div class="max-w-6xl mx-auto px-4 sm:px-6 py-6">
+      <div class="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
+        <div>
+          <div class="flex items-center gap-2 mb-1">
+            <div class="w-5 h-5 bg-indigo-600 rounded flex items-center justify-center">
+              <svg class="w-3 h-3 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"/></svg>
+            </div>
+            <span class="text-sm font-semibold text-gray-700 dark:text-gray-300">Contract Sync 클라이언트 포털</span>
+          </div>
+          <p class="text-xs text-gray-500 dark:text-gray-400">문의: support@contractsync.com</p>
+        </div>
+        <p class="text-xs text-gray-400 dark:text-gray-500">이 페이지는 프로젝트 종료 후 30일까지 유효합니다</p>
+      </div>
+    </div>
+  </footer>
+
+</div>
+
+<script>
+function portalLayout() {
+  return {
+    darkMode: localStorage.getItem('darkMode') === 'true',
+    toggleDark() {
+      this.darkMode = !this.darkMode;
+      localStorage.setItem('darkMode', this.darkMode);
+      this.applyDark();
+    },
+    applyDark() {
+      document.documentElement.classList.toggle('dark', this.darkMode);
+    },
+    init() {
+      this.applyDark();
+      // portalLayout init should NOT re-run clientPortalPage init
+    }
+  }
+}
+
+function clientPortalPage() {
+  return {
+    activeTab: 'tasks',
+
+    tabs: [
+      { id: 'tasks', label: '업무 현황', count: null },
+      { id: 'deliverables', label: '산출물', count: 4 },
+      { id: 'feedback', label: '피드백 대기', count: 2 },
+      { id: 'reports', label: '보고서', count: 3 }
+    ],
+
+    token: '',
+    tokenExpiry: '2026-06-30 23:59',
+    isTokenExpired: false,
+
+    project: {
+      name: '더존 ERP 연동 개발',
+      client: '더존비즈온',
+      startDate: '2026-01-15',
+      endDate: '2026-06-30',
+      status: 'in_progress',
+      type: 'outsource',
+      totalTasks: 20,
+      completedTasks: 9,
+      pendingFeedbackCount: 2
+    },
+
+    phases: [
+      {
+        name: '분석',
+        tasks: [
+          { name: '요구사항 분석', status: 'confirmed', dueDate: '2026-02-01', completedDate: '2026-01-28', isClientFacing: true },
+          { name: '기술 검토', status: 'confirmed', dueDate: '2026-02-05', completedDate: '2026-02-03', isClientFacing: false },
+          { name: 'IA 설계', status: 'completed', dueDate: '2026-02-10', completedDate: '2026-02-09', isClientFacing: true }
+        ]
+      },
+      {
+        name: '설계',
+        tasks: [
+          { name: 'DB 설계', status: 'completed', dueDate: '2026-02-20', completedDate: '2026-02-18', isClientFacing: false },
+          { name: 'API 설계', status: 'completed', dueDate: '2026-02-25', completedDate: '2026-02-24', isClientFacing: false },
+          { name: 'UI 설계', status: 'feedback_pending', dueDate: '2026-03-01', completedDate: '2026-02-27', isClientFacing: true },
+          { name: '화면 설계', status: 'in_progress', dueDate: '2026-03-05', completedDate: null, isClientFacing: true }
+        ]
+      },
+      {
+        name: '개발',
+        tasks: [
+          { name: '프론트엔드 개발', status: 'in_progress', dueDate: '2026-04-15', completedDate: null, isClientFacing: false },
+          { name: '백엔드 개발', status: 'in_progress', dueDate: '2026-04-30', completedDate: null, isClientFacing: false },
+          { name: '결제 모듈 연동', status: 'pending', dueDate: '2026-05-15', completedDate: null, isClientFacing: true },
+          { name: 'QA 테스트', status: 'pending', dueDate: '2026-06-15', completedDate: null, isClientFacing: true }
+        ]
+      }
+    ],
+
+    deliverables: [
+      { taskName: '요구사항 분석', fileName: '요구사항정의서_v2.1.pdf', fileSize: '2.4 MB', submittedDate: '2026-01-28' },
+      { taskName: '기술 검토', fileName: '기술검토보고서_최종.docx', fileSize: '1.8 MB', submittedDate: '2026-02-03' },
+      { taskName: 'DB 설계', fileName: 'ERD_설계서_v1.0.pdf', fileSize: '3.2 MB', submittedDate: '2026-02-18' },
+      { taskName: 'API 설계', fileName: 'API명세서_v1.0.xlsx', fileSize: '856 KB', submittedDate: '2026-02-24' }
+    ],
+
+    pendingFeedback: [
+      {
+        taskName: 'UI 설계',
+        completedDate: '2026-02-27',
+        daysRemaining: 2,
+        autoConfirmDate: '2026-03-06'
+      },
+      {
+        taskName: 'IA 설계',
+        completedDate: '2026-02-09',
+        daysRemaining: 5,
+        autoConfirmDate: '2026-03-09'
+      }
+    ],
+
+    reports: [
+      {
+        id: 1,
+        title: '2월 정기 진행 보고',
+        type: '정기',
+        sentDate: '2026-02-28',
+        summary: '2월 한 달간 분석 단계를 완료하고 설계 단계에 진입하였습니다. 요구사항 분석 및 기술 검토가 모두 완료되었으며, DB 설계와 API 설계를 마무리하였습니다.',
+        completedTasks: ['요구사항 분석', '기술 검토', 'IA 설계', 'DB 설계', 'API 설계'],
+        nextPlan: '3월에는 UI/화면 설계를 마무리하고 프론트엔드 및 백엔드 개발에 착수할 예정입니다.'
+      },
+      {
+        id: 2,
+        title: 'DB 설계 완료 보고',
+        type: '완료',
+        sentDate: '2026-02-18',
+        summary: 'DB 설계가 완료되었습니다. ERD 및 테이블 정의서를 첨부합니다. 총 45개 테이블, 12개 뷰가 설계되었습니다.',
+        completedTasks: ['DB 설계'],
+        nextPlan: 'API 설계 작업에 착수합니다.'
+      },
+      {
+        id: 3,
+        title: '1월 정기 진행 보고',
+        type: '정기',
+        sentDate: '2026-01-31',
+        summary: '프로젝트 킥오프 후 분석 단계를 시작하였습니다. 요구사항 수집 및 이해관계자 인터뷰를 진행하였으며, 기술 스택 검토를 병행하고 있습니다.',
+        completedTasks: [],
+        nextPlan: '2월 초까지 요구사항 분석과 기술 검토를 완료하고, IA 설계에 착수할 계획입니다.'
+      }
+    ],
+
+    showReportModal: false,
+    selectedReport: null,
+
+    getStatusClass(s) {
+      return {
+        'pending': 'bg-gray-100 text-gray-600 dark:bg-gray-700 dark:text-gray-400',
+        'in_progress': 'bg-blue-100 text-blue-700 dark:bg-blue-900/30 dark:text-blue-400',
+        'completed': 'bg-green-100 text-green-700 dark:bg-green-900/30 dark:text-green-400',
+        'report_sent': 'bg-purple-100 text-purple-700 dark:bg-purple-900/30 dark:text-purple-400',
+        'feedback_pending': 'bg-orange-100 text-orange-700 dark:bg-orange-900/30 dark:text-orange-400',
+        'confirmed': 'bg-emerald-100 text-emerald-700 dark:bg-emerald-900/30 dark:text-emerald-400'
+      }[s] || '';
+    },
+
+    getStatusLabel(s) {
+      return {
+        'pending': '대기',
+        'in_progress': '진행중',
+        'completed': '완료',
+        'report_sent': '보고 발송',
+        'feedback_pending': '피드백 대기',
+        'confirmed': '확인됨'
+      }[s] || s;
+    },
+
+    getPhaseProgress(phase) {
+      const visible = phase.tasks.filter(t => t.isClientFacing);
+      const done = visible.filter(t => ['completed', 'confirmed', 'report_sent'].includes(t.status)).length;
+      return done + '/' + visible.length + ' 완료';
+    },
+
+    getPhasePercent(phase) {
+      const visible = phase.tasks.filter(t => t.isClientFacing);
+      if (visible.length === 0) return 0;
+      const done = visible.filter(t => ['completed', 'confirmed', 'report_sent'].includes(t.status)).length;
+      return Math.round((done / visible.length) * 100);
+    },
+
+    init() {
+      const params = new URLSearchParams(window.location.search);
+      this.token = params.get('token') || 'demo-token-abc123';
+      const expiry = new Date(this.tokenExpiry);
+      this.isTokenExpired = expiry < new Date();
+    },
+
+    getProjectTypeBadge(type) {
+      const map = {
+        'outsource': { label: '외주', class: 'bg-indigo-100 text-indigo-700 dark:bg-indigo-900/30 dark:text-indigo-400' },
+        'internal': { label: '내부', class: 'bg-gray-100 text-gray-700 dark:bg-gray-700 dark:text-gray-300' },
+        'maintenance': { label: '유지보수', class: 'bg-cyan-100 text-cyan-700 dark:bg-cyan-900/30 dark:text-cyan-400' }
+      };
+      return map[type] || { label: type, class: 'bg-gray-100 text-gray-600' };
+    },
+
+    getClientFacingTasks(phase) {
+      return phase.tasks.filter(t => t.isClientFacing);
+    },
+
+    openReport(report) {
+      this.selectedReport = report;
+      this.showReportModal = true;
+    }
+  }
+}
+</script>
+</body>
+</html>

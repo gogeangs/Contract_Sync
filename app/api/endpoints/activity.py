@@ -4,8 +4,9 @@ from sqlalchemy import select, desc, func, or_
 from typing import Optional
 import logging
 
-from app.database import get_db, User, ActivityLog, TeamMember, Contract
+from app.database import get_db, User, ActivityLog, TeamMember, Project
 from app.api.endpoints.auth import require_current_user
+from app.services.common import get_user_team_ids
 
 logger = logging.getLogger(__name__)
 
@@ -15,7 +16,7 @@ router = APIRouter()
 @router.get("")
 async def list_activities(
     request: Request,
-    contract_id: Optional[int] = Query(None, description="계약 ID 필터"),
+    project_id: Optional[int] = Query(None, description="프로젝트 ID 필터"),
     team_id: Optional[int] = Query(None, description="팀 ID 필터"),
     page: int = Query(1, ge=1),
     size: int = Query(30, ge=1, le=100),
@@ -26,10 +27,7 @@ async def list_activities(
 
     # 사용자가 접근 가능한 활동만 조회
     # (본인의 활동 + 본인이 속한 팀의 활동)
-    team_ids_result = await db.execute(
-        select(TeamMember.team_id).where(TeamMember.user_id == user.id)
-    )
-    user_team_ids = [row[0] for row in team_ids_result.all()]
+    user_team_ids = await get_user_team_ids(db, user.id)
 
     conditions = [ActivityLog.user_id == user.id]
     if user_team_ids:
@@ -38,19 +36,19 @@ async def list_activities(
 
     query = select(ActivityLog, User).join(User, User.id == ActivityLog.user_id).where(access_filter)
 
-    # H-3: contract_id 필터 시 해당 계약 접근 권한 검증
-    if contract_id is not None:
-        contract_result = await db.execute(select(Contract).where(Contract.id == contract_id))
-        contract = contract_result.scalar_one_or_none()
-        if not contract:
-            raise HTTPException(status_code=404, detail="계약을 찾을 수 없습니다")
-        # 본인 계약이거나 팀 계약(소속 팀)인지 확인
-        if contract.team_id:
-            if contract.team_id not in user_team_ids:
-                raise HTTPException(status_code=403, detail="해당 계약에 접근 권한이 없습니다")
-        elif contract.user_id != user.id:
-            raise HTTPException(status_code=403, detail="해당 계약에 접근 권한이 없습니다")
-        query = query.where(ActivityLog.contract_id == contract_id)
+    # project_id 필터 시 해당 프로젝트 접근 권한 검증
+    if project_id is not None:
+        project_result = await db.execute(select(Project).where(Project.id == project_id))
+        project = project_result.scalar_one_or_none()
+        if not project:
+            raise HTTPException(status_code=404, detail="프로젝트를 찾을 수 없습니다")
+        # 본인 프로젝트이거나 팀 프로젝트(소속 팀)인지 확인
+        if project.team_id:
+            if project.team_id not in user_team_ids:
+                raise HTTPException(status_code=403, detail="해당 프로젝트에 접근 권한이 없습니다")
+        elif project.user_id != user.id:
+            raise HTTPException(status_code=403, detail="해당 프로젝트에 접근 권한이 없습니다")
+        query = query.where(ActivityLog.project_id == project_id)
     if team_id is not None:
         if team_id not in user_team_ids:
             raise HTTPException(status_code=403, detail="팀 멤버가 아닙니다")
@@ -58,8 +56,8 @@ async def list_activities(
 
     # 전체 개수
     count_conditions = [access_filter]
-    if contract_id is not None:
-        count_conditions.append(ActivityLog.contract_id == contract_id)
+    if project_id is not None:
+        count_conditions.append(ActivityLog.project_id == project_id)
     if team_id is not None:
         count_conditions.append(ActivityLog.team_id == team_id)
 
@@ -78,7 +76,7 @@ async def list_activities(
         "items": [
             {
                 "id": log.id,
-                "contract_id": log.contract_id,
+                "project_id": log.project_id,
                 "team_id": log.team_id,
                 "user_id": log.user_id,
                 "user_name": u.name or u.email,

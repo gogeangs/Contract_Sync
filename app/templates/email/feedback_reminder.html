@@ -1,0 +1,51 @@
+{% extends "base_email.html" %}
+{% block title %}피드백 리마인더 — {{ task_name }}{% endblock %}
+{% block content %}
+<p style="margin: 0 0 20px; color: #374151; font-size: 15px; line-height: 1.7;">
+  안녕하세요,<br>
+  <strong>'{{ task_name }}'</strong> 업무 완료 보고에 대해 아직 피드백을 보내지 않으셨습니다.
+</p>
+
+<!-- 업무 정보 -->
+<table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="background-color: #fef3c7; border-radius: 8px; margin-bottom: 24px;">
+  <tr>
+    <td style="padding: 16px 20px;">
+      <table role="presentation" width="100%" cellpadding="0" cellspacing="0">
+        <tr>
+          <td style="color: #92400e; font-size: 13px; padding-bottom: 8px; width: 100px;">프로젝트</td>
+          <td style="color: #78350f; font-size: 14px; font-weight: 600; padding-bottom: 8px;">{{ project_name }}</td>
+        </tr>
+        <tr>
+          <td style="color: #92400e; font-size: 13px; padding-bottom: 8px;">업무명</td>
+          <td style="color: #78350f; font-size: 14px; font-weight: 600; padding-bottom: 8px;">{{ task_name }}</td>
+        </tr>
+        <tr>
+          <td style="color: #92400e; font-size: 13px;">담당자</td>
+          <td style="color: #78350f; font-size: 14px;">{{ sender_name }}</td>
+        </tr>
+      </table>
+    </td>
+  </tr>
+</table>
+
+<!-- 자동 확인 안내 -->
+<div style="background-color: #fff7ed; border: 1px solid #fed7aa; border-radius: 8px; padding: 16px 20px; margin-bottom: 24px;">
+  <p style="margin: 0; color: #c2410c; font-size: 14px; line-height: 1.6;">
+    <strong>{{ auto_confirm_date }}</strong>까지 피드백이 없으면 자동으로 완료 확인 처리됩니다.
+  </p>
+</div>
+
+<!-- CTA 버튼 -->
+<table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="text-align: center;">
+  <tr>
+    <td>
+      <p style="margin: 0 0 16px; color: #374151; font-size: 14px;">
+        수정이 필요하시면 피드백을 남겨주세요.
+      </p>
+      <a href="{{ feedback_url }}" target="_blank" style="display: inline-block; background-color: #f59e0b; color: #ffffff; text-decoration: none; padding: 12px 32px; border-radius: 8px; font-size: 15px; font-weight: 600;">
+        피드백 남기기
+      </a>
+    </td>
+  </tr>
+</table>
+{% endblock %}

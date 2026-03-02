@@ -1,0 +1,687 @@
+<!DOCTYPE html>
+<html lang="ko" class="">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Contract Sync v2 - 견적서 (Google Sheets)</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <script defer src="https://cdn.jsdelivr.net/npm/alpinejs@3.x.x/dist/cdn.min.js"></script>
+  <script>
+    tailwind.config = { darkMode: 'class' }
+  </script>
+  <style>
+    [x-cloak] { display: none !important; }
+    @keyframes shimmer { 0% { background-position: -200% 0; } 100% { background-position: 200% 0; } }
+    .skeleton { background: linear-gradient(90deg, #e5e7eb 25%, #f3f4f6 50%, #e5e7eb 75%); background-size: 200% 100%; animation: shimmer 1.5s infinite; border-radius: 4px; }
+    html.dark .skeleton { background: linear-gradient(90deg, #374151 25%, #4b5563 50%, #374151 75%); background-size: 200% 100%; }
+    @keyframes spin-slow { to { transform: rotate(360deg); } }
+    .animate-spin-slow { animation: spin-slow 2s linear infinite; }
+  </style>
+</head>
+<body class="bg-gray-50 dark:bg-gray-900 text-gray-800 dark:text-gray-100 transition-colors duration-300">
+
+<div x-data="appLayout()" class="flex h-screen overflow-hidden">
+
+  <!-- 좌측 사이드바 (데스크톱) -->
+  <aside class="hidden lg:flex lg:flex-col w-64 bg-white dark:bg-gray-800 border-r border-gray-200 dark:border-gray-700 fixed inset-y-0 left-0 z-30">
+    <div class="flex items-center gap-3 px-6 py-5 border-b border-gray-200 dark:border-gray-700">
+      <div class="w-8 h-8 bg-indigo-600 rounded-lg flex items-center justify-center">
+        <svg class="w-5 h-5 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"/></svg>
+      </div>
+      <span class="text-lg font-bold text-gray-800 dark:text-white">Contract Sync</span>
+    </div>
+    <div class="px-4 py-3">
+      <div class="relative" x-data="{ open: false }">
+        <button @click="open = !open" class="w-full flex items-center justify-between px-3 py-2 text-sm bg-gray-50 dark:bg-gray-700 rounded-lg hover:bg-gray-100 dark:hover:bg-gray-600 transition-colors">
+          <div class="flex items-center gap-2">
+            <svg class="w-4 h-4 text-gray-500 dark:text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17 20h5v-2a3 3 0 00-5.356-1.857M17 20H7m10 0v-2c0-.656-.126-1.283-.356-1.857M7 20H2v-2a3 3 0 015.356-1.857M7 20v-2c0-.656.126-1.283.356-1.857m0 0a5.002 5.002 0 019.288 0M15 7a3 3 0 11-6 0 3 3 0 016 0z"/></svg>
+            <span class="text-gray-700 dark:text-gray-200">디자인팀</span>
+          </div>
+          <svg class="w-4 h-4 text-gray-400 dark:text-gray-500" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7"/></svg>
+        </button>
+      </div>
+    </div>
+    <nav class="flex-1 px-3 py-2 space-y-1 overflow-y-auto">
+      <a href="dashboard.html" class="flex items-center gap-3 px-3 py-2.5 rounded-lg text-gray-600 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700 text-sm transition-colors">
+        <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 12l2-2m0 0l7-7 7 7M5 10v10a1 1 0 001 1h3m10-11l2 2m-2-2v10a1 1 0 01-1 1h-3m-6 0a1 1 0 001-1v-4a1 1 0 011-1h2a1 1 0 011 1v4a1 1 0 001 1m-6 0h6"/></svg>
+        <span>대시보드</span>
+      </a>
+      <a href="clients.html" class="flex items-center gap-3 px-3 py-2.5 rounded-lg text-gray-600 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700 text-sm transition-colors">
+        <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 21V5a2 2 0 00-2-2H7a2 2 0 00-2 2v16m14 0h2m-2 0h-5m-9 0H3m2 0h5M9 7h1m-1 4h1m4-4h1m-1 4h1m-5 10v-5a1 1 0 011-1h2a1 1 0 011 1v5m-4 0h4"/></svg>
+        <span>발주처</span>
+      </a>
+      <a href="projects.html" class="flex items-center gap-3 px-3 py-2.5 rounded-lg bg-indigo-50 dark:bg-indigo-900/30 text-indigo-600 dark:text-indigo-400 font-medium text-sm">
+        <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 7v10a2 2 0 002 2h14a2 2 0 002-2V9a2 2 0 00-2-2h-6l-2-2H5a2 2 0 00-2 2z"/></svg>
+        <span>프로젝트</span>
+      </a>
+      <a href="tasks.html" class="flex items-center gap-3 px-3 py-2.5 rounded-lg text-gray-600 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700 text-sm transition-colors">
+        <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2m-6 9l2 2 4-4"/></svg>
+        <span>업무</span>
+      </a>
+      <a href="#" class="flex items-center gap-3 px-3 py-2.5 rounded-lg text-gray-600 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700 text-sm transition-colors">
+        <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 17v-2m3 2v-4m3 4v-6m2 10H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"/></svg>
+        <span>보고서</span>
+      </a>
+      <a href="#" class="flex items-center gap-3 px-3 py-2.5 rounded-lg text-gray-600 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700 text-sm transition-colors">
+        <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8c-1.657 0-3 .895-3 2s1.343 2 3 2 3 .895 3 2-1.343 2-3 2m0-8c1.11 0 2.08.402 2.599 1M12 8V7m0 1v8m0 0v1m0-1c-1.11 0-2.08-.402-2.599-1M21 12a9 9 0 11-18 0 9 9 0 0118 0z"/></svg>
+        <span>수금</span>
+      </a>
+    </nav>
+    <div class="px-3 py-3 border-t border-gray-200 dark:border-gray-700">
+      <a href="#" class="flex items-center gap-3 px-3 py-2.5 rounded-lg text-gray-600 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700 text-sm transition-colors">
+        <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10.325 4.317c.426-1.756 2.924-1.756 3.35 0a1.724 1.724 0 002.573 1.066c1.543-.94 3.31.826 2.37 2.37a1.724 1.724 0 001.066 2.573c1.756.426 1.756 2.924 0 3.35a1.724 1.724 0 00-1.066 2.573c.94 1.543-.826 3.31-2.37 2.37a1.724 1.724 0 00-2.573 1.066c-.426 1.756-2.924 1.756-3.35 0a1.724 1.724 0 00-2.573-1.066c-1.543.94-3.31-.826-2.37-2.37a1.724 1.724 0 00-1.066-2.573c-1.756-.426-1.756-2.924 0-3.35a1.724 1.724 0 001.066-2.573c-.94-1.543.826-3.31 2.37-2.37.996.608 2.296.07 2.572-1.065z"/><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z"/></svg>
+        <span>설정</span>
+      </a>
+    </div>
+  </aside>
+
+  <!-- 메인 영역 -->
+  <div class="flex-1 flex flex-col lg:ml-64 overflow-hidden">
+
+    <!-- 상단 헤더 -->
+    <header class="bg-white dark:bg-gray-800 border-b border-gray-200 dark:border-gray-700 px-4 lg:px-6 py-3 flex items-center justify-between sticky top-0 z-20">
+      <button @click="mobileMenu = !mobileMenu" class="lg:hidden p-2 rounded-lg hover:bg-gray-100 dark:hover:bg-gray-700">
+        <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 6h16M4 12h16M4 18h16"/></svg>
+      </button>
+      <div class="flex items-center gap-2 text-sm">
+        <a href="projects.html" class="text-gray-500 dark:text-gray-400 hover:text-indigo-600">프로젝트</a>
+        <svg class="w-4 h-4 text-gray-400 dark:text-gray-500" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7"/></svg>
+        <a href="project-detail.html" class="text-gray-500 dark:text-gray-400 hover:text-indigo-600">더존 ERP 연동 개발</a>
+        <svg class="w-4 h-4 text-gray-400 dark:text-gray-500" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7"/></svg>
+        <span class="text-gray-800 dark:text-gray-200 font-medium">견적서</span>
+      </div>
+      <div class="flex items-center gap-2">
+        <button @click="toggleDark()" class="p-2 rounded-lg hover:bg-gray-100 dark:hover:bg-gray-700 transition-colors">
+          <svg x-show="!darkMode" class="w-5 h-5 text-gray-500" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M20.354 15.354A9 9 0 018.646 3.646 9.003 9.003 0 0012 21a9.003 9.003 0 008.354-5.646z"/></svg>
+          <svg x-show="darkMode" x-cloak class="w-5 h-5 text-yellow-400" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 3v1m0 16v1m9-9h-1M4 12H3m15.364 6.364l-.707-.707M6.343 6.343l-.707-.707m12.728 0l-.707.707M6.343 17.657l-.707.707M16 12a4 4 0 11-8 0 4 4 0 018 0z"/></svg>
+        </button>
+        <div class="flex items-center gap-2 pl-2 border-l border-gray-200 dark:border-gray-600">
+          <div class="w-8 h-8 bg-indigo-500 rounded-full flex items-center justify-center text-white text-sm font-medium">홍</div>
+          <span class="text-sm text-gray-700 dark:text-gray-200 hidden sm:block">홍길동</span>
+        </div>
+      </div>
+    </header>
+
+    <!-- 모바일 사이드바 오버레이 -->
+    <div x-show="mobileMenu" x-cloak @click="mobileMenu = false" class="fixed inset-0 bg-black bg-opacity-50 z-40 lg:hidden"></div>
+    <aside x-show="mobileMenu" x-cloak x-transition:enter="transition ease-out duration-300" x-transition:enter-start="-translate-x-full" x-transition:enter-end="translate-x-0" x-transition:leave="transition ease-in duration-200" x-transition:leave-start="translate-x-0" x-transition:leave-end="-translate-x-full" class="fixed inset-y-0 left-0 w-64 bg-white dark:bg-gray-800 z-50 lg:hidden shadow-xl">
+      <div class="flex items-center justify-between px-6 py-5 border-b border-gray-200 dark:border-gray-700">
+        <div class="flex items-center gap-3">
+          <div class="w-8 h-8 bg-indigo-600 rounded-lg flex items-center justify-center">
+            <svg class="w-5 h-5 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"/></svg>
+          </div>
+          <span class="text-lg font-bold">Contract Sync</span>
+        </div>
+        <button @click="mobileMenu = false" class="p-1 rounded hover:bg-gray-100 dark:hover:bg-gray-700">
+          <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"/></svg>
+        </button>
+      </div>
+      <nav class="px-3 py-4 space-y-1">
+        <a href="dashboard.html" class="flex items-center gap-3 px-3 py-2.5 rounded-lg text-gray-600 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700 text-sm">
+          <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 12l2-2m0 0l7-7 7 7M5 10v10a1 1 0 001 1h3m10-11l2 2m-2-2v10a1 1 0 01-1 1h-3m-6 0a1 1 0 001-1v-4a1 1 0 011-1h2a1 1 0 011 1v4a1 1 0 001 1m-6 0h6"/></svg>
+          <span>대시보드</span>
+        </a>
+        <a href="projects.html" class="flex items-center gap-3 px-3 py-2.5 rounded-lg bg-indigo-50 dark:bg-indigo-900/30 text-indigo-600 dark:text-indigo-400 font-medium text-sm">
+          <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 7v10a2 2 0 002 2h14a2 2 0 002-2V9a2 2 0 00-2-2h-6l-2-2H5a2 2 0 00-2 2z"/></svg>
+          <span>프로젝트</span>
+        </a>
+        <a href="tasks.html" class="flex items-center gap-3 px-3 py-2.5 rounded-lg text-gray-600 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700 text-sm">
+          <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2m-6 9l2 2 4-4"/></svg>
+          <span>업무</span>
+        </a>
+      </nav>
+    </aside>
+
+    <!-- 메인 콘텐츠 -->
+    <main class="flex-1 overflow-y-auto p-4 lg:p-6 pb-20 lg:pb-6" x-data="estimateSheetsPage()">
+
+      <!-- 페이지 헤더 -->
+      <div class="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4 mb-6">
+        <div>
+          <div class="flex items-center gap-3">
+            <h2 class="text-xl font-bold text-gray-800 dark:text-white">2026 상반기 견적서</h2>
+            <span class="px-2 py-0.5 text-xs font-medium rounded-full bg-blue-100 text-blue-700 dark:bg-blue-900/30 dark:text-blue-400">견적서</span>
+            <span class="px-2 py-0.5 text-xs font-medium rounded-full bg-green-100 text-green-700 dark:bg-green-900/30 dark:text-green-400">확정</span>
+          </div>
+          <p class="text-sm text-gray-500 dark:text-gray-400 mt-1">Google Sheets 연동 견적서 | 마지막 동기화: 5분 전</p>
+        </div>
+        <div class="flex items-center gap-2">
+          <button @click="syncSheet()" class="flex items-center gap-2 px-3 py-2 text-sm bg-white dark:bg-gray-700 border border-gray-300 dark:border-gray-600 rounded-lg hover:bg-gray-50 dark:hover:bg-gray-600 transition-colors">
+            <svg :class="isSyncing ? 'animate-spin-slow' : ''" class="w-4 h-4 text-gray-500 dark:text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15"/></svg>
+            <span x-text="isSyncing ? '동기화 중...' : '동기화'"></span>
+          </button>
+          <a href="#" target="_blank" class="flex items-center gap-2 px-3 py-2 text-sm bg-green-600 hover:bg-green-700 text-white rounded-lg transition-colors">
+            <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10 6H6a2 2 0 00-2 2v10a2 2 0 002 2h10a2 2 0 002-2v-4M14 4h6m0 0v6m0-6L10 14"/></svg>
+            Google Sheets에서 편집
+          </a>
+          <button @click="showAiParse = true" class="flex items-center gap-2 px-3 py-2 text-sm bg-purple-600 hover:bg-purple-700 text-white rounded-lg transition-colors">
+            <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9.663 17h4.673M12 3v1m6.364 1.636l-.707.707M21 12h-1M4 12H3m3.343-5.657l-.707-.707m2.828 9.9a5 5 0 117.072 0l-.548.547A3.374 3.374 0 0014 18.469V19a2 2 0 11-4 0v-.531c0-.895-.356-1.754-.988-2.386l-.548-.547z"/></svg>
+            AI 견적 분석
+          </button>
+        </div>
+      </div>
+
+      <!-- 탭 전환 -->
+      <div class="flex gap-1 mb-6 bg-gray-100 dark:bg-gray-700 rounded-lg p-1 w-fit">
+        <button @click="activeTab = 'sheet'" :class="activeTab === 'sheet' ? 'bg-white dark:bg-gray-600 shadow text-gray-800 dark:text-white' : 'text-gray-500 dark:text-gray-400 hover:text-gray-700 dark:hover:text-gray-300'" class="px-4 py-2 text-sm font-medium rounded-md transition-all">
+          시트 보기
+        </button>
+        <button @click="activeTab = 'parsed'" :class="activeTab === 'parsed' ? 'bg-white dark:bg-gray-600 shadow text-gray-800 dark:text-white' : 'text-gray-500 dark:text-gray-400 hover:text-gray-700 dark:hover:text-gray-300'" class="px-4 py-2 text-sm font-medium rounded-md transition-all">
+          AI 파싱 결과
+        </button>
+        <button @click="activeTab = 'history'" :class="activeTab === 'history' ? 'bg-white dark:bg-gray-600 shadow text-gray-800 dark:text-white' : 'text-gray-500 dark:text-gray-400 hover:text-gray-700 dark:hover:text-gray-300'" class="px-4 py-2 text-sm font-medium rounded-md transition-all">
+          변경 이력
+        </button>
+      </div>
+
+      <!-- 시트 보기 탭 -->
+      <div x-show="activeTab === 'sheet'" class="space-y-6">
+        <!-- 요약 카드 -->
+        <div class="grid grid-cols-2 lg:grid-cols-4 gap-4">
+          <div class="bg-white dark:bg-gray-800 rounded-lg shadow p-4">
+            <p class="text-xs text-gray-500 dark:text-gray-400 mb-1">총 견적액</p>
+            <p class="text-xl font-bold text-gray-800 dark:text-white">50,000,000원</p>
+            <p class="text-xs text-gray-400 dark:text-gray-500 mt-1">부가세 별도</p>
+          </div>
+          <div class="bg-white dark:bg-gray-800 rounded-lg shadow p-4">
+            <p class="text-xs text-gray-500 dark:text-gray-400 mb-1">견적 항목</p>
+            <p class="text-xl font-bold text-gray-800 dark:text-white">8개</p>
+            <p class="text-xs text-gray-400 dark:text-gray-500 mt-1">5개 단계</p>
+          </div>
+          <div class="bg-white dark:bg-gray-800 rounded-lg shadow p-4">
+            <p class="text-xs text-gray-500 dark:text-gray-400 mb-1">예상 기간</p>
+            <p class="text-xl font-bold text-gray-800 dark:text-white">120일</p>
+            <p class="text-xs text-gray-400 dark:text-gray-500 mt-1">약 4개월</p>
+          </div>
+          <div class="bg-white dark:bg-gray-800 rounded-lg shadow p-4">
+            <p class="text-xs text-gray-500 dark:text-gray-400 mb-1">동기화 상태</p>
+            <div class="flex items-center gap-2 mt-1">
+              <span class="w-2 h-2 bg-green-500 rounded-full"></span>
+              <p class="text-sm font-medium text-green-600 dark:text-green-400">연결됨</p>
+            </div>
+            <p class="text-xs text-gray-400 dark:text-gray-500 mt-1">5분 간격 자동 동기화</p>
+          </div>
+        </div>
+
+        <!-- Google Sheets 임베드 (iframe placeholder) -->
+        <div class="bg-white dark:bg-gray-800 rounded-lg shadow overflow-hidden">
+          <div class="flex items-center justify-between px-4 py-3 border-b border-gray-200 dark:border-gray-700">
+            <div class="flex items-center gap-2">
+              <svg class="w-5 h-5 text-green-600" viewBox="0 0 24 24" fill="currentColor"><path d="M19 11V9h-6V3H5c-1.1 0-2 .9-2 2v14c0 1.1.9 2 2 2h14c1.1 0 2-.9 2-2v-8h-2zm-6-7l6 6h-6V4z"/></svg>
+              <span class="text-sm font-medium text-gray-700 dark:text-gray-200">2026 상반기 견적서 - Google Sheets</span>
+            </div>
+            <span class="text-xs text-gray-400 dark:text-gray-500">읽기 전용</span>
+          </div>
+
+          <!-- 시트 테이블 (iframe 시뮬레이션) -->
+          <div class="overflow-x-auto">
+            <table class="w-full text-sm">
+              <thead>
+                <tr class="bg-green-50 dark:bg-green-900/20">
+                  <th class="px-4 py-2 text-left text-xs font-medium text-gray-500 dark:text-gray-400 w-8">#</th>
+                  <th class="px-4 py-2 text-left text-xs font-medium text-gray-500 dark:text-gray-400">항목명</th>
+                  <th class="px-4 py-2 text-left text-xs font-medium text-gray-500 dark:text-gray-400">단계</th>
+                  <th class="px-4 py-2 text-right text-xs font-medium text-gray-500 dark:text-gray-400">수량</th>
+                  <th class="px-4 py-2 text-left text-xs font-medium text-gray-500 dark:text-gray-400">단위</th>
+                  <th class="px-4 py-2 text-right text-xs font-medium text-gray-500 dark:text-gray-400">단가</th>
+                  <th class="px-4 py-2 text-right text-xs font-medium text-gray-500 dark:text-gray-400">금액</th>
+                  <th class="px-4 py-2 text-right text-xs font-medium text-gray-500 dark:text-gray-400">예상일수</th>
+                </tr>
+              </thead>
+              <tbody class="divide-y divide-gray-100 dark:divide-gray-700">
+                <template x-for="(item, idx) in sheetItems" :key="idx">
+                  <tr class="hover:bg-gray-50 dark:hover:bg-gray-700/50 transition-colors">
+                    <td class="px-4 py-3 text-gray-400 dark:text-gray-500" x-text="idx + 1"></td>
+                    <td class="px-4 py-3 font-medium text-gray-800 dark:text-gray-200" x-text="item.name"></td>
+                    <td class="px-4 py-3">
+                      <span class="px-2 py-0.5 text-xs rounded-full" :class="getPhaseBadge(item.phase)" x-text="item.phase"></span>
+                    </td>
+                    <td class="px-4 py-3 text-right text-gray-600 dark:text-gray-300" x-text="item.quantity"></td>
+                    <td class="px-4 py-3 text-gray-500 dark:text-gray-400" x-text="item.unit"></td>
+                    <td class="px-4 py-3 text-right text-gray-600 dark:text-gray-300" x-text="formatNumber(item.unitPrice) + '원'"></td>
+                    <td class="px-4 py-3 text-right font-medium text-gray-800 dark:text-gray-200" x-text="formatNumber(item.amount) + '원'"></td>
+                    <td class="px-4 py-3 text-right text-gray-500 dark:text-gray-400" x-text="item.days + '일'"></td>
+                  </tr>
+                </template>
+              </tbody>
+              <tfoot>
+                <tr class="bg-gray-50 dark:bg-gray-700/50 border-t-2 border-gray-300 dark:border-gray-600">
+                  <td colspan="6" class="px-4 py-3 text-right font-bold text-gray-800 dark:text-gray-200">합계</td>
+                  <td class="px-4 py-3 text-right font-bold text-lg text-indigo-600 dark:text-indigo-400">50,000,000원</td>
+                  <td class="px-4 py-3 text-right font-medium text-gray-600 dark:text-gray-300">120일</td>
+                </tr>
+                <tr class="bg-gray-50 dark:bg-gray-700/50">
+                  <td colspan="6" class="px-4 py-2 text-right text-sm text-gray-500">부가세 (10%)</td>
+                  <td class="px-4 py-2 text-right text-sm text-gray-500">5,000,000원</td>
+                  <td></td>
+                </tr>
+                <tr class="bg-gray-50 dark:bg-gray-700/50">
+                  <td colspan="6" class="px-4 py-2 text-right font-bold text-gray-800 dark:text-gray-200">총 합계 (VAT 포함)</td>
+                  <td class="px-4 py-2 text-right font-bold text-lg text-gray-800 dark:text-gray-200">55,000,000원</td>
+                  <td></td>
+                </tr>
+              </tfoot>
+            </table>
+          </div>
+        </div>
+
+        <!-- 액션 바 -->
+        <div class="flex flex-wrap gap-3">
+          <button @click="showPdfModal = true" class="flex items-center gap-2 px-4 py-2 text-sm bg-white dark:bg-gray-800 border border-gray-300 dark:border-gray-600 rounded-lg hover:bg-gray-50 dark:hover:bg-gray-700 transition-colors">
+            <svg class="w-4 h-4 text-red-500" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M7 21h10a2 2 0 002-2V9.414a1 1 0 00-.293-.707l-5.414-5.414A1 1 0 0012.586 3H7a2 2 0 00-2 2v14a2 2 0 002 2z"/></svg>
+            PDF로 변환
+          </button>
+          <button class="flex items-center gap-2 px-4 py-2 text-sm bg-white dark:bg-gray-800 border border-gray-300 dark:border-gray-600 rounded-lg hover:bg-gray-50 dark:hover:bg-gray-700 transition-colors">
+            <svg class="w-4 h-4 text-blue-500" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 8l7.89 5.26a2 2 0 002.22 0L21 8M5 19h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z"/></svg>
+            발주처에 발송
+          </button>
+          <button class="flex items-center gap-2 px-4 py-2 text-sm bg-white dark:bg-gray-800 border border-gray-300 dark:border-gray-600 rounded-lg hover:bg-gray-50 dark:hover:bg-gray-700 transition-colors">
+            <svg class="w-4 h-4 text-gray-500" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 16H6a2 2 0 01-2-2V6a2 2 0 012-2h8a2 2 0 012 2v2m-6 12h8a2 2 0 002-2v-8a2 2 0 00-2-2h-8a2 2 0 00-2 2v8a2 2 0 002 2z"/></svg>
+            복제
+          </button>
+        </div>
+      </div>
+
+      <!-- AI 파싱 결과 탭 -->
+      <div x-show="activeTab === 'parsed'" x-cloak class="space-y-6">
+        <!-- 파싱 상태 -->
+        <div class="bg-green-50 dark:bg-green-900/20 border border-green-200 dark:border-green-800 rounded-lg p-4">
+          <div class="flex items-center gap-3">
+            <div class="w-8 h-8 bg-green-100 dark:bg-green-800 rounded-full flex items-center justify-center">
+              <svg class="w-5 h-5 text-green-600 dark:text-green-400" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7"/></svg>
+            </div>
+            <div>
+              <p class="font-medium text-green-800 dark:text-green-300">AI 파싱 완료</p>
+              <p class="text-sm text-green-600 dark:text-green-400">2026-02-25 14:30에 분석 완료 | 8개 항목 추출</p>
+            </div>
+          </div>
+        </div>
+
+        <!-- 파싱 결과 구조화 뷰 -->
+        <div class="bg-white dark:bg-gray-800 rounded-lg shadow p-6">
+          <h3 class="text-lg font-semibold mb-4">구조화된 견적 데이터</h3>
+
+          <!-- 단계별 그룹핑 -->
+          <template x-for="phase in parsedPhases" :key="phase.name">
+            <div class="mb-6 last:mb-0">
+              <div class="flex items-center justify-between mb-3">
+                <div class="flex items-center gap-2">
+                  <span class="px-2.5 py-1 text-xs font-medium rounded-full" :class="getPhaseBadge(phase.name)" x-text="phase.name"></span>
+                  <span class="text-sm text-gray-500 dark:text-gray-400" x-text="phase.items.length + '개 항목'"></span>
+                </div>
+                <span class="text-sm font-medium text-gray-700 dark:text-gray-300" x-text="formatNumber(phase.subtotal) + '원'"></span>
+              </div>
+              <div class="space-y-2">
+                <template x-for="item in phase.items" :key="item.name">
+                  <div class="flex items-center justify-between p-3 bg-gray-50 dark:bg-gray-700/50 rounded-lg">
+                    <div class="flex-1">
+                      <p class="text-sm font-medium text-gray-800 dark:text-gray-200" x-text="item.name"></p>
+                      <p class="text-xs text-gray-500 dark:text-gray-400 mt-0.5">
+                        <span x-text="item.quantity + item.unit"></span> &times; <span x-text="formatNumber(item.unitPrice) + '원'"></span>
+                        <span class="ml-2 text-gray-400 dark:text-gray-500">|</span>
+                        <span class="ml-2" x-text="item.days + '일 소요'"></span>
+                      </p>
+                    </div>
+                    <span class="text-sm font-medium text-gray-700 dark:text-gray-300" x-text="formatNumber(item.amount) + '원'"></span>
+                  </div>
+                </template>
+              </div>
+            </div>
+          </template>
+
+          <!-- 총계 -->
+          <div class="mt-6 pt-4 border-t-2 border-gray-200 dark:border-gray-600">
+            <div class="flex items-center justify-between">
+              <span class="text-lg font-bold text-gray-800 dark:text-white">총 견적액</span>
+              <span class="text-xl font-bold text-indigo-600 dark:text-indigo-400">50,000,000원</span>
+            </div>
+            <p class="text-sm text-gray-500 dark:text-gray-400 mt-1 text-right">예상 총 기간: 120일 (약 4개월)</p>
+          </div>
+        </div>
+
+        <!-- 프로젝트 금액 반영 -->
+        <div class="bg-indigo-50 dark:bg-indigo-900/20 border border-indigo-200 dark:border-indigo-800 rounded-lg p-4">
+          <div class="flex items-center justify-between">
+            <div>
+              <p class="font-medium text-indigo-800 dark:text-indigo-300">프로젝트 금액에 자동 반영</p>
+              <p class="text-sm text-indigo-600 dark:text-indigo-400 mt-1">이 견적 데이터가 프로젝트 금액 및 일정에 동기화됩니다</p>
+            </div>
+            <div class="flex items-center gap-2">
+              <span class="w-2 h-2 bg-green-500 rounded-full"></span>
+              <span class="text-sm text-green-600 dark:text-green-400">동기화됨</span>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- 변경 이력 탭 -->
+      <div x-show="activeTab === 'history'" x-cloak class="space-y-6">
+        <div class="bg-white dark:bg-gray-800 rounded-lg shadow p-6">
+          <h3 class="text-lg font-semibold mb-6">변경 이력</h3>
+          <div class="relative">
+            <!-- 타임라인 선 -->
+            <div class="absolute left-4 top-0 bottom-0 w-0.5 bg-gray-200 dark:bg-gray-600"></div>
+
+            <div class="space-y-6">
+              <template x-for="(log, idx) in changeHistory" :key="idx">
+                <div class="relative flex gap-4 pl-10">
+                  <!-- 타임라인 점 -->
+                  <div class="absolute left-2.5 w-3 h-3 rounded-full mt-1.5" :class="idx === 0 ? 'bg-indigo-500' : 'bg-gray-300 dark:bg-gray-500'"></div>
+                  <div class="flex-1 pb-4">
+                    <div class="flex items-center gap-2 mb-1">
+                      <span class="text-sm font-medium text-gray-800 dark:text-gray-200" x-text="log.action"></span>
+                      <span class="px-2 py-0.5 text-xs rounded-full" :class="log.typeBadge" x-text="log.type"></span>
+                    </div>
+                    <p class="text-sm text-gray-600 dark:text-gray-400" x-text="log.detail"></p>
+                    <div class="flex items-center gap-3 mt-2 text-xs text-gray-400 dark:text-gray-500">
+                      <span x-text="log.user"></span>
+                      <span>&bull;</span>
+                      <span x-text="log.date"></span>
+                    </div>
+                  </div>
+                </div>
+              </template>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- AI 견적 분석 모달 -->
+      <div x-show="showAiParse" x-cloak class="fixed inset-0 z-50 flex items-center justify-center p-4">
+        <div @click="showAiParse = false" class="absolute inset-0 bg-black bg-opacity-50"></div>
+        <div class="relative bg-white dark:bg-gray-800 rounded-xl shadow-xl w-full max-w-lg p-6" @click.stop>
+          <div class="flex items-center justify-between mb-4">
+            <h3 class="text-lg font-semibold">AI 견적 분석</h3>
+            <button @click="showAiParse = false" class="p-1 rounded-lg hover:bg-gray-100 dark:hover:bg-gray-700">
+              <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"/></svg>
+            </button>
+          </div>
+
+          <div class="space-y-4">
+            <div class="p-4 bg-purple-50 dark:bg-purple-900/20 rounded-lg">
+              <div class="flex items-center gap-2 mb-2">
+                <svg class="w-5 h-5 text-purple-600 dark:text-purple-400" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9.663 17h4.673M12 3v1m6.364 1.636l-.707.707M21 12h-1M4 12H3m3.343-5.657l-.707-.707m2.828 9.9a5 5 0 117.072 0l-.548.547A3.374 3.374 0 0014 18.469V19a2 2 0 11-4 0v-.531c0-.895-.356-1.754-.988-2.386l-.548-.547z"/></svg>
+                <span class="text-sm font-medium text-purple-700 dark:text-purple-300">AI가 다음을 분석합니다</span>
+              </div>
+              <ul class="text-sm text-purple-600 dark:text-purple-400 space-y-1 ml-7 list-disc">
+                <li>견적 항목별 금액 구조화</li>
+                <li>일정 및 기간 추출</li>
+                <li>과거 프로젝트 대비 적정성 평가</li>
+                <li>누락 항목 제안</li>
+              </ul>
+            </div>
+
+            <div>
+              <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">프로젝트 유형</label>
+              <select class="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-gray-800 dark:text-gray-200 focus:ring-2 focus:ring-indigo-500">
+                <option>외주 개발</option>
+                <option>유지보수</option>
+                <option>컨설팅</option>
+              </select>
+            </div>
+
+            <div>
+              <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">프로젝트 범위 설명</label>
+              <textarea rows="3" placeholder="프로젝트의 범위와 주요 기능을 설명해 주세요" class="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-gray-800 dark:text-gray-200 focus:ring-2 focus:ring-indigo-500 resize-none">ERP 시스템 연동 개발. 더존 ERP API 연동, 실시간 데이터 동기화, 대시보드 구축</textarea>
+            </div>
+          </div>
+
+          <div class="flex justify-end gap-3 mt-6">
+            <button @click="showAiParse = false" class="px-4 py-2 text-sm text-gray-600 dark:text-gray-300 bg-gray-100 dark:bg-gray-700 rounded-lg hover:bg-gray-200 dark:hover:bg-gray-600 transition-colors">취소</button>
+            <button @click="showAiParse = false" class="px-4 py-2 text-sm text-white bg-purple-600 rounded-lg hover:bg-purple-700 transition-colors flex items-center gap-2">
+              <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9.663 17h4.673M12 3v1m6.364 1.636l-.707.707M21 12h-1M4 12H3m3.343-5.657l-.707-.707m2.828 9.9a5 5 0 117.072 0l-.548.547A3.374 3.374 0 0014 18.469V19a2 2 0 11-4 0v-.531c0-.895-.356-1.754-.988-2.386l-.548-.547z"/></svg>
+              분석 시작
+            </button>
+          </div>
+        </div>
+      </div>
+
+      <!-- 시트 연결/생성 모달 (새 견적서일 때) -->
+      <div x-show="showConnectModal" x-cloak class="fixed inset-0 z-50 flex items-center justify-center p-4">
+        <div @click="showConnectModal = false" class="absolute inset-0 bg-black bg-opacity-50"></div>
+        <div class="relative bg-white dark:bg-gray-800 rounded-xl shadow-xl w-full max-w-md p-6" @click.stop>
+          <h3 class="text-lg font-semibold mb-4">Google Sheets 연동</h3>
+          <div class="space-y-4">
+            <!-- 새 시트 생성 -->
+            <button @click="connectMethod = 'new'" class="w-full flex items-center gap-4 p-4 border-2 rounded-xl transition-colors text-left"
+              :class="connectMethod === 'new' ? 'border-green-400 dark:border-green-500 bg-green-50 dark:bg-green-900/10' : 'border-gray-200 dark:border-gray-600 hover:border-green-400 dark:hover:border-green-500'">
+              <div class="w-12 h-12 bg-green-100 dark:bg-green-900/30 rounded-lg flex items-center justify-center flex-shrink-0">
+                <svg class="w-6 h-6 text-green-600 dark:text-green-400" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 6v6m0 0v6m0-6h6m-6 0H6"/></svg>
+              </div>
+              <div>
+                <p class="font-medium text-gray-800 dark:text-gray-200">새 Google Sheet 생성</p>
+                <p class="text-sm text-gray-500 dark:text-gray-400">기본 견적서 템플릿으로 새 시트를 생성합니다</p>
+              </div>
+            </button>
+            <!-- 템플릿 선택 (새 시트일 때) -->
+            <div x-show="connectMethod === 'new'" class="ml-16 space-y-2">
+              <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">템플릿 선택</label>
+              <select class="w-full px-3 py-2 text-sm border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-gray-800 dark:text-gray-200">
+                <option>기본 견적서</option>
+                <option>상세 견적서 (단계별)</option>
+                <option>유지보수 견적서</option>
+                <option>빈 시트</option>
+              </select>
+            </div>
+            <!-- 기존 시트 연결 -->
+            <button @click="connectMethod = 'link'" class="w-full flex items-center gap-4 p-4 border-2 rounded-xl transition-colors text-left"
+              :class="connectMethod === 'link' ? 'border-blue-400 dark:border-blue-500 bg-blue-50 dark:bg-blue-900/10' : 'border-gray-200 dark:border-gray-600 hover:border-blue-400 dark:hover:border-blue-500'">
+              <div class="w-12 h-12 bg-blue-100 dark:bg-blue-900/30 rounded-lg flex items-center justify-center flex-shrink-0">
+                <svg class="w-6 h-6 text-blue-600 dark:text-blue-400" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13.828 10.172a4 4 0 00-5.656 0l-4 4a4 4 0 105.656 5.656l1.102-1.101m-.758-4.899a4 4 0 005.656 0l4-4a4 4 0 00-5.656-5.656l-1.1 1.1"/></svg>
+              </div>
+              <div>
+                <p class="font-medium text-gray-800 dark:text-gray-200">기존 시트 연결</p>
+                <p class="text-sm text-gray-500 dark:text-gray-400">Google Sheets URL을 입력하여 연결합니다</p>
+              </div>
+            </button>
+            <!-- URL 입력 (기존 시트일 때) -->
+            <div x-show="connectMethod === 'link'" class="ml-16 space-y-2">
+              <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Google Sheets URL</label>
+              <input type="url" x-model="sheetUrl" placeholder="https://docs.google.com/spreadsheets/d/..." class="w-full px-3 py-2 text-sm border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-gray-800 dark:text-gray-200 focus:ring-2 focus:ring-blue-500">
+              <p class="text-xs text-gray-400 dark:text-gray-500">편집 권한이 있는 Google Sheets URL을 입력하세요</p>
+            </div>
+          </div>
+          <div class="flex gap-3 mt-4">
+            <button @click="showConnectModal = false" class="flex-1 py-2 text-sm text-gray-500 hover:text-gray-700 dark:text-gray-400 dark:hover:text-gray-200 border border-gray-300 dark:border-gray-600 rounded-lg">취소</button>
+            <button @click="showConnectModal = false" :disabled="!connectMethod" :class="connectMethod ? 'bg-indigo-600 hover:bg-indigo-700 text-white' : 'bg-gray-200 dark:bg-gray-600 text-gray-400 cursor-not-allowed'" class="flex-1 py-2 text-sm font-medium rounded-lg transition-colors">연결</button>
+          </div>
+        </div>
+      </div>
+
+      <!-- PDF 변환 설정 모달 -->
+      <div x-show="showPdfModal" x-cloak class="fixed inset-0 z-50 flex items-center justify-center p-4">
+        <div @click="showPdfModal = false" class="absolute inset-0 bg-black bg-opacity-50"></div>
+        <div class="relative bg-white dark:bg-gray-800 rounded-xl shadow-xl w-full max-w-md p-6" @click.stop>
+          <div class="flex items-center justify-between mb-4">
+            <h3 class="text-lg font-semibold flex items-center gap-2">
+              <svg class="w-5 h-5 text-red-500" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M7 21h10a2 2 0 002-2V9.414a1 1 0 00-.293-.707l-5.414-5.414A1 1 0 0012.586 3H7a2 2 0 00-2 2v14a2 2 0 002 2z"/></svg>
+              PDF 변환 설정
+            </h3>
+            <button @click="showPdfModal = false" class="p-1 rounded-lg hover:bg-gray-100 dark:hover:bg-gray-700">
+              <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"/></svg>
+            </button>
+          </div>
+
+          <div class="space-y-5">
+            <!-- 용지 설정 -->
+            <div>
+              <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">용지 크기</label>
+              <div class="grid grid-cols-3 gap-2">
+                <template x-for="fmt in ['A4', 'Letter', 'B5']" :key="fmt">
+                  <button @click="pdfOptions.format = fmt"
+                    :class="pdfOptions.format === fmt ? 'border-indigo-500 bg-indigo-50 dark:bg-indigo-900/20 text-indigo-700 dark:text-indigo-400' : 'border-gray-200 dark:border-gray-600 text-gray-600 dark:text-gray-400 hover:border-gray-300'"
+                    class="px-3 py-2 text-sm font-medium border-2 rounded-lg transition-colors" x-text="fmt">
+                  </button>
+                </template>
+              </div>
+            </div>
+
+            <!-- 방향 설정 -->
+            <div>
+              <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">방향</label>
+              <div class="grid grid-cols-2 gap-2">
+                <button @click="pdfOptions.orientation = 'portrait'"
+                  :class="pdfOptions.orientation === 'portrait' ? 'border-indigo-500 bg-indigo-50 dark:bg-indigo-900/20' : 'border-gray-200 dark:border-gray-600 hover:border-gray-300'"
+                  class="flex items-center justify-center gap-2 px-3 py-3 border-2 rounded-lg transition-colors">
+                  <div class="w-5 h-7 border-2 rounded-sm" :class="pdfOptions.orientation === 'portrait' ? 'border-indigo-500' : 'border-gray-400'"></div>
+                  <span class="text-sm" :class="pdfOptions.orientation === 'portrait' ? 'text-indigo-700 dark:text-indigo-400 font-medium' : 'text-gray-600 dark:text-gray-400'">세로</span>
+                </button>
+                <button @click="pdfOptions.orientation = 'landscape'"
+                  :class="pdfOptions.orientation === 'landscape' ? 'border-indigo-500 bg-indigo-50 dark:bg-indigo-900/20' : 'border-gray-200 dark:border-gray-600 hover:border-gray-300'"
+                  class="flex items-center justify-center gap-2 px-3 py-3 border-2 rounded-lg transition-colors">
+                  <div class="w-7 h-5 border-2 rounded-sm" :class="pdfOptions.orientation === 'landscape' ? 'border-indigo-500' : 'border-gray-400'"></div>
+                  <span class="text-sm" :class="pdfOptions.orientation === 'landscape' ? 'text-indigo-700 dark:text-indigo-400 font-medium' : 'text-gray-600 dark:text-gray-400'">가로</span>
+                </button>
+              </div>
+            </div>
+
+            <!-- 포함 항목 -->
+            <div>
+              <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">포함 항목</label>
+              <div class="space-y-3">
+                <label class="flex items-center gap-3 cursor-pointer">
+                  <input type="checkbox" x-model="pdfOptions.includeVat" class="w-4 h-4 rounded border-gray-300 text-indigo-600 focus:ring-indigo-500">
+                  <div>
+                    <span class="text-sm text-gray-700 dark:text-gray-300">부가세(VAT) 표시</span>
+                    <p class="text-xs text-gray-400 dark:text-gray-500">합계에 부가세 10% 별도 표시</p>
+                  </div>
+                </label>
+                <label class="flex items-center gap-3 cursor-pointer">
+                  <input type="checkbox" x-model="pdfOptions.showCompanyInfo" class="w-4 h-4 rounded border-gray-300 text-indigo-600 focus:ring-indigo-500">
+                  <div>
+                    <span class="text-sm text-gray-700 dark:text-gray-300">회사 정보 표시</span>
+                    <p class="text-xs text-gray-400 dark:text-gray-500">상단에 회사명, 주소, 연락처 포함</p>
+                  </div>
+                </label>
+              </div>
+            </div>
+
+            <!-- 미리보기 -->
+            <div class="p-3 bg-gray-50 dark:bg-gray-700/50 rounded-lg">
+              <div class="flex items-center gap-2 mb-2">
+                <svg class="w-4 h-4 text-gray-400 dark:text-gray-500" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z"/><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z"/></svg>
+                <span class="text-xs font-medium text-gray-500 dark:text-gray-400">변환 요약</span>
+              </div>
+              <p class="text-xs text-gray-600 dark:text-gray-300">
+                <span x-text="pdfOptions.format"></span> / <span x-text="pdfOptions.orientation === 'portrait' ? '세로' : '가로'"></span> |
+                VAT <span x-text="pdfOptions.includeVat ? '포함' : '미포함'"></span> |
+                회사정보 <span x-text="pdfOptions.showCompanyInfo ? '포함' : '미포함'"></span>
+              </p>
+            </div>
+          </div>
+
+          <div class="flex gap-3 mt-6">
+            <button @click="showPdfModal = false" class="flex-1 py-2 text-sm text-gray-500 hover:text-gray-700 dark:text-gray-400 dark:hover:text-gray-200 border border-gray-300 dark:border-gray-600 rounded-lg">취소</button>
+            <button @click="showPdfModal = false" class="flex-1 py-2 text-sm font-medium text-white bg-red-600 hover:bg-red-700 rounded-lg transition-colors flex items-center justify-center gap-2">
+              <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4"/></svg>
+              PDF 다운로드
+            </button>
+          </div>
+        </div>
+      </div>
+
+    </main>
+
+    <!-- 모바일 하단 탭바 -->
+    <nav class="lg:hidden fixed bottom-0 left-0 right-0 bg-white dark:bg-gray-800 border-t border-gray-200 dark:border-gray-700 z-30">
+      <div class="flex justify-around py-2">
+        <a href="dashboard.html" class="flex flex-col items-center gap-1 px-3 py-1 text-gray-400 dark:text-gray-500">
+          <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 12l2-2m0 0l7-7 7 7M5 10v10a1 1 0 001 1h3m10-11l2 2m-2-2v10a1 1 0 01-1 1h-3m-6 0a1 1 0 001-1v-4a1 1 0 011-1h2a1 1 0 011 1v4a1 1 0 001 1m-6 0h6"/></svg>
+          <span class="text-[10px]">대시보드</span>
+        </a>
+        <a href="projects.html" class="flex flex-col items-center gap-1 px-3 py-1 text-indigo-600 dark:text-indigo-400">
+          <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 7v10a2 2 0 002 2h14a2 2 0 002-2V9a2 2 0 00-2-2h-6l-2-2H5a2 2 0 00-2 2z"/></svg>
+          <span class="text-[10px] font-medium">프로젝트</span>
+        </a>
+        <a href="tasks.html" class="flex flex-col items-center gap-1 px-3 py-1 text-gray-400 dark:text-gray-500">
+          <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2m-6 9l2 2 4-4"/></svg>
+          <span class="text-[10px]">업무</span>
+        </a>
+        <a href="#" class="flex flex-col items-center gap-1 px-3 py-1 text-gray-400 dark:text-gray-500">
+          <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 12h.01M12 12h.01M19 12h.01M6 12a1 1 0 11-2 0 1 1 0 012 0zm7 0a1 1 0 11-2 0 1 1 0 012 0zm7 0a1 1 0 11-2 0 1 1 0 012 0z"/></svg>
+          <span class="text-[10px]">더보기</span>
+        </a>
+      </div>
+    </nav>
+
+  </div>
+</div>
+
+<script>
+function appLayout() {
+  return {
+    mobileMenu: false,
+    darkMode: localStorage.getItem('darkMode') === 'true' || window.matchMedia('(prefers-color-scheme: dark)').matches,
+    init() { this.applyDark(); },
+    toggleDark() { this.darkMode = !this.darkMode; localStorage.setItem('darkMode', this.darkMode); this.applyDark(); },
+    applyDark() { document.documentElement.classList.toggle('dark', this.darkMode); }
+  }
+}
+
+function estimateSheetsPage() {
+  return {
+    activeTab: 'sheet',
+    isSyncing: false,
+    showAiParse: false,
+    showConnectModal: false,
+    showPdfModal: false,
+    connectMethod: '',
+    sheetUrl: '',
+    pdfOptions: { includeVat: true, showCompanyInfo: true, format: 'A4', orientation: 'portrait' },
+
+    // 시트 데이터
+    sheetItems: [
+      { name: '요구사항 분석', phase: '분석', quantity: 1, unit: '식', unitPrice: 5000000, amount: 5000000, days: 14 },
+      { name: '기술 검토 및 IA 설계', phase: '분석', quantity: 1, unit: '식', unitPrice: 3000000, amount: 3000000, days: 7 },
+      { name: 'DB 설계', phase: '설계', quantity: 1, unit: '식', unitPrice: 4000000, amount: 4000000, days: 10 },
+      { name: 'API 설계 및 개발', phase: '설계', quantity: 1, unit: '식', unitPrice: 8000000, amount: 8000000, days: 21 },
+      { name: 'UI/UX 설계', phase: '설계', quantity: 1, unit: '식', unitPrice: 5000000, amount: 5000000, days: 14 },
+      { name: '프론트엔드 개발', phase: '개발', quantity: 1, unit: '식', unitPrice: 12000000, amount: 12000000, days: 28 },
+      { name: '백엔드 개발', phase: '개발', quantity: 1, unit: '식', unitPrice: 10000000, amount: 10000000, days: 21 },
+      { name: '통합 테스트 및 QA', phase: '테스트', quantity: 1, unit: '식', unitPrice: 3000000, amount: 3000000, days: 5 }
+    ],
+
+    // 파싱된 단계별 데이터
+    get parsedPhases() {
+      const phases = {};
+      this.sheetItems.forEach(item => {
+        if (!phases[item.phase]) phases[item.phase] = { name: item.phase, items: [], subtotal: 0 };
+        phases[item.phase].items.push(item);
+        phases[item.phase].subtotal += item.amount;
+      });
+      return Object.values(phases);
+    },
+
+    // 변경 이력
+    changeHistory: [
+      { action: 'AI 파싱 완료', type: 'AI', typeBadge: 'bg-purple-100 text-purple-700 dark:bg-purple-900/30 dark:text-purple-400', detail: '8개 항목이 구조화되어 프로젝트에 반영되었습니다', user: '시스템', date: '2026-02-25 14:30' },
+      { action: '시트 수정', type: '편집', typeBadge: 'bg-blue-100 text-blue-700 dark:bg-blue-900/30 dark:text-blue-400', detail: '프론트엔드 개발 금액 수정: 10,000,000원 → 12,000,000원', user: '홍길동', date: '2026-02-24 16:20' },
+      { action: '시트 수정', type: '편집', typeBadge: 'bg-blue-100 text-blue-700 dark:bg-blue-900/30 dark:text-blue-400', detail: '통합 테스트 및 QA 항목 추가', user: '홍길동', date: '2026-02-22 11:00' },
+      { action: 'Google Sheet 연결', type: '연결', typeBadge: 'bg-green-100 text-green-700 dark:bg-green-900/30 dark:text-green-400', detail: '기존 Google Sheet "2026 상반기 견적서"를 프로젝트에 연결했습니다', user: '홍길동', date: '2026-02-20 09:30' },
+      { action: '견적서 생성', type: '생성', typeBadge: 'bg-gray-100 text-gray-600 dark:bg-gray-700 dark:text-gray-400', detail: '프로젝트 "더존 ERP 연동 개발"에 견적서 문서가 생성되었습니다', user: '홍길동', date: '2026-02-20 09:25' }
+    ],
+
+    syncSheet() {
+      this.isSyncing = true;
+      setTimeout(() => { this.isSyncing = false; }, 2000);
+    },
+
+    formatNumber(n) {
+      return n.toLocaleString('ko-KR');
+    },
+
+    getPhaseBadge(phase) {
+      return {
+        '분석': 'bg-cyan-100 text-cyan-700 dark:bg-cyan-900/30 dark:text-cyan-400',
+        '설계': 'bg-blue-100 text-blue-700 dark:bg-blue-900/30 dark:text-blue-400',
+        '개발': 'bg-indigo-100 text-indigo-700 dark:bg-indigo-900/30 dark:text-indigo-400',
+        '테스트': 'bg-green-100 text-green-700 dark:bg-green-900/30 dark:text-green-400',
+        '배포': 'bg-purple-100 text-purple-700 dark:bg-purple-900/30 dark:text-purple-400'
+      }[phase] || 'bg-gray-100 text-gray-600';
+    }
+  }
+}
+</script>
+
+</body>
+</html>

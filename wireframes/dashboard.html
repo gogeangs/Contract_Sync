@@ -1,0 +1,490 @@
+<!DOCTYPE html>
+<html lang="ko" class="">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Contract Sync v2 - 대시보드</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <script defer src="https://cdn.jsdelivr.net/npm/alpinejs@3.x.x/dist/cdn.min.js"></script>
+  <script>
+    tailwind.config = { darkMode: 'class' }
+  </script>
+  <style>
+    [x-cloak] { display: none !important; }
+    @keyframes shimmer { 0% { background-position: -200% 0; } 100% { background-position: 200% 0; } }
+    .skeleton { background: linear-gradient(90deg, #e5e7eb 25%, #f3f4f6 50%, #e5e7eb 75%); background-size: 200% 100%; animation: shimmer 1.5s infinite; border-radius: 4px; }
+    html.dark .skeleton { background: linear-gradient(90deg, #374151 25%, #4b5563 50%, #374151 75%); background-size: 200% 100%; }
+  </style>
+</head>
+<body class="bg-gray-50 dark:bg-gray-900 text-gray-800 dark:text-gray-100 transition-colors duration-300">
+
+<div x-data="appLayout()" class="flex h-screen overflow-hidden">
+
+  <!-- 좌측 사이드바 (데스크톱) -->
+  <aside class="hidden lg:flex lg:flex-col w-64 bg-white dark:bg-gray-800 border-r border-gray-200 dark:border-gray-700 fixed inset-y-0 left-0 z-30">
+    <!-- 로고 -->
+    <div class="flex items-center gap-3 px-6 py-5 border-b border-gray-200 dark:border-gray-700">
+      <div class="w-8 h-8 bg-indigo-600 rounded-lg flex items-center justify-center">
+        <svg class="w-5 h-5 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"/></svg>
+      </div>
+      <span class="text-lg font-bold text-gray-800 dark:text-white">Contract Sync</span>
+    </div>
+
+    <!-- 팀 선택 -->
+    <div class="px-4 py-3">
+      <div class="relative" x-data="{ open: false }">
+        <button @click="open = !open" class="w-full flex items-center justify-between px-3 py-2 text-sm bg-gray-50 dark:bg-gray-700 rounded-lg hover:bg-gray-100 dark:hover:bg-gray-600 transition-colors">
+          <div class="flex items-center gap-2">
+            <svg class="w-4 h-4 text-gray-500 dark:text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17 20h5v-2a3 3 0 00-5.356-1.857M17 20H7m10 0v-2c0-.656-.126-1.283-.356-1.857M7 20H2v-2a3 3 0 015.356-1.857M7 20v-2c0-.656.126-1.283.356-1.857m0 0a5.002 5.002 0 019.288 0M15 7a3 3 0 11-6 0 3 3 0 016 0z"/></svg>
+            <span class="text-gray-700 dark:text-gray-200">디자인팀</span>
+          </div>
+          <svg class="w-4 h-4 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7"/></svg>
+        </button>
+        <div x-show="open" @click.away="open = false" x-cloak class="absolute top-full left-0 right-0 mt-1 bg-white dark:bg-gray-700 rounded-lg shadow-lg border border-gray-200 dark:border-gray-600 z-50">
+          <button class="w-full text-left px-4 py-2 text-sm hover:bg-gray-50 dark:hover:bg-gray-600 rounded-t-lg text-gray-700 dark:text-gray-200">디자인팀</button>
+          <button class="w-full text-left px-4 py-2 text-sm hover:bg-gray-50 dark:hover:bg-gray-600 text-gray-700 dark:text-gray-200">개발팀</button>
+          <button class="w-full text-left px-4 py-2 text-sm hover:bg-gray-50 dark:hover:bg-gray-600 rounded-b-lg text-gray-700 dark:text-gray-200">마케팅팀</button>
+        </div>
+      </div>
+    </div>
+
+    <!-- 네비게이션 메뉴 -->
+    <nav class="flex-1 px-3 py-2 space-y-1 overflow-y-auto">
+      <a href="dashboard.html" class="flex items-center gap-3 px-3 py-2.5 rounded-lg bg-indigo-50 dark:bg-indigo-900/30 text-indigo-600 dark:text-indigo-400 font-medium text-sm">
+        <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 12l2-2m0 0l7-7 7 7M5 10v10a1 1 0 001 1h3m10-11l2 2m-2-2v10a1 1 0 01-1 1h-3m-6 0a1 1 0 001-1v-4a1 1 0 011-1h2a1 1 0 011 1v4a1 1 0 001 1m-6 0h6"/></svg>
+        <span>대시보드</span>
+      </a>
+      <a href="clients.html" class="flex items-center gap-3 px-3 py-2.5 rounded-lg text-gray-600 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700 text-sm transition-colors">
+        <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 21V5a2 2 0 00-2-2H7a2 2 0 00-2 2v16m14 0h2m-2 0h-5m-9 0H3m2 0h5M9 7h1m-1 4h1m4-4h1m-1 4h1m-5 10v-5a1 1 0 011-1h2a1 1 0 011 1v5m-4 0h4"/></svg>
+        <span>발주처</span>
+      </a>
+      <a href="projects.html" class="flex items-center gap-3 px-3 py-2.5 rounded-lg text-gray-600 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700 text-sm transition-colors">
+        <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 7v10a2 2 0 002 2h14a2 2 0 002-2V9a2 2 0 00-2-2h-6l-2-2H5a2 2 0 00-2 2z"/></svg>
+        <span>프로젝트</span>
+      </a>
+      <a href="tasks.html" class="flex items-center gap-3 px-3 py-2.5 rounded-lg text-gray-600 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700 text-sm transition-colors">
+        <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2m-6 9l2 2 4-4"/></svg>
+        <span>업무</span>
+      </a>
+      <a href="#" class="flex items-center gap-3 px-3 py-2.5 rounded-lg text-gray-600 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700 text-sm transition-colors">
+        <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 17v-2m3 2v-4m3 4v-6m2 10H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"/></svg>
+        <span>보고서</span>
+      </a>
+      <a href="#" class="flex items-center gap-3 px-3 py-2.5 rounded-lg text-gray-600 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700 text-sm transition-colors">
+        <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8c-1.657 0-3 .895-3 2s1.343 2 3 2 3 .895 3 2-1.343 2-3 2m0-8c1.11 0 2.08.402 2.599 1M12 8V7m0 1v8m0 0v1m0-1c-1.11 0-2.08-.402-2.599-1M21 12a9 9 0 11-18 0 9 9 0 0118 0z"/></svg>
+        <span>수금</span>
+      </a>
+    </nav>
+
+    <!-- 하단 설정 -->
+    <div class="px-3 py-3 border-t border-gray-200 dark:border-gray-700">
+      <a href="#" class="flex items-center gap-3 px-3 py-2.5 rounded-lg text-gray-600 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700 text-sm transition-colors">
+        <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10.325 4.317c.426-1.756 2.924-1.756 3.35 0a1.724 1.724 0 002.573 1.066c1.543-.94 3.31.826 2.37 2.37a1.724 1.724 0 001.066 2.573c1.756.426 1.756 2.924 0 3.35a1.724 1.724 0 00-1.066 2.573c.94 1.543-.826 3.31-2.37 2.37a1.724 1.724 0 00-2.573 1.066c-.426 1.756-2.924 1.756-3.35 0a1.724 1.724 0 00-2.573-1.066c-1.543.94-3.31-.826-2.37-2.37a1.724 1.724 0 00-1.066-2.573c-1.756-.426-1.756-2.924 0-3.35a1.724 1.724 0 001.066-2.573c-.94-1.543.826-3.31 2.37-2.37.996.608 2.296.07 2.572-1.065z"/><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z"/></svg>
+        <span>설정</span>
+      </a>
+    </div>
+  </aside>
+
+  <!-- 메인 영역 -->
+  <div class="flex-1 flex flex-col lg:ml-64 overflow-hidden">
+
+    <!-- 상단 헤더 -->
+    <header class="bg-white dark:bg-gray-800 border-b border-gray-200 dark:border-gray-700 px-4 lg:px-6 py-3 flex items-center justify-between sticky top-0 z-20">
+      <!-- 모바일 메뉴 버튼 -->
+      <button @click="mobileMenu = !mobileMenu" class="lg:hidden p-2 rounded-lg hover:bg-gray-100 dark:hover:bg-gray-700">
+        <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 6h16M4 12h16M4 18h16"/></svg>
+      </button>
+
+      <div class="flex items-center gap-4">
+        <h1 class="text-lg font-semibold hidden sm:block">대시보드</h1>
+      </div>
+
+      <div class="flex items-center gap-2">
+        <!-- 알림 -->
+        <button class="relative p-2 rounded-lg hover:bg-gray-100 dark:hover:bg-gray-700 transition-colors">
+          <svg class="w-5 h-5 text-gray-500 dark:text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 17h5l-1.405-1.405A2.032 2.032 0 0118 14.158V11a6.002 6.002 0 00-4-5.659V5a2 2 0 10-4 0v.341C7.67 6.165 6 8.388 6 11v3.159c0 .538-.214 1.055-.595 1.436L4 17h5m6 0v1a3 3 0 11-6 0v-1m6 0H9"/></svg>
+          <span class="absolute -top-0.5 -right-0.5 w-4 h-4 bg-red-500 text-white text-[10px] rounded-full flex items-center justify-center">3</span>
+        </button>
+        <!-- 다크모드 토글 -->
+        <button @click="toggleDark()" class="p-2 rounded-lg hover:bg-gray-100 dark:hover:bg-gray-700 transition-colors">
+          <svg x-show="!darkMode" class="w-5 h-5 text-gray-500" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M20.354 15.354A9 9 0 018.646 3.646 9.003 9.003 0 0012 21a9.003 9.003 0 008.354-5.646z"/></svg>
+          <svg x-show="darkMode" x-cloak class="w-5 h-5 text-yellow-400" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 3v1m0 16v1m9-9h-1M4 12H3m15.364 6.364l-.707-.707M6.343 6.343l-.707-.707m12.728 0l-.707.707M6.343 17.657l-.707.707M16 12a4 4 0 11-8 0 4 4 0 018 0z"/></svg>
+        </button>
+        <!-- 프로필 -->
+        <div class="flex items-center gap-2 pl-2 border-l border-gray-200 dark:border-gray-600">
+          <div class="w-8 h-8 bg-indigo-500 rounded-full flex items-center justify-center text-white text-sm font-medium">홍</div>
+          <span class="text-sm text-gray-700 dark:text-gray-200 hidden sm:block">홍길동</span>
+        </div>
+      </div>
+    </header>
+
+    <!-- 모바일 사이드바 오버레이 -->
+    <div x-show="mobileMenu" x-cloak @click="mobileMenu = false" class="fixed inset-0 bg-black bg-opacity-50 z-40 lg:hidden"></div>
+    <aside x-show="mobileMenu" x-cloak x-transition:enter="transition ease-out duration-300" x-transition:enter-start="-translate-x-full" x-transition:enter-end="translate-x-0" x-transition:leave="transition ease-in duration-200" x-transition:leave-start="translate-x-0" x-transition:leave-end="-translate-x-full" class="fixed inset-y-0 left-0 w-64 bg-white dark:bg-gray-800 z-50 lg:hidden shadow-xl">
+      <!-- 모바일 사이드바 내용 (데스크톱과 동일) -->
+      <div class="flex items-center justify-between px-6 py-5 border-b border-gray-200 dark:border-gray-700">
+        <div class="flex items-center gap-3">
+          <div class="w-8 h-8 bg-indigo-600 rounded-lg flex items-center justify-center">
+            <svg class="w-5 h-5 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"/></svg>
+          </div>
+          <span class="text-lg font-bold">Contract Sync</span>
+        </div>
+        <button @click="mobileMenu = false" class="p-1 rounded hover:bg-gray-100 dark:hover:bg-gray-700">
+          <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"/></svg>
+        </button>
+      </div>
+      <nav class="px-3 py-4 space-y-1">
+        <a href="dashboard.html" class="flex items-center gap-3 px-3 py-2.5 rounded-lg bg-indigo-50 dark:bg-indigo-900/30 text-indigo-600 dark:text-indigo-400 font-medium text-sm">
+          <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 12l2-2m0 0l7-7 7 7M5 10v10a1 1 0 001 1h3m10-11l2 2m-2-2v10a1 1 0 01-1 1h-3m-6 0a1 1 0 001-1v-4a1 1 0 011-1h2a1 1 0 011 1v4a1 1 0 001 1m-6 0h6"/></svg>
+          <span>대시보드</span>
+        </a>
+        <a href="clients.html" class="flex items-center gap-3 px-3 py-2.5 rounded-lg text-gray-600 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700 text-sm">
+          <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 21V5a2 2 0 00-2-2H7a2 2 0 00-2 2v16m14 0h2m-2 0h-5m-9 0H3m2 0h5M9 7h1m-1 4h1m4-4h1m-1 4h1m-5 10v-5a1 1 0 011-1h2a1 1 0 011 1v5m-4 0h4"/></svg>
+          <span>발주처</span>
+        </a>
+        <a href="projects.html" class="flex items-center gap-3 px-3 py-2.5 rounded-lg text-gray-600 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700 text-sm">
+          <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 7v10a2 2 0 002 2h14a2 2 0 002-2V9a2 2 0 00-2-2h-6l-2-2H5a2 2 0 00-2 2z"/></svg>
+          <span>프로젝트</span>
+        </a>
+        <a href="tasks.html" class="flex items-center gap-3 px-3 py-2.5 rounded-lg text-gray-600 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700 text-sm">
+          <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2m-6 9l2 2 4-4"/></svg>
+          <span>업무</span>
+        </a>
+        <a href="#" class="flex items-center gap-3 px-3 py-2.5 rounded-lg text-gray-600 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700 text-sm">
+          <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 17v-2m3 2v-4m3 4v-6m2 10H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"/></svg>
+          <span>보고서</span>
+        </a>
+        <a href="#" class="flex items-center gap-3 px-3 py-2.5 rounded-lg text-gray-600 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700 text-sm">
+          <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8c-1.657 0-3 .895-3 2s1.343 2 3 2 3 .895 3 2-1.343 2-3 2m0-8c1.11 0 2.08.402 2.599 1M12 8V7m0 1v8m0 0v1m0-1c-1.11 0-2.08-.402-2.599-1M21 12a9 9 0 11-18 0 9 9 0 0118 0z"/></svg>
+          <span>수금</span>
+        </a>
+        <a href="#" class="flex items-center gap-3 px-3 py-2.5 rounded-lg text-gray-600 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700 text-sm">
+          <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10.325 4.317c.426-1.756 2.924-1.756 3.35 0a1.724 1.724 0 002.573 1.066c1.543-.94 3.31.826 2.37 2.37a1.724 1.724 0 001.066 2.573c1.756.426 1.756 2.924 0 3.35a1.724 1.724 0 00-1.066 2.573c.94 1.543-.826 3.31-2.37 2.37a1.724 1.724 0 00-2.573 1.066c-.426 1.756-2.924 1.756-3.35 0a1.724 1.724 0 00-2.573-1.066c-1.543.94-3.31-.826-2.37-2.37a1.724 1.724 0 00-1.066-2.573c-1.756-.426-1.756-2.924 0-3.35a1.724 1.724 0 001.066-2.573c-.94-1.543.826-3.31 2.37-2.37.996.608 2.296.07 2.572-1.065z"/><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z"/></svg>
+          <span>설정</span>
+        </a>
+      </nav>
+    </aside>
+
+    <!-- 메인 콘텐츠 -->
+    <main class="flex-1 overflow-y-auto p-4 lg:p-6" x-data="dashboardPage()">
+
+      <!-- 통계 카드 6개 -->
+      <div class="grid grid-cols-2 md:grid-cols-3 xl:grid-cols-6 gap-4 mb-6">
+        <template x-for="card in statCards" :key="card.label">
+          <div class="bg-white dark:bg-gray-800 rounded-lg shadow-sm border border-gray-100 dark:border-gray-700 p-4 hover:shadow-md transition-shadow cursor-pointer">
+            <div class="flex items-center justify-between mb-2">
+              <div class="w-10 h-10 rounded-lg flex items-center justify-center" :class="card.iconBg">
+                <span class="text-lg" x-text="card.icon"></span>
+              </div>
+              <span class="text-xs font-medium px-2 py-0.5 rounded-full" :class="card.trendClass" x-text="card.trend"></span>
+            </div>
+            <p class="text-2xl font-bold text-gray-800 dark:text-white" x-text="card.value"></p>
+            <p class="text-xs text-gray-500 dark:text-gray-400 mt-1" x-text="card.label"></p>
+          </div>
+        </template>
+      </div>
+
+      <!-- 업무 섹션 -->
+      <div class="bg-white dark:bg-gray-800 rounded-lg shadow-sm border border-gray-100 dark:border-gray-700 mb-6">
+        <div class="flex flex-col sm:flex-row sm:items-center sm:justify-between p-4 border-b border-gray-100 dark:border-gray-700">
+          <h2 class="text-lg font-semibold text-gray-800 dark:text-white mb-2 sm:mb-0">내 업무</h2>
+          <div class="flex items-center gap-2">
+            <!-- 필터 탭 -->
+            <div class="flex bg-gray-100 dark:bg-gray-700 rounded-lg p-0.5">
+              <template x-for="f in ['전체', '대기', '진행중', '완료']" :key="f">
+                <button @click="taskFilter = f" :class="taskFilter === f ? 'bg-white dark:bg-gray-600 shadow-sm text-gray-800 dark:text-white' : 'text-gray-500 dark:text-gray-400'" class="px-3 py-1.5 text-xs font-medium rounded-md transition-all" x-text="f"></button>
+              </template>
+            </div>
+            <!-- 뷰 전환 -->
+            <div class="flex bg-gray-100 dark:bg-gray-700 rounded-lg p-0.5 ml-2">
+              <button @click="taskView = 'list'" :class="taskView === 'list' ? 'bg-white dark:bg-gray-600 shadow-sm' : ''" class="p-1.5 rounded-md transition-all">
+                <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 6h16M4 10h16M4 14h16M4 18h16"/></svg>
+              </button>
+              <button @click="taskView = 'timeline'" :class="taskView === 'timeline' ? 'bg-white dark:bg-gray-600 shadow-sm' : ''" class="p-1.5 rounded-md transition-all">
+                <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z"/></svg>
+              </button>
+            </div>
+          </div>
+        </div>
+
+        <!-- 리스트 뷰 -->
+        <div x-show="taskView === 'list'" class="overflow-x-auto">
+          <table class="w-full">
+            <thead>
+              <tr class="border-b border-gray-100 dark:border-gray-700">
+                <th class="text-left px-4 py-3 text-xs font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wider">업무명</th>
+                <th class="text-left px-4 py-3 text-xs font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wider hidden md:table-cell">프로젝트</th>
+                <th class="text-left px-4 py-3 text-xs font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wider">우선순위</th>
+                <th class="text-left px-4 py-3 text-xs font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wider hidden sm:table-cell">기한</th>
+                <th class="text-left px-4 py-3 text-xs font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wider hidden lg:table-cell">담당자</th>
+                <th class="text-left px-4 py-3 text-xs font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wider">상태</th>
+              </tr>
+            </thead>
+            <tbody>
+              <template x-for="task in filteredTasks" :key="task.id">
+                <tr class="border-b border-gray-50 dark:border-gray-700/50 hover:bg-gray-50 dark:hover:bg-gray-700/30 transition-colors cursor-pointer">
+                  <td class="px-4 py-3">
+                    <div class="flex items-center gap-2">
+                      <span class="text-xs text-gray-400" x-text="task.code"></span>
+                      <span class="text-sm font-medium text-gray-800 dark:text-gray-200" x-text="task.name"></span>
+                    </div>
+                  </td>
+                  <td class="px-4 py-3 hidden md:table-cell">
+                    <span class="text-sm text-gray-600 dark:text-gray-400" x-text="task.project"></span>
+                  </td>
+                  <td class="px-4 py-3">
+                    <span class="inline-flex items-center px-2 py-0.5 rounded text-xs font-medium" :class="getPriorityClass(task.priority)" x-text="task.priority"></span>
+                  </td>
+                  <td class="px-4 py-3 hidden sm:table-cell">
+                    <span class="text-sm text-gray-600 dark:text-gray-400" x-text="task.dueDate"></span>
+                  </td>
+                  <td class="px-4 py-3 hidden lg:table-cell">
+                    <div class="flex items-center gap-2">
+                      <div class="w-6 h-6 rounded-full bg-indigo-100 dark:bg-indigo-900 flex items-center justify-center text-xs font-medium text-indigo-600 dark:text-indigo-400" x-text="task.assignee.charAt(0)"></div>
+                      <span class="text-sm text-gray-600 dark:text-gray-400" x-text="task.assignee"></span>
+                    </div>
+                  </td>
+                  <td class="px-4 py-3">
+                    <span class="inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium" :class="getStatusClass(task.status)" x-text="task.statusLabel"></span>
+                  </td>
+                </tr>
+              </template>
+            </tbody>
+          </table>
+        </div>
+
+        <!-- 타임라인 뷰 -->
+        <div x-show="taskView === 'timeline'" x-cloak class="p-4">
+          <div class="space-y-3">
+            <!-- 날짜 헤더 -->
+            <div class="flex items-center gap-2 mb-4">
+              <button class="p-1 rounded hover:bg-gray-100 dark:hover:bg-gray-700">
+                <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 19l-7-7 7-7"/></svg>
+              </button>
+              <span class="text-sm font-medium">2026년 3월</span>
+              <button class="p-1 rounded hover:bg-gray-100 dark:hover:bg-gray-700">
+                <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7"/></svg>
+              </button>
+            </div>
+            <!-- 간트 차트 스타일 -->
+            <div class="relative">
+              <!-- 날짜 그리드 -->
+              <div class="flex border-b border-gray-200 dark:border-gray-600 pb-2 mb-3">
+                <div class="w-40 flex-shrink-0"></div>
+                <div class="flex-1 flex">
+                  <template x-for="d in 14" :key="d">
+                    <div class="flex-1 text-center text-xs text-gray-400" x-text="d + '일'"></div>
+                  </template>
+                </div>
+              </div>
+              <!-- 업무 바 -->
+              <template x-for="task in tasks" :key="task.id">
+                <div class="flex items-center mb-2 group">
+                  <div class="w-40 flex-shrink-0 pr-3">
+                    <span class="text-xs text-gray-600 dark:text-gray-300 truncate block" x-text="task.name"></span>
+                  </div>
+                  <div class="flex-1 relative h-6">
+                    <div class="absolute h-5 rounded-md flex items-center px-2 text-[10px] text-white font-medium shadow-sm" :class="getTimelineBarClass(task.status)" :style="'left:' + task.barStart + '%; width:' + task.barWidth + '%'">
+                      <span x-text="task.statusLabel" class="truncate"></span>
+                    </div>
+                  </div>
+                </div>
+              </template>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- 매출 추이 차트 -->
+      <div class="bg-white dark:bg-gray-800 rounded-lg shadow-sm border border-gray-100 dark:border-gray-700 mb-6">
+        <div class="flex items-center justify-between p-4 border-b border-gray-100 dark:border-gray-700">
+          <h2 class="text-lg font-semibold text-gray-800 dark:text-white">매출 추이</h2>
+          <div class="flex bg-gray-100 dark:bg-gray-700 rounded-lg p-0.5">
+            <template x-for="p in ['6개월', '1년']" :key="p">
+              <button @click="chartPeriod = p" :class="chartPeriod === p ? 'bg-white dark:bg-gray-600 shadow-sm text-gray-800 dark:text-white' : 'text-gray-500 dark:text-gray-400'" class="px-3 py-1.5 text-xs font-medium rounded-md transition-all" x-text="p"></button>
+            </template>
+          </div>
+        </div>
+        <div class="p-4">
+          <!-- 차트 영역 (CSS 바 차트) -->
+          <div class="flex items-end gap-3 h-48 px-2">
+            <template x-for="(bar, idx) in revenueData" :key="idx">
+              <div class="flex-1 flex flex-col items-center gap-1">
+                <span class="text-[10px] text-gray-500 dark:text-gray-400 font-medium" x-text="bar.value + '만'"></span>
+                <div class="w-full rounded-t-md transition-all duration-500" :class="bar.isCurrentMonth ? 'bg-indigo-500' : 'bg-indigo-200 dark:bg-indigo-800'" :style="'height: ' + (bar.value / maxRevenue * 100) + '%'"></div>
+                <span class="text-[10px] text-gray-400 dark:text-gray-500" x-text="bar.month"></span>
+              </div>
+            </template>
+          </div>
+          <!-- 범례 -->
+          <div class="flex items-center justify-end gap-4 mt-4 pt-3 border-t border-gray-100 dark:border-gray-700">
+            <div class="flex items-center gap-2 text-xs text-gray-500 dark:text-gray-400">
+              <div class="w-3 h-3 rounded-sm bg-indigo-200 dark:bg-indigo-800"></div>
+              <span>이전 월</span>
+            </div>
+            <div class="flex items-center gap-2 text-xs text-gray-500 dark:text-gray-400">
+              <div class="w-3 h-3 rounded-sm bg-indigo-500"></div>
+              <span>이번 월</span>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- AI 인사이트 섹션 -->
+      <div class="bg-white dark:bg-gray-800 rounded-lg shadow-sm border border-gray-100 dark:border-gray-700">
+        <div class="p-4 border-b border-gray-100 dark:border-gray-700">
+          <h2 class="text-lg font-semibold text-gray-800 dark:text-white flex items-center gap-2">
+            <svg class="w-5 h-5 text-indigo-500" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9.663 17h4.673M12 3v1m6.364 1.636l-.707.707M21 12h-1M4 12H3m3.343-5.657l-.707-.707m2.828 9.9a5 5 0 117.072 0l-.548.547A3.374 3.374 0 0014 18.469V19a2 2 0 11-4 0v-.531c0-.895-.356-1.754-.988-2.386l-.548-.547z"/></svg>
+            AI 인사이트
+          </h2>
+        </div>
+        <div class="p-4 grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-3">
+          <template x-for="insight in insights" :key="insight.title">
+            <div class="border rounded-lg p-3 hover:shadow-sm transition-shadow" :class="insight.borderClass">
+              <div class="flex items-start gap-3">
+                <div class="w-8 h-8 rounded-lg flex items-center justify-center flex-shrink-0" :class="insight.iconBg">
+                  <span class="text-sm" x-text="insight.icon"></span>
+                </div>
+                <div class="flex-1">
+                  <p class="text-sm font-medium text-gray-800 dark:text-gray-200" x-text="insight.title"></p>
+                  <p class="text-xs text-gray-500 dark:text-gray-400 mt-1" x-text="insight.desc"></p>
+                  <button @click="handleInsightAction(insight)" class="mt-2 inline-flex items-center gap-1 text-xs font-medium px-2.5 py-1 rounded-md transition-colors" :class="insight.actionClass">
+                    <span x-text="insight.actionLabel"></span>
+                    <svg class="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7"/></svg>
+                  </button>
+                </div>
+              </div>
+            </div>
+          </template>
+        </div>
+      </div>
+
+    </main>
+
+    <!-- 모바일 하단 탭바 -->
+    <nav class="lg:hidden fixed bottom-0 left-0 right-0 bg-white dark:bg-gray-800 border-t border-gray-200 dark:border-gray-700 z-30">
+      <div class="flex justify-around py-2">
+        <a href="dashboard.html" class="flex flex-col items-center gap-1 px-3 py-1 text-indigo-600 dark:text-indigo-400">
+          <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 12l2-2m0 0l7-7 7 7M5 10v10a1 1 0 001 1h3m10-11l2 2m-2-2v10a1 1 0 01-1 1h-3m-6 0a1 1 0 001-1v-4a1 1 0 011-1h2a1 1 0 011 1v4a1 1 0 001 1m-6 0h6"/></svg>
+          <span class="text-[10px] font-medium">대시보드</span>
+        </a>
+        <a href="projects.html" class="flex flex-col items-center gap-1 px-3 py-1 text-gray-400 dark:text-gray-500">
+          <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 7v10a2 2 0 002 2h14a2 2 0 002-2V9a2 2 0 00-2-2h-6l-2-2H5a2 2 0 00-2 2z"/></svg>
+          <span class="text-[10px]">프로젝트</span>
+        </a>
+        <a href="tasks.html" class="flex flex-col items-center gap-1 px-3 py-1 text-gray-400 dark:text-gray-500">
+          <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2m-6 9l2 2 4-4"/></svg>
+          <span class="text-[10px]">업무</span>
+        </a>
+        <button class="flex flex-col items-center gap-1 px-3 py-1 text-gray-400 dark:text-gray-500">
+          <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 12h.01M12 12h.01M19 12h.01M6 12a1 1 0 11-2 0 1 1 0 012 0zm7 0a1 1 0 11-2 0 1 1 0 012 0zm7 0a1 1 0 11-2 0 1 1 0 012 0z"/></svg>
+          <span class="text-[10px]">더보기</span>
+        </button>
+      </div>
+    </nav>
+  </div>
+</div>
+
+<script>
+function appLayout() {
+  return {
+    mobileMenu: false,
+    darkMode: localStorage.getItem('darkMode') === 'true' || window.matchMedia('(prefers-color-scheme: dark)').matches,
+    init() {
+      this.applyDark();
+    },
+    toggleDark() {
+      this.darkMode = !this.darkMode;
+      localStorage.setItem('darkMode', this.darkMode);
+      this.applyDark();
+    },
+    applyDark() {
+      document.documentElement.classList.toggle('dark', this.darkMode);
+    }
+  }
+}
+
+function dashboardPage() {
+  return {
+    taskView: 'list',
+    taskFilter: '전체',
+    chartPeriod: '6개월',
+    statCards: [
+      { label: '진행중 프로젝트', value: '5', icon: '\ud83d\udcc1', iconBg: 'bg-blue-50 dark:bg-blue-900/30', trend: '+2', trendClass: 'bg-green-50 text-green-600 dark:bg-green-900/30 dark:text-green-400' },
+      { label: '대기 업무', value: '12', icon: '\u23f3', iconBg: 'bg-yellow-50 dark:bg-yellow-900/30', trend: '-3', trendClass: 'bg-green-50 text-green-600 dark:bg-green-900/30 dark:text-green-400' },
+      { label: '진행중 업무', value: '8', icon: '\ud83d\udd04', iconBg: 'bg-indigo-50 dark:bg-indigo-900/30', trend: '+1', trendClass: 'bg-yellow-50 text-yellow-600 dark:bg-yellow-900/30 dark:text-yellow-400' },
+      { label: '이번달 매출', value: '2,500만', icon: '\ud83d\udcb0', iconBg: 'bg-green-50 dark:bg-green-900/30', trend: '+15%', trendClass: 'bg-green-50 text-green-600 dark:bg-green-900/30 dark:text-green-400' },
+      { label: '미수금', value: '800만', icon: '\u26a0\ufe0f', iconBg: 'bg-red-50 dark:bg-red-900/30', trend: '2건', trendClass: 'bg-red-50 text-red-600 dark:bg-red-900/30 dark:text-red-400' },
+      { label: '피드백 대기', value: '3', icon: '\ud83d\udce8', iconBg: 'bg-purple-50 dark:bg-purple-900/30', trend: '신규', trendClass: 'bg-purple-50 text-purple-600 dark:bg-purple-900/30 dark:text-purple-400' }
+    ],
+    tasks: [
+      { id: 1, code: 'TASK-001', name: 'API 설계서 작성', project: 'OO시스템 구축', priority: '높음', dueDate: '03/05', assignee: '홍길동', status: 'in_progress', statusLabel: '진행중', barStart: 7, barWidth: 28 },
+      { id: 2, code: 'TASK-002', name: '화면설계서 검토', project: 'OO시스템 구축', priority: '긴급', dueDate: '03/03', assignee: '김개발', status: 'feedback_pending', statusLabel: '피드백 대기', barStart: 0, barWidth: 21 },
+      { id: 3, code: 'TASK-003', name: 'DB 마이그레이션', project: '웹사이트 리뉴얼', priority: '보통', dueDate: '03/10', assignee: '박프론', status: 'pending', statusLabel: '대기', barStart: 35, barWidth: 21 },
+      { id: 4, code: 'TASK-004', name: '프론트엔드 개발', project: 'OO시스템 구축', priority: '높음', dueDate: '03/30', assignee: '홍길동', status: 'in_progress', statusLabel: '진행중', barStart: 14, barWidth: 64 },
+      { id: 5, code: 'TASK-005', name: '결과보고서 작성', project: '모바일 앱', priority: '보통', dueDate: '03/07', assignee: '이테스', status: 'completed', statusLabel: '완료', barStart: 0, barWidth: 42 },
+      { id: 6, code: 'TASK-006', name: '디자인 시안 확인', project: '웹사이트 리뉴얼', priority: '낮음', dueDate: '03/15', assignee: '김개발', status: 'report_sent', statusLabel: '보고 발송', barStart: 21, barWidth: 35 },
+      { id: 7, code: 'TASK-007', name: '서버 환경 구축', project: '모바일 앱', priority: '긴급', dueDate: '03/02', assignee: '박프론', status: 'confirmed', statusLabel: '확인됨', barStart: 0, barWidth: 14 },
+      { id: 8, code: 'TASK-008', name: 'QA 테스트 진행', project: 'OO시스템 구축', priority: '보통', dueDate: '04/10', assignee: '이테스', status: 'pending', statusLabel: '대기', barStart: 50, barWidth: 50 }
+    ],
+    // 매출 데이터
+    revenueData: [
+      { month: '10월', value: 1800, isCurrentMonth: false },
+      { month: '11월', value: 2200, isCurrentMonth: false },
+      { month: '12월', value: 3100, isCurrentMonth: false },
+      { month: '1월', value: 1900, isCurrentMonth: false },
+      { month: '2월', value: 2800, isCurrentMonth: false },
+      { month: '3월', value: 2500, isCurrentMonth: true }
+    ],
+    get maxRevenue() { return Math.max(...this.revenueData.map(d => d.value)); },
+
+    insights: [
+      { title: '마감 임박 업무 3건', desc: '이번 주 내로 마감해야 하는 업무가 3건 있습니다. 우선순위를 확인하세요.', icon: '\u26a0\ufe0f', iconBg: 'bg-yellow-50 dark:bg-yellow-900/30', borderClass: 'border-yellow-200 dark:border-yellow-800', actionLabel: '업무 확인', actionClass: 'bg-yellow-100 text-yellow-700 hover:bg-yellow-200 dark:bg-yellow-900/30 dark:text-yellow-400 dark:hover:bg-yellow-900/50', actionLink: 'tasks.html' },
+      { title: 'ABC 발주처 미수금 알림', desc: 'ABC 발주처의 중도금 2,000만원이 30일 이상 미수금 상태입니다.', icon: '\ud83d\udea8', iconBg: 'bg-red-50 dark:bg-red-900/30', borderClass: 'border-red-200 dark:border-red-800', actionLabel: '수금 관리', actionClass: 'bg-red-100 text-red-700 hover:bg-red-200 dark:bg-red-900/30 dark:text-red-400 dark:hover:bg-red-900/50', actionLink: 'clients.html' },
+      { title: '주간 업무 완료율 85%', desc: '이번 주 목표 대비 업무 완료율이 높습니다. 현재 페이스를 유지하세요.', icon: '\ud83d\udcca', iconBg: 'bg-green-50 dark:bg-green-900/30', borderClass: 'border-green-200 dark:border-green-800', actionLabel: '보고서 보기', actionClass: 'bg-green-100 text-green-700 hover:bg-green-200 dark:bg-green-900/30 dark:text-green-400 dark:hover:bg-green-900/50', actionLink: '#' }
+    ],
+    get filteredTasks() {
+      if (this.taskFilter === '전체') return this.tasks;
+      const statusMap = { '대기': 'pending', '진행중': 'in_progress', '완료': 'completed' };
+      return this.tasks.filter(t => t.status === statusMap[this.taskFilter]);
+    },
+    getPriorityClass(p) {
+      return {
+        '긴급': 'bg-red-100 text-red-700 dark:bg-red-900/30 dark:text-red-400',
+        '높음': 'bg-orange-100 text-orange-700 dark:bg-orange-900/30 dark:text-orange-400',
+        '보통': 'bg-blue-100 text-blue-700 dark:bg-blue-900/30 dark:text-blue-400',
+        '낮음': 'bg-gray-100 text-gray-600 dark:bg-gray-700 dark:text-gray-400'
+      }[p] || '';
+    },
+    getStatusClass(s) {
+      return {
+        'pending': 'bg-gray-100 text-gray-600 dark:bg-gray-700 dark:text-gray-400',
+        'in_progress': 'bg-blue-100 text-blue-700 dark:bg-blue-900/30 dark:text-blue-400',
+        'completed': 'bg-green-100 text-green-700 dark:bg-green-900/30 dark:text-green-400',
+        'report_sent': 'bg-purple-100 text-purple-700 dark:bg-purple-900/30 dark:text-purple-400',
+        'feedback_pending': 'bg-orange-100 text-orange-700 dark:bg-orange-900/30 dark:text-orange-400',
+        'confirmed': 'bg-emerald-100 text-emerald-700 dark:bg-emerald-900/30 dark:text-emerald-400',
+        'revision_requested': 'bg-red-100 text-red-700 dark:bg-red-900/30 dark:text-red-400'
+      }[s] || '';
+    },
+    handleInsightAction(insight) {
+      if (insight.actionLink && insight.actionLink !== '#') {
+        window.location.href = insight.actionLink;
+      }
+    },
+    getTimelineBarClass(s) {
+      return {
+        'pending': 'bg-gray-400',
+        'in_progress': 'bg-blue-500',
+        'completed': 'bg-green-500',
+        'report_sent': 'bg-purple-500',
+        'feedback_pending': 'bg-orange-500',
+        'confirmed': 'bg-emerald-600',
+        'revision_requested': 'bg-red-500'
+      }[s] || 'bg-gray-400';
+    }
+  }
+}
+</script>
+</body>
+</html>

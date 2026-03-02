@@ -1,0 +1,662 @@
+<!DOCTYPE html>
+<html lang="ko" class="">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Contract Sync v2 - 문서 업로드</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <script defer src="https://cdn.jsdelivr.net/npm/alpinejs@3.x.x/dist/cdn.min.js"></script>
+  <script>
+    tailwind.config = { darkMode: 'class' }
+  </script>
+  <style>
+    [x-cloak] { display: none !important; }
+    @keyframes shimmer { 0% { background-position: -200% 0; } 100% { background-position: 200% 0; } }
+    .skeleton { background: linear-gradient(90deg, #e5e7eb 25%, #f3f4f6 50%, #e5e7eb 75%); background-size: 200% 100%; animation: shimmer 1.5s infinite; border-radius: 4px; }
+    html.dark .skeleton { background: linear-gradient(90deg, #374151 25%, #4b5563 50%, #374151 75%); background-size: 200% 100%; }
+    @keyframes spin-slow { to { transform: rotate(360deg); } }
+    .animate-spin-slow { animation: spin-slow 2s linear infinite; }
+    @keyframes pulse-dot { 0%, 80%, 100% { opacity: 0; } 40% { opacity: 1; } }
+    .pulse-dot-1 { animation: pulse-dot 1.4s infinite; }
+    .pulse-dot-2 { animation: pulse-dot 1.4s infinite 0.2s; }
+    .pulse-dot-3 { animation: pulse-dot 1.4s infinite 0.4s; }
+  </style>
+</head>
+<body class="bg-gray-50 dark:bg-gray-900 text-gray-800 dark:text-gray-100 transition-colors duration-300">
+
+<div x-data="appLayout()" class="flex h-screen overflow-hidden">
+
+  <!-- 좌측 사이드바 (데스크톱) -->
+  <aside class="hidden lg:flex lg:flex-col w-64 bg-white dark:bg-gray-800 border-r border-gray-200 dark:border-gray-700 fixed inset-y-0 left-0 z-30">
+    <div class="flex items-center gap-3 px-6 py-5 border-b border-gray-200 dark:border-gray-700">
+      <div class="w-8 h-8 bg-indigo-600 rounded-lg flex items-center justify-center">
+        <svg class="w-5 h-5 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"/></svg>
+      </div>
+      <span class="text-lg font-bold text-gray-800 dark:text-white">Contract Sync</span>
+    </div>
+    <div class="px-4 py-3">
+      <div class="relative" x-data="{ open: false }">
+        <button @click="open = !open" class="w-full flex items-center justify-between px-3 py-2 text-sm bg-gray-50 dark:bg-gray-700 rounded-lg hover:bg-gray-100 dark:hover:bg-gray-600 transition-colors">
+          <div class="flex items-center gap-2">
+            <svg class="w-4 h-4 text-gray-500 dark:text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17 20h5v-2a3 3 0 00-5.356-1.857M17 20H7m10 0v-2c0-.656-.126-1.283-.356-1.857M7 20H2v-2a3 3 0 015.356-1.857M7 20v-2c0-.656.126-1.283.356-1.857m0 0a5.002 5.002 0 019.288 0M15 7a3 3 0 11-6 0 3 3 0 016 0z"/></svg>
+            <span class="text-gray-700 dark:text-gray-200">디자인팀</span>
+          </div>
+          <svg class="w-4 h-4 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7"/></svg>
+        </button>
+      </div>
+    </div>
+    <nav class="flex-1 px-3 py-2 space-y-1 overflow-y-auto">
+      <a href="dashboard.html" class="flex items-center gap-3 px-3 py-2.5 rounded-lg text-gray-600 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700 text-sm transition-colors">
+        <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 12l2-2m0 0l7-7 7 7M5 10v10a1 1 0 001 1h3m10-11l2 2m-2-2v10a1 1 0 01-1 1h-3m-6 0a1 1 0 001-1v-4a1 1 0 011-1h2a1 1 0 011 1v4a1 1 0 001 1m-6 0h6"/></svg>
+        <span>대시보드</span>
+      </a>
+      <a href="clients.html" class="flex items-center gap-3 px-3 py-2.5 rounded-lg text-gray-600 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700 text-sm transition-colors">
+        <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 21V5a2 2 0 00-2-2H7a2 2 0 00-2 2v16m14 0h2m-2 0h-5m-9 0H3m2 0h5M9 7h1m-1 4h1m4-4h1m-1 4h1m-5 10v-5a1 1 0 011-1h2a1 1 0 011 1v5m-4 0h4"/></svg>
+        <span>발주처</span>
+      </a>
+      <a href="projects.html" class="flex items-center gap-3 px-3 py-2.5 rounded-lg bg-indigo-50 dark:bg-indigo-900/30 text-indigo-600 dark:text-indigo-400 font-medium text-sm">
+        <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 7v10a2 2 0 002 2h14a2 2 0 002-2V9a2 2 0 00-2-2h-6l-2-2H5a2 2 0 00-2 2z"/></svg>
+        <span>프로젝트</span>
+      </a>
+      <a href="tasks.html" class="flex items-center gap-3 px-3 py-2.5 rounded-lg text-gray-600 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700 text-sm transition-colors">
+        <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2m-6 9l2 2 4-4"/></svg>
+        <span>업무</span>
+      </a>
+      <a href="#" class="flex items-center gap-3 px-3 py-2.5 rounded-lg text-gray-600 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700 text-sm transition-colors">
+        <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 17v-2m3 2v-4m3 4v-6m2 10H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"/></svg>
+        <span>보고서</span>
+      </a>
+      <a href="#" class="flex items-center gap-3 px-3 py-2.5 rounded-lg text-gray-600 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700 text-sm transition-colors">
+        <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8c-1.657 0-3 .895-3 2s1.343 2 3 2 3 .895 3 2-1.343 2-3 2m0-8c1.11 0 2.08.402 2.599 1M12 8V7m0 1v8m0 0v1m0-1c-1.11 0-2.08-.402-2.599-1M21 12a9 9 0 11-18 0 9 9 0 0118 0z"/></svg>
+        <span>수금</span>
+      </a>
+    </nav>
+    <div class="px-3 py-3 border-t border-gray-200 dark:border-gray-700">
+      <a href="#" class="flex items-center gap-3 px-3 py-2.5 rounded-lg text-gray-600 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700 text-sm transition-colors">
+        <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10.325 4.317c.426-1.756 2.924-1.756 3.35 0a1.724 1.724 0 002.573 1.066c1.543-.94 3.31.826 2.37 2.37a1.724 1.724 0 001.066 2.573c1.756.426 1.756 2.924 0 3.35a1.724 1.724 0 00-1.066 2.573c.94 1.543-.826 3.31-2.37 2.37a1.724 1.724 0 00-2.573 1.066c-.426 1.756-2.924 1.756-3.35 0a1.724 1.724 0 00-2.573-1.066c-1.543.94-3.31-.826-2.37-2.37a1.724 1.724 0 00-1.066-2.573c-1.756-.426-1.756-2.924 0-3.35a1.724 1.724 0 001.066-2.573c-.94-1.543.826-3.31 2.37-2.37.996.608 2.296.07 2.572-1.065z"/><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z"/></svg>
+        <span>설정</span>
+      </a>
+    </div>
+  </aside>
+
+  <!-- 메인 영역 -->
+  <div class="flex-1 flex flex-col lg:ml-64 overflow-hidden">
+
+    <!-- 상단 헤더 -->
+    <header class="bg-white dark:bg-gray-800 border-b border-gray-200 dark:border-gray-700 px-4 lg:px-6 py-3 flex items-center justify-between sticky top-0 z-20">
+      <button @click="mobileMenu = !mobileMenu" class="lg:hidden p-2 rounded-lg hover:bg-gray-100 dark:hover:bg-gray-700">
+        <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 6h16M4 12h16M4 18h16"/></svg>
+      </button>
+      <div class="flex items-center gap-2 text-sm">
+        <a href="projects.html" class="text-gray-500 dark:text-gray-400 hover:text-indigo-600">프로젝트</a>
+        <svg class="w-4 h-4 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7"/></svg>
+        <a href="project-detail.html" class="text-gray-500 dark:text-gray-400 hover:text-indigo-600">더존 ERP 연동 개발</a>
+        <svg class="w-4 h-4 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7"/></svg>
+        <span class="text-gray-800 dark:text-gray-200 font-medium">문서 업로드</span>
+      </div>
+      <div class="flex items-center gap-2">
+        <button @click="toggleDark()" class="p-2 rounded-lg hover:bg-gray-100 dark:hover:bg-gray-700 transition-colors">
+          <svg x-show="!darkMode" class="w-5 h-5 text-gray-500" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M20.354 15.354A9 9 0 018.646 3.646 9.003 9.003 0 0012 21a9.003 9.003 0 008.354-5.646z"/></svg>
+          <svg x-show="darkMode" x-cloak class="w-5 h-5 text-yellow-400" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 3v1m0 16v1m9-9h-1M4 12H3m15.364 6.364l-.707-.707M6.343 6.343l-.707-.707m12.728 0l-.707.707M6.343 17.657l-.707.707M16 12a4 4 0 11-8 0 4 4 0 018 0z"/></svg>
+        </button>
+        <div class="flex items-center gap-2 pl-2 border-l border-gray-200 dark:border-gray-600">
+          <div class="w-8 h-8 bg-indigo-500 rounded-full flex items-center justify-center text-white text-sm font-medium">홍</div>
+          <span class="text-sm text-gray-700 dark:text-gray-200 hidden sm:block">홍길동</span>
+        </div>
+      </div>
+    </header>
+
+    <!-- 모바일 사이드바 오버레이 -->
+    <div x-show="mobileMenu" x-cloak @click="mobileMenu = false" class="fixed inset-0 bg-black bg-opacity-50 z-40 lg:hidden"></div>
+    <aside x-show="mobileMenu" x-cloak x-transition:enter="transition ease-out duration-300" x-transition:enter-start="-translate-x-full" x-transition:enter-end="translate-x-0" x-transition:leave="transition ease-in duration-200" x-transition:leave-start="translate-x-0" x-transition:leave-end="-translate-x-full" class="fixed inset-y-0 left-0 w-64 bg-white dark:bg-gray-800 z-50 lg:hidden shadow-xl">
+      <div class="flex items-center justify-between px-6 py-5 border-b border-gray-200 dark:border-gray-700">
+        <div class="flex items-center gap-3">
+          <div class="w-8 h-8 bg-indigo-600 rounded-lg flex items-center justify-center">
+            <svg class="w-5 h-5 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"/></svg>
+          </div>
+          <span class="text-lg font-bold">Contract Sync</span>
+        </div>
+        <button @click="mobileMenu = false" class="p-1 rounded hover:bg-gray-100 dark:hover:bg-gray-700">
+          <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"/></svg>
+        </button>
+      </div>
+      <nav class="px-3 py-4 space-y-1">
+        <a href="dashboard.html" class="flex items-center gap-3 px-3 py-2.5 rounded-lg text-gray-600 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700 text-sm">
+          <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 12l2-2m0 0l7-7 7 7M5 10v10a1 1 0 001 1h3m10-11l2 2m-2-2v10a1 1 0 01-1 1h-3m-6 0a1 1 0 001-1v-4a1 1 0 011-1h2a1 1 0 011 1v4a1 1 0 001 1m-6 0h6"/></svg>
+          <span>대시보드</span>
+        </a>
+        <a href="clients.html" class="flex items-center gap-3 px-3 py-2.5 rounded-lg text-gray-600 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700 text-sm">
+          <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 21V5a2 2 0 00-2-2H7a2 2 0 00-2 2v16m14 0h2m-2 0h-5m-9 0H3m2 0h5M9 7h1m-1 4h1m4-4h1m-1 4h1m-5 10v-5a1 1 0 011-1h2a1 1 0 011 1v5m-4 0h4"/></svg>
+          <span>발주처</span>
+        </a>
+        <a href="projects.html" class="flex items-center gap-3 px-3 py-2.5 rounded-lg bg-indigo-50 dark:bg-indigo-900/30 text-indigo-600 dark:text-indigo-400 font-medium text-sm">
+          <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 7v10a2 2 0 002 2h14a2 2 0 002-2V9a2 2 0 00-2-2h-6l-2-2H5a2 2 0 00-2 2z"/></svg>
+          <span>프로젝트</span>
+        </a>
+        <a href="tasks.html" class="flex items-center gap-3 px-3 py-2.5 rounded-lg text-gray-600 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700 text-sm">
+          <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2m-6 9l2 2 4-4"/></svg>
+          <span>업무</span>
+        </a>
+      </nav>
+    </aside>
+
+    <!-- 메인 콘텐츠 -->
+    <main class="flex-1 overflow-y-auto p-4 lg:p-6 pb-20 lg:pb-6" x-data="documentUploadPage()">
+
+      <!-- 페이지 헤더 -->
+      <div class="mb-6">
+        <h2 class="text-xl font-bold text-gray-800 dark:text-white">문서 업로드</h2>
+        <p class="text-sm text-gray-500 dark:text-gray-400 mt-1">프로젝트에 문서를 업로드하고 AI 분석을 실행합니다</p>
+      </div>
+
+      <div class="grid grid-cols-1 lg:grid-cols-3 gap-6">
+        <!-- 좌측: 업로드 영역 -->
+        <div class="lg:col-span-2 space-y-6">
+
+          <!-- 드래그 앤 드롭 업로드 영역 -->
+          <div class="bg-white dark:bg-gray-800 rounded-lg shadow p-6">
+            <h3 class="text-lg font-semibold mb-4">파일 업로드</h3>
+
+            <!-- 드래그앤드롭 존 -->
+            <div
+              @dragover.prevent="dragOver = true"
+              @dragleave.prevent="dragOver = false"
+              @drop.prevent="handleDrop($event)"
+              @click="$refs.fileInput.click()"
+              :class="dragOver ? 'border-indigo-500 bg-indigo-50 dark:bg-indigo-900/20' : (selectedFile ? 'border-green-400 bg-green-50 dark:bg-green-900/10' : 'border-gray-300 dark:border-gray-600 hover:border-indigo-400 hover:bg-gray-50 dark:hover:bg-gray-700/50')"
+              class="border-2 border-dashed rounded-xl p-4 sm:p-8 text-center cursor-pointer transition-all duration-200"
+            >
+              <input type="file" x-ref="fileInput" @change="handleFileSelect($event)" class="hidden" accept=".pdf,.docx,.doc,.hwp,.hwpx,.jpg,.jpeg,.png,.tiff,.tif,.bmp,.webp">
+
+              <!-- 기본 상태 -->
+              <template x-if="!selectedFile && !dragOver">
+                <div>
+                  <div class="w-16 h-16 mx-auto mb-4 bg-gray-100 dark:bg-gray-700 rounded-full flex items-center justify-center">
+                    <svg class="w-8 h-8 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M7 16a4 4 0 01-.88-7.903A5 5 0 1115.9 6L16 6a5 5 0 011 9.9M15 13l-3-3m0 0l-3 3m3-3v12"/></svg>
+                  </div>
+                  <p class="text-gray-600 dark:text-gray-300 font-medium mb-1">파일을 드래그하여 놓거나 클릭하여 선택</p>
+                  <p class="text-sm text-gray-400 dark:text-gray-500">PDF, DOCX, DOC, HWP, HWPX, JPG, PNG 등 | 최대 50MB</p>
+                </div>
+              </template>
+
+              <!-- 드래그 호버 상태 -->
+              <template x-if="dragOver">
+                <div>
+                  <div class="w-16 h-16 mx-auto mb-4 bg-indigo-100 dark:bg-indigo-900/40 rounded-full flex items-center justify-center">
+                    <svg class="w-8 h-8 text-indigo-500" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 14l-7 7m0 0l-7-7m7 7V3"/></svg>
+                  </div>
+                  <p class="text-indigo-600 dark:text-indigo-400 font-medium">여기에 파일을 놓으세요</p>
+                </div>
+              </template>
+
+              <!-- 파일 선택됨 -->
+              <template x-if="selectedFile && !dragOver">
+                <div>
+                  <div class="w-16 h-16 mx-auto mb-4 bg-green-100 dark:bg-green-900/30 rounded-full flex items-center justify-center">
+                    <svg class="w-8 h-8 text-green-500" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7"/></svg>
+                  </div>
+                  <p class="text-green-700 dark:text-green-400 font-medium" x-text="selectedFile.name"></p>
+                  <p class="text-sm text-gray-500 dark:text-gray-400 mt-1" x-text="formatFileSize(selectedFile.size)"></p>
+                  <button @click.stop="removeFile()" class="mt-2 text-sm text-red-500 hover:text-red-600 underline">파일 제거</button>
+                </div>
+              </template>
+            </div>
+
+            <!-- 파일 유효성 검사 결과 -->
+            <template x-if="validationError">
+              <div class="mt-3 flex items-center gap-2 p-3 bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-800 rounded-lg">
+                <svg class="w-5 h-5 text-red-500 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8v4m0 4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"/></svg>
+                <span class="text-sm text-red-600 dark:text-red-400" x-text="validationError"></span>
+              </div>
+            </template>
+
+            <!-- 파일 정보 카드 -->
+            <template x-if="selectedFile && !validationError">
+              <div class="mt-4 p-4 bg-gray-50 dark:bg-gray-700/50 rounded-lg">
+                <div class="flex items-start gap-4">
+                  <div class="w-12 h-12 rounded-lg flex items-center justify-center flex-shrink-0" :class="getFileIconBg(selectedFile.name)">
+                    <span class="text-xs font-bold text-white uppercase" x-text="getFileExt(selectedFile.name)"></span>
+                  </div>
+                  <div class="flex-1 min-w-0">
+                    <p class="font-medium text-gray-800 dark:text-gray-200 truncate" x-text="selectedFile.name"></p>
+                    <div class="flex items-center gap-4 mt-1 text-sm text-gray-500 dark:text-gray-400">
+                      <span x-text="formatFileSize(selectedFile.size)"></span>
+                      <span class="flex items-center gap-1">
+                        <svg class="w-4 h-4 text-green-500" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7"/></svg>
+                        <span class="text-green-600 dark:text-green-400">유효한 파일</span>
+                      </span>
+                    </div>
+                  </div>
+                </div>
+              </div>
+            </template>
+          </div>
+
+          <!-- 문서 유형 선택 -->
+          <div class="bg-white dark:bg-gray-800 rounded-lg shadow p-6">
+            <h3 class="text-lg font-semibold mb-4">문서 유형</h3>
+            <div class="grid grid-cols-2 sm:grid-cols-4 gap-3">
+              <template x-for="type in docTypes" :key="type.code">
+                <label
+                  @click="selectedType = type.code"
+                  :class="selectedType === type.code ? 'border-indigo-500 bg-indigo-50 dark:bg-indigo-900/20 ring-2 ring-indigo-200 dark:ring-indigo-800' : 'border-gray-200 dark:border-gray-600 hover:border-gray-300 dark:hover:border-gray-500'"
+                  class="relative flex flex-col items-center p-4 border-2 rounded-xl cursor-pointer transition-all"
+                >
+                  <div :class="type.iconBg" class="w-12 h-12 rounded-lg flex items-center justify-center mb-2">
+                    <svg class="w-6 h-6 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" :d="type.icon"/></svg>
+                  </div>
+                  <span class="text-sm font-medium text-gray-700 dark:text-gray-200" x-text="type.label"></span>
+                  <span class="text-xs text-gray-400 dark:text-gray-500 mt-0.5" x-text="type.desc"></span>
+                  <!-- 선택 체크마크 -->
+                  <div x-show="selectedType === type.code" class="absolute -top-1 -right-1 w-5 h-5 bg-indigo-600 rounded-full flex items-center justify-center">
+                    <svg class="w-3 h-3 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7"/></svg>
+                  </div>
+                </label>
+              </template>
+            </div>
+          </div>
+
+          <!-- 문서 정보 입력 -->
+          <div class="bg-white dark:bg-gray-800 rounded-lg shadow p-6">
+            <h3 class="text-lg font-semibold mb-4">문서 정보</h3>
+            <div class="space-y-4">
+              <div>
+                <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">프로젝트 <span class="text-red-500">*</span></label>
+                <select x-model="selectedProject" class="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-gray-800 dark:text-gray-200 focus:ring-2 focus:ring-indigo-500 dark:focus:ring-indigo-400 focus:border-transparent transition-colors">
+                  <option value="">프로젝트를 선택하세요</option>
+                  <template x-for="proj in projects" :key="proj.id">
+                    <option :value="proj.id" x-text="proj.client + ' - ' + proj.name"></option>
+                  </template>
+                </select>
+                <p class="text-xs text-gray-400 dark:text-gray-500 mt-1">문서가 연결될 프로젝트를 선택합니다</p>
+              </div>
+              <div>
+                <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">문서 제목 <span class="text-red-500">*</span></label>
+                <input type="text" x-model="docTitle" placeholder="문서 제목을 입력하세요" class="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-gray-800 dark:text-gray-200 focus:ring-2 focus:ring-indigo-500 dark:focus:ring-indigo-400 focus:border-transparent transition-colors">
+              </div>
+              <div>
+                <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">설명 (선택)</label>
+                <textarea x-model="docDescription" rows="3" placeholder="문서에 대한 설명을 입력하세요" class="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-gray-800 dark:text-gray-200 focus:ring-2 focus:ring-indigo-500 focus:border-transparent transition-colors resize-none"></textarea>
+              </div>
+              <div class="flex items-center gap-3">
+                <input type="checkbox" x-model="autoAnalyze" id="autoAnalyze" class="w-4 h-4 rounded border-gray-300 text-indigo-600 focus:ring-indigo-500 dark:focus:ring-indigo-400">
+                <label for="autoAnalyze" class="text-sm text-gray-700 dark:text-gray-300">업로드 후 자동으로 AI 분석 실행</label>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <!-- 우측: 업로드 상태 & 안내 -->
+        <div class="space-y-6">
+
+          <!-- 업로드 진행 상태 -->
+          <div class="bg-white dark:bg-gray-800 rounded-lg shadow p-6">
+            <h3 class="text-sm font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wider mb-4">업로드 상태</h3>
+
+            <!-- 단계 표시 -->
+            <div class="space-y-4">
+              <template x-for="(step, i) in uploadSteps" :key="i">
+                <div class="flex items-start gap-3">
+                  <div class="flex-shrink-0 mt-0.5">
+                    <!-- 완료 -->
+                    <template x-if="step.status === 'done'">
+                      <div class="w-6 h-6 bg-green-500 rounded-full flex items-center justify-center">
+                        <svg class="w-4 h-4 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7"/></svg>
+                      </div>
+                    </template>
+                    <!-- 진행중 -->
+                    <template x-if="step.status === 'active'">
+                      <div class="w-6 h-6 bg-indigo-500 rounded-full flex items-center justify-center">
+                        <div class="w-2 h-2 bg-white rounded-full animate-pulse"></div>
+                      </div>
+                    </template>
+                    <!-- 대기 -->
+                    <template x-if="step.status === 'waiting'">
+                      <div class="w-6 h-6 bg-gray-200 dark:bg-gray-600 rounded-full flex items-center justify-center">
+                        <span class="text-xs text-gray-500 dark:text-gray-400" x-text="i + 1"></span>
+                      </div>
+                    </template>
+                  </div>
+                  <div>
+                    <p class="text-sm font-medium" :class="step.status === 'active' ? 'text-indigo-600 dark:text-indigo-400' : (step.status === 'done' ? 'text-green-600 dark:text-green-400' : 'text-gray-400 dark:text-gray-500')" x-text="step.label"></p>
+                    <p class="text-xs text-gray-400 dark:text-gray-500 mt-0.5" x-text="step.desc"></p>
+                  </div>
+                </div>
+              </template>
+            </div>
+
+            <!-- 진행률 바 (업로드 중일 때만) -->
+            <template x-if="uploadState === 'uploading'">
+              <div class="mt-5">
+                <div class="flex justify-between text-xs text-gray-500 mb-1">
+                  <span>업로드 중...</span>
+                  <span x-text="uploadProgress + '%'"></span>
+                </div>
+                <div class="w-full bg-gray-200 dark:bg-gray-700 rounded-full h-2">
+                  <div class="bg-indigo-600 h-2 rounded-full transition-all duration-300" :style="'width: ' + uploadProgress + '%'"></div>
+                </div>
+              </div>
+            </template>
+
+            <!-- AI 분석 중 -->
+            <template x-if="uploadState === 'analyzing'">
+              <div class="mt-5 p-3 bg-purple-50 dark:bg-purple-900/20 rounded-lg">
+                <div class="flex items-center gap-2">
+                  <svg class="w-5 h-5 text-purple-500 animate-spin-slow" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15"/></svg>
+                  <span class="text-sm text-purple-700 dark:text-purple-300 font-medium">AI 분석 진행 중</span>
+                </div>
+                <p class="text-xs text-purple-500 dark:text-purple-400 mt-2">문서 내용을 분석하고 핵심 조건을 추출하고 있습니다<span class="pulse-dot-1">.</span><span class="pulse-dot-2">.</span><span class="pulse-dot-3">.</span></p>
+              </div>
+            </template>
+
+            <!-- 업로드 버튼 -->
+            <div class="mt-6">
+              <button
+                @click="startUpload()"
+                :disabled="!selectedFile || !docTitle || !selectedProject || validationError || uploadState !== 'idle'"
+                :class="(!selectedFile || !docTitle || !selectedProject || validationError || uploadState !== 'idle') ? 'bg-gray-300 dark:bg-gray-600 cursor-not-allowed' : 'bg-indigo-600 hover:bg-indigo-700'"
+                class="w-full py-2.5 text-white rounded-lg font-medium transition-colors flex items-center justify-center gap-2"
+              >
+                <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M7 16a4 4 0 01-.88-7.903A5 5 0 1115.9 6L16 6a5 5 0 011 9.9M15 13l-3-3m0 0l-3 3m3-3v12"/></svg>
+                <span x-text="uploadState === 'idle' ? '업로드' : (uploadState === 'uploading' ? '업로드 중...' : (uploadState === 'analyzing' ? 'AI 분석 중...' : '완료'))"></span>
+              </button>
+            </div>
+          </div>
+
+          <!-- 지원 파일 형식 안내 -->
+          <div class="bg-white dark:bg-gray-800 rounded-lg shadow p-6">
+            <h3 class="text-sm font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wider mb-4">지원 형식</h3>
+            <div class="space-y-3">
+              <template x-for="format in supportedFormats" :key="format.type">
+                <div class="flex items-center gap-3">
+                  <div :class="format.bg" class="w-8 h-8 rounded flex items-center justify-center flex-shrink-0">
+                    <span class="text-xs font-bold text-white" x-text="format.ext"></span>
+                  </div>
+                  <div>
+                    <p class="text-sm font-medium text-gray-700 dark:text-gray-300" x-text="format.type"></p>
+                    <p class="text-xs text-gray-400 dark:text-gray-500" x-text="format.desc"></p>
+                  </div>
+                </div>
+              </template>
+            </div>
+          </div>
+
+          <!-- AI 분석 안내 -->
+          <div class="bg-gradient-to-br from-purple-50 to-indigo-50 dark:from-purple-900/20 dark:to-indigo-900/20 rounded-lg p-6 border border-purple-100 dark:border-purple-800/30">
+            <div class="flex items-center gap-2 mb-3">
+              <svg class="w-5 h-5 text-purple-600 dark:text-purple-400" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9.663 17h4.673M12 3v1m6.364 1.636l-.707.707M21 12h-1M4 12H3m3.343-5.657l-.707-.707m2.828 9.9a5 5 0 117.072 0l-.548.547A3.374 3.374 0 0014 18.469V19a2 2 0 11-4 0v-.531c0-.895-.356-1.754-.988-2.386l-.548-.547z"/></svg>
+              <h3 class="text-sm font-semibold text-purple-700 dark:text-purple-300">AI 분석 기능</h3>
+            </div>
+            <ul class="space-y-2 text-xs text-purple-600 dark:text-purple-400">
+              <li class="flex items-start gap-2">
+                <svg class="w-4 h-4 text-purple-400 flex-shrink-0 mt-0.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7"/></svg>
+                <span><strong>계약서:</strong> 핵심 조항 추출, 위험 요소 식별</span>
+              </li>
+              <li class="flex items-start gap-2">
+                <svg class="w-4 h-4 text-purple-400 flex-shrink-0 mt-0.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7"/></svg>
+                <span><strong>견적서:</strong> 항목/금액/일정 구조화</span>
+              </li>
+              <li class="flex items-start gap-2">
+                <svg class="w-4 h-4 text-purple-400 flex-shrink-0 mt-0.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7"/></svg>
+                <span><strong>제안서:</strong> 핵심 조건, 범위, 예산 추출</span>
+              </li>
+              <li class="flex items-start gap-2">
+                <svg class="w-4 h-4 text-purple-400 flex-shrink-0 mt-0.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7"/></svg>
+                <span><strong>업무 자동 생성:</strong> 분석 결과에서 업무 항목 추출</span>
+              </li>
+            </ul>
+          </div>
+
+          <!-- 최근 업로드 -->
+          <div class="bg-white dark:bg-gray-800 rounded-lg shadow p-6">
+            <h3 class="text-sm font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wider mb-4">최근 업로드</h3>
+            <div class="space-y-3">
+              <template x-for="doc in recentDocs" :key="doc.id">
+                <a href="document-detail.html" class="flex items-center gap-3 p-2 rounded-lg hover:bg-gray-50 dark:hover:bg-gray-700/50 transition-colors">
+                  <div :class="getTypeBadgeBg(doc.type)" class="w-8 h-8 rounded flex items-center justify-center flex-shrink-0">
+                    <svg class="w-4 h-4 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"/></svg>
+                  </div>
+                  <div class="flex-1 min-w-0">
+                    <p class="text-sm font-medium text-gray-700 dark:text-gray-200 truncate" x-text="doc.title"></p>
+                    <p class="text-xs text-gray-400 dark:text-gray-500" x-text="doc.date"></p>
+                  </div>
+                  <span class="text-xs px-2 py-0.5 rounded-full" :class="getDocStatusClass(doc.status)" x-text="getDocStatusLabel(doc.status)"></span>
+                </a>
+              </template>
+            </div>
+          </div>
+        </div>
+      </div>
+    </main>
+
+    <!-- 모바일 하단 탭바 -->
+    <nav class="lg:hidden fixed bottom-0 left-0 right-0 bg-white dark:bg-gray-800 border-t border-gray-200 dark:border-gray-700 z-30">
+      <div class="flex justify-around py-2">
+        <a href="dashboard.html" class="flex flex-col items-center gap-1 px-3 py-1 text-gray-400">
+          <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 12l2-2m0 0l7-7 7 7M5 10v10a1 1 0 001 1h3m10-11l2 2m-2-2v10a1 1 0 01-1 1h-3m-6 0a1 1 0 001-1v-4a1 1 0 011-1h2a1 1 0 011 1v4a1 1 0 001 1m-6 0h6"/></svg>
+          <span class="text-[10px]">대시보드</span>
+        </a>
+        <a href="projects.html" class="flex flex-col items-center gap-1 px-3 py-1 text-indigo-600 dark:text-indigo-400">
+          <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 7v10a2 2 0 002 2h14a2 2 0 002-2V9a2 2 0 00-2-2h-6l-2-2H5a2 2 0 00-2 2z"/></svg>
+          <span class="text-[10px] font-medium">프로젝트</span>
+        </a>
+        <a href="tasks.html" class="flex flex-col items-center gap-1 px-3 py-1 text-gray-400">
+          <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2m-6 9l2 2 4-4"/></svg>
+          <span class="text-[10px]">업무</span>
+        </a>
+        <a href="#" class="flex flex-col items-center gap-1 px-3 py-1 text-gray-400">
+          <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 12h.01M12 12h.01M19 12h.01M6 12a1 1 0 11-2 0 1 1 0 012 0zm7 0a1 1 0 11-2 0 1 1 0 012 0zm7 0a1 1 0 11-2 0 1 1 0 012 0z"/></svg>
+          <span class="text-[10px]">더보기</span>
+        </a>
+      </div>
+    </nav>
+
+  </div>
+</div>
+
+<script>
+function appLayout() {
+  return {
+    mobileMenu: false,
+    darkMode: localStorage.getItem('darkMode') === 'true' || window.matchMedia('(prefers-color-scheme: dark)').matches,
+    init() { this.applyDark(); },
+    toggleDark() { this.darkMode = !this.darkMode; localStorage.setItem('darkMode', this.darkMode); this.applyDark(); },
+    applyDark() { document.documentElement.classList.toggle('dark', this.darkMode); }
+  }
+}
+
+function documentUploadPage() {
+  return {
+    // 파일 상태
+    selectedFile: null,
+    dragOver: false,
+    validationError: '',
+
+    // 문서 정보
+    selectedProject: '',
+    selectedType: 'contract',
+    docTitle: '',
+    docDescription: '',
+    autoAnalyze: true,
+
+    // 프로젝트 목록
+    projects: [
+      { id: 1, name: '더존 ERP 연동 개발', client: '(주)테크솔루션' },
+      { id: 2, name: '웹사이트 리뉴얼', client: '(주)스마트커머스' },
+      { id: 3, name: '모바일 앱 개발', client: '(주)이노테크' },
+      { id: 4, name: '데이터 분석 시스템', client: '(주)데이터랩' },
+      { id: 5, name: '내부 관리 시스템', client: '자체' }
+    ],
+
+    // 업로드 상태
+    uploadState: 'idle', // idle, uploading, analyzing, done
+    uploadProgress: 0,
+
+    // 문서 유형
+    docTypes: [
+      { code: 'estimate', label: '견적서', desc: 'Google Sheets 연동', iconBg: 'bg-blue-500', icon: 'M9 7h6m0 10v-3m-3 3h.01M9 17h.01M9 14h.01M12 14h.01M15 11h.01M12 11h.01M9 11h.01M7 21h10a2 2 0 002-2V5a2 2 0 00-2-2H7a2 2 0 00-2 2v14a2 2 0 002 2z' },
+      { code: 'contract', label: '계약서', desc: 'AI 분석 + 검토', iconBg: 'bg-indigo-500', icon: 'M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z' },
+      { code: 'proposal', label: '제안서', desc: '핵심 조건 추출', iconBg: 'bg-purple-500', icon: 'M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z' },
+      { code: 'other', label: '기타', desc: '일반 첨부', iconBg: 'bg-gray-500', icon: 'M15.172 7l-6.586 6.586a2 2 0 102.828 2.828l6.414-6.586a4 4 0 00-5.656-5.656l-6.415 6.585a6 6 0 108.486 8.486L20.5 13' }
+    ],
+
+    // 업로드 단계
+    uploadSteps: [
+      { label: '파일 선택', desc: '문서 파일을 선택하세요', status: 'active' },
+      { label: '유형 선택', desc: '문서 유형을 지정하세요', status: 'waiting' },
+      { label: '정보 입력', desc: '제목 및 설명을 입력하세요', status: 'waiting' },
+      { label: '업로드', desc: '서버에 파일을 전송합니다', status: 'waiting' },
+      { label: 'AI 분석', desc: '문서 내용을 분석합니다', status: 'waiting' }
+    ],
+
+    // 지원 형식
+    supportedFormats: [
+      { type: 'PDF', ext: 'PDF', desc: '텍스트/스캔 모두 지원', bg: 'bg-red-500' },
+      { type: 'Word', ext: 'DOC', desc: '.docx, .doc', bg: 'bg-blue-600' },
+      { type: '한글', ext: 'HWP', desc: '.hwp, .hwpx', bg: 'bg-cyan-600' },
+      { type: '이미지', ext: 'IMG', desc: 'JPG, PNG, TIFF 등', bg: 'bg-green-500' }
+    ],
+
+    // 최근 업로드
+    recentDocs: [
+      { id: 1, title: '외주 개발 계약서 v2', type: 'contract', status: 'review_pending', date: '2026-02-28' },
+      { id: 2, title: '2026 상반기 견적서', type: 'estimate', status: 'confirmed', date: '2026-02-25' },
+      { id: 3, title: '프로젝트 제안서', type: 'proposal', status: 'analyzing', date: '2026-02-24' },
+      { id: 4, title: '유지보수 계약서', type: 'contract', status: 'uploaded', date: '2026-02-20' }
+    ],
+
+    // 파일 검증
+    allowedExtensions: ['pdf', 'docx', 'doc', 'hwp', 'hwpx', 'jpg', 'jpeg', 'png', 'tiff', 'tif', 'bmp', 'webp'],
+    maxFileSize: 50 * 1024 * 1024, // 50MB
+
+    handleDrop(event) {
+      this.dragOver = false;
+      const files = event.dataTransfer.files;
+      if (files.length > 0) this.validateAndSetFile(files[0]);
+    },
+
+    handleFileSelect(event) {
+      const files = event.target.files;
+      if (files.length > 0) this.validateAndSetFile(files[0]);
+    },
+
+    validateAndSetFile(file) {
+      this.validationError = '';
+      const ext = file.name.split('.').pop().toLowerCase();
+
+      if (!this.allowedExtensions.includes(ext)) {
+        this.validationError = '지원하지 않는 파일 형식입니다. PDF, DOCX, DOC, HWP, HWPX, JPG, PNG 파일을 업로드해 주세요.';
+        this.selectedFile = null;
+        return;
+      }
+
+      if (file.size > this.maxFileSize) {
+        this.validationError = '파일 크기는 50MB를 초과할 수 없습니다.';
+        this.selectedFile = null;
+        return;
+      }
+
+      this.selectedFile = file;
+      this.updateSteps();
+
+      // 자동 제목 설정
+      if (!this.docTitle) {
+        this.docTitle = file.name.replace(/\.[^/.]+$/, '');
+      }
+    },
+
+    removeFile() {
+      this.selectedFile = null;
+      this.validationError = '';
+      this.uploadSteps[0].status = 'active';
+      this.uploadSteps[1].status = 'waiting';
+      this.uploadSteps[2].status = 'waiting';
+      this.uploadSteps[3].status = 'waiting';
+      this.uploadSteps[4].status = 'waiting';
+    },
+
+    updateSteps() {
+      if (this.selectedFile) {
+        this.uploadSteps[0].status = 'done';
+        this.uploadSteps[1].status = this.selectedType ? 'done' : 'active';
+        this.uploadSteps[2].status = this.docTitle ? 'done' : 'active';
+      }
+    },
+
+    startUpload() {
+      if (!this.selectedFile || !this.docTitle || this.validationError) return;
+
+      this.uploadState = 'uploading';
+      this.uploadSteps[0].status = 'done';
+      this.uploadSteps[1].status = 'done';
+      this.uploadSteps[2].status = 'done';
+      this.uploadSteps[3].status = 'active';
+      this.uploadSteps[4].status = 'waiting';
+
+      // 업로드 시뮬레이션
+      this.uploadProgress = 0;
+      const uploadInterval = setInterval(() => {
+        this.uploadProgress += Math.random() * 15 + 5;
+        if (this.uploadProgress >= 100) {
+          this.uploadProgress = 100;
+          clearInterval(uploadInterval);
+
+          this.uploadSteps[3].status = 'done';
+
+          if (this.autoAnalyze) {
+            this.uploadState = 'analyzing';
+            this.uploadSteps[4].status = 'active';
+
+            // AI 분석 시뮬레이션
+            setTimeout(() => {
+              this.uploadState = 'done';
+              this.uploadSteps[4].status = 'done';
+            }, 3000);
+          } else {
+            this.uploadState = 'done';
+          }
+        }
+      }, 200);
+    },
+
+    formatFileSize(bytes) {
+      if (bytes === 0) return '0 Bytes';
+      const k = 1024;
+      const sizes = ['Bytes', 'KB', 'MB', 'GB'];
+      const i = Math.floor(Math.log(bytes) / Math.log(k));
+      return parseFloat((bytes / Math.pow(k, i)).toFixed(1)) + ' ' + sizes[i];
+    },
+
+    getFileExt(name) {
+      return name.split('.').pop().toUpperCase();
+    },
+
+    getFileIconBg(name) {
+      const ext = name.split('.').pop().toLowerCase();
+      const map = { 'pdf': 'bg-red-500', 'docx': 'bg-blue-600', 'doc': 'bg-blue-600', 'hwp': 'bg-cyan-600', 'hwpx': 'bg-cyan-600', 'jpg': 'bg-green-500', 'jpeg': 'bg-green-500', 'png': 'bg-green-500' };
+      return map[ext] || 'bg-gray-500';
+    },
+
+    getTypeBadgeBg(type) {
+      return { 'estimate': 'bg-blue-500', 'contract': 'bg-indigo-500', 'proposal': 'bg-purple-500', 'other': 'bg-gray-500' }[type] || 'bg-gray-500';
+    },
+
+    getDocStatusClass(status) {
+      return {
+        'uploaded': 'bg-gray-100 text-gray-600 dark:bg-gray-700 dark:text-gray-400',
+        'analyzing': 'bg-yellow-100 text-yellow-700 dark:bg-yellow-900/30 dark:text-yellow-400',
+        'review_pending': 'bg-blue-100 text-blue-700 dark:bg-blue-900/30 dark:text-blue-400',
+        'revision_requested': 'bg-red-100 text-red-700 dark:bg-red-900/30 dark:text-red-400',
+        'confirmed': 'bg-green-100 text-green-700 dark:bg-green-900/30 dark:text-green-400'
+      }[status] || '';
+    },
+
+    getDocStatusLabel(status) {
+      return { 'uploaded': '업로드됨', 'analyzing': 'AI 분석중', 'review_pending': '검토 대기', 'revision_requested': '수정 요청', 'confirmed': '확정' }[status] || status;
+    }
+  }
+}
+</script>
+
+</body>
+</html>

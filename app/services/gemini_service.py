@@ -182,6 +182,378 @@ class GeminiService:
                 )
             raise
 
+    async def generate_completion_draft(self, context: dict) -> dict:
+        """완료 보고 초안 생성 (제목 + 본문)"""
+
+        system_prompt = """당신은 프로젝트 업무 완료 보고를 작성하는 비즈니스 커뮤니케이션 전문가입니다.
+발주처 담당자에게 보내는 업무 완료 이메일의 제목과 본문을 작성해 주세요.
+
+작성 원칙:
+1. 정중하고 간결한 비즈니스 어투 사용 (존칭: ~합니다)
+2. 불필요한 인사말이나 미사여구 최소화
+3. 핵심 내용을 먼저, 부가 설명은 후에
+4. 첨부 산출물이 있으면 확인을 요청하는 문구 포함
+5. 본문은 300자 이내로 간결하게
+
+주의:
+- 발주처 담당자의 이름은 알 수 없으므로 "담당자님" 사용 금지
+- "안녕하세요," 로 시작
+- "감사합니다." 로 마무리
+- HTML 태그 사용하지 않음 (순수 텍스트)
+
+반드시 아래 JSON 형식으로 응답하세요:
+{"subject": "이메일 제목", "body": "이메일 본문"}"""
+
+        user_prompt = (
+            "다음 정보를 기반으로 완료 보고 이메일 초안을 작성해 주세요:\n\n"
+            f"- 프로젝트명: {context.get('project_name', '')}\n"
+            f"- 업무명: {context.get('task_name', '')}\n"
+            f"- 발주처: {context.get('client_name', '발주처')}\n"
+            f"- 발신자: {context.get('sender_name', '')}\n"
+            f"- 완료일: {context.get('completed_at', '')}\n"
+            f"- 처리 내용: {context.get('note', '없음')}\n"
+        )
+
+        try:
+            response = await self.client.aio.models.generate_content(
+                model=self.model,
+                contents=user_prompt,
+                config=types.GenerateContentConfig(
+                    system_instruction=system_prompt,
+                    temperature=0.3,
+                    response_mime_type="application/json",
+                    http_options=types.HttpOptions(timeout=60_000),
+                ),
+            )
+            result = self._parse_json_response(response.text)
+            subject = result.get("subject", "")
+            body = result.get("body", "")
+            if not subject or not body:
+                raise RuntimeError("AI가 유효한 초안을 생성하지 못했습니다")
+            return {"subject": subject, "body": body}
+        except (json.JSONDecodeError, KeyError, TypeError) as e:
+            logger.warning(f"AI 완료 보고 초안 파싱 실패: {e}")
+            raise RuntimeError("AI 초안 생성에 실패했습니다")
+        except RuntimeError:
+            raise
+        except Exception as e:
+            logger.error(f"AI 완료 보고 초안 생성 실패: {e}")
+            raise RuntimeError(f"AI 초안 생성에 실패했습니다: {e}")
+
+    async def generate_periodic_report(self, context: dict) -> dict:
+        """정기 보고서 생성 (title + content_html + content_json)"""
+
+        system_prompt = """당신은 프로젝트 관리 보고서를 작성하는 전문가입니다.
+주어진 데이터를 기반으로 발주처에게 보내는 정기 보고서를 작성해 주세요.
+
+작성 원칙:
+1. 구조화된 형식 (섹션별 구분)
+2. 수치 데이터는 정확하게 반영
+3. 진행 상황을 시각적으로 표현 (진행률 %)
+4. 지연/이슈 사항은 원인과 대응 방안 함께 기술
+5. 다음 기간 계획을 구체적으로
+6. HTML 형식으로 출력 (이메일 발송 및 보고서 뷰 사용)
+7. 간결하고 전문적인 어투
+
+보고서 필수 섹션:
+- 요약 (전체 진행률, 핵심 성과)
+- 기간 내 완료 업무
+- 진행 중 업무 현황
+- 발주처 피드백 현황
+- 이슈 및 지연 사항 (있는 경우)
+- 다음 기간 계획
+
+HTML 스타일 규칙:
+- <h3>으로 섹션 구분
+- <table>로 업무 목록 표시
+- <div style="background:#4F46E5; ...">로 진행률 바 표현
+- 색상: 완료=#10B981, 진행중=#3B82F6, 지연=#EF4444
+
+반드시 아래 JSON 형식으로 응답하세요:
+{"title": "보고서 제목", "content_html": "HTML 본문", "content_json": {"summary": "요약", "highlights": ["성과1"], "risks": ["리스크1"]}}"""
+
+        # 완료 업무 텍스트
+        completed = context.get("completed_tasks", [])
+        completed_text = "\n".join(
+            f"- {t.get('task_name', '')} ({t.get('phase', '')}, 완료: {t.get('completed_date', '')}, 담당: {t.get('assignee', '')})"
+            for t in completed
+        ) or "없음"
+
+        # 진행 중 업무
+        in_progress = context.get("in_progress_tasks", [])
+        in_progress_text = "\n".join(
+            f"- {t.get('task_name', '')} ({t.get('phase', '')}, 마감: {t.get('due_date', '')}, 담당: {t.get('assignee', '')})"
+            for t in in_progress
+        ) or "없음"
+
+        # 예정 업무
+        upcoming = context.get("upcoming_tasks", [])
+        upcoming_text = "\n".join(
+            f"- {t.get('task_name', '')} ({t.get('phase', '')}, 마감: {t.get('due_date', '')}, 담당: {t.get('assignee', '')})"
+            for t in upcoming
+        ) or "없음"
+
+        # 피드백 요약
+        fb = context.get("feedback_summary", {})
+        fb_text = (
+            f"확인: {fb.get('confirmed', 0)}건, "
+            f"수정요청: {fb.get('revision_requested', 0)}건, "
+            f"대기: {fb.get('pending', 0)}건"
+        )
+
+        # 이슈
+        issues = context.get("issues", [])
+        issues_text = "\n".join(f"- {i}" for i in issues) or "없음"
+
+        # 전체 진행률
+        op = context.get("overall_progress", {})
+        progress_text = (
+            f"{op.get('completed_tasks', 0)}/{op.get('total_tasks', 0)} "
+            f"({op.get('progress_percent', 0)}%)"
+        )
+
+        user_prompt = (
+            f"다음 데이터를 기반으로 정기 보고서를 작성해 주세요:\n\n"
+            f"프로젝트: {context.get('project_name', '')}\n"
+            f"발주처: {context.get('client_name', '')}\n"
+            f"보고 기간: {context.get('period_start', '')} ~ {context.get('period_end', '')}\n"
+            f"전체 진행률: {progress_text}\n\n"
+            f"[기간 내 완료 업무]\n{completed_text}\n\n"
+            f"[진행 중 업무]\n{in_progress_text}\n\n"
+            f"[다음 기간 예정 업무]\n{upcoming_text}\n\n"
+            f"[피드백 현황]\n{fb_text}\n\n"
+            f"[이슈 사항]\n{issues_text}\n"
+        )
+
+        last_error = None
+        for attempt in range(MAX_RETRIES + 1):
+            try:
+                response = await self.client.aio.models.generate_content(
+                    model=self.model,
+                    contents=user_prompt,
+                    config=types.GenerateContentConfig(
+                        system_instruction=system_prompt,
+                        temperature=0.2,
+                        response_mime_type="application/json",
+                        http_options=types.HttpOptions(timeout=60_000),
+                    ),
+                )
+                result = self._parse_json_response(response.text)
+                title = result.get("title", "")
+                content_html = result.get("content_html", "")
+                if not title or not content_html:
+                    raise RuntimeError("AI가 유효한 보고서를 생성하지 못했습니다")
+                return {
+                    "title": title,
+                    "content_html": content_html,
+                    "content_json": result.get("content_json"),
+                }
+            except (json.JSONDecodeError, KeyError, TypeError) as e:
+                last_error = e
+                logger.warning(f"정기 보고서 파싱 실패 (시도 {attempt + 1}/{MAX_RETRIES + 1}): {e}")
+                if attempt < MAX_RETRIES:
+                    continue
+            except RuntimeError:
+                raise
+            except Exception as e:
+                logger.error(f"정기 보고서 생성 실패: {e}")
+                raise RuntimeError(f"AI 보고서 생성에 실패했습니다: {e}")
+
+        raise RuntimeError(f"AI 보고서 생성에 실패했습니다: {last_error}")
+
+    async def generate_completion_summary(self, context: dict) -> dict:
+        """프로젝트 완료 보고서 생성 (title + content_html + content_json)"""
+
+        system_prompt = """당신은 프로젝트 완료 보고서를 작성하는 전문가입니다.
+프로젝트 전체 수행 결과를 종합하여 발주처에게 제출하는
+최종 결과 보고서를 작성해 주세요.
+
+작성 원칙:
+1. 공식적이고 체계적인 보고서 형식
+2. 데이터 기반의 객관적 서술
+3. 단계별 수행 내역을 상세히 기록
+4. 일정 준수율, 피드백 통계 등 수치 데이터 포함
+5. HTML 형식으로 출력
+
+필수 섹션:
+1. 프로젝트 개요 (발주처, 기간)
+2. 수행 범위 및 단계별 결과
+3. 전체 업무 수행 현황 (완료 업무 테이블)
+4. 일정 준수율 (계획 vs 실적)
+5. 발주처 피드백 이력 요약
+6. 특이사항 및 개선 제안
+
+HTML 스타일 규칙:
+- <h2>로 대제목, <h3>으로 소제목
+- <table>로 데이터 표 작성 (border, padding 포함)
+- 진행률/준수율은 색상 바로 시각화
+
+반드시 아래 JSON 형식으로 응답하세요:
+{"title": "보고서 제목", "content_html": "HTML 본문", "content_json": {"summary": "요약", "key_metrics": {"on_time_rate": 93}, "recommendations": ["제안1"]}}"""
+
+        # 전체 업무 텍스트
+        all_tasks = context.get("all_tasks", [])
+        tasks_text = "\n".join(
+            f"- {t.get('task_name', '')} | {t.get('phase', '')} | "
+            f"{'정시' if t.get('is_on_time') else '지연'} | "
+            f"완료: {t.get('completed_date', '')}"
+            for t in all_tasks
+        ) or "없음"
+
+        phases = context.get("phases", [])
+        fb = context.get("feedback_history", {})
+        sched = context.get("schedule_adherence", {})
+
+        user_prompt = (
+            f"다음 데이터를 기반으로 프로젝트 완료 보고서를 작성해 주세요:\n\n"
+            f"프로젝트: {context.get('project_name', '')}\n"
+            f"발주처: {context.get('client_name', '')}\n"
+            f"기간: {context.get('start_date', '')} ~ {context.get('end_date', '')}\n"
+            f"단계: {' → '.join(phases)}\n\n"
+            f"전체 업무 {len(all_tasks)}건\n"
+            f"일정 준수율: {sched.get('on_time_rate', 0)}%\n"
+            f"계획 기간: {sched.get('planned_days', 0)}일\n"
+            f"실제 기간: {sched.get('actual_days', 0)}일\n\n"
+            f"피드백: 총 {fb.get('total', 0)}건\n"
+            f"  - 확인: {fb.get('confirmed', 0)}건\n"
+            f"  - 수정 요청: {fb.get('revision_requested', 0)}건\n"
+            f"  - 평균 응답: {fb.get('avg_response_days', 0)}일\n\n"
+            f"[업무 상세]\n{tasks_text}\n"
+        )
+
+        last_error = None
+        for attempt in range(MAX_RETRIES + 1):
+            try:
+                response = await self.client.aio.models.generate_content(
+                    model=self.model,
+                    contents=user_prompt,
+                    config=types.GenerateContentConfig(
+                        system_instruction=system_prompt,
+                        temperature=0.2,
+                        response_mime_type="application/json",
+                        http_options=types.HttpOptions(timeout=60_000),
+                    ),
+                )
+                result = self._parse_json_response(response.text)
+                title = result.get("title", "")
+                content_html = result.get("content_html", "")
+                if not title or not content_html:
+                    raise RuntimeError("AI가 유효한 완료 보고서를 생성하지 못했습니다")
+                return {
+                    "title": title,
+                    "content_html": content_html,
+                    "content_json": result.get("content_json"),
+                }
+            except (json.JSONDecodeError, KeyError, TypeError) as e:
+                last_error = e
+                logger.warning(f"완료 보고서 파싱 실패 (시도 {attempt + 1}/{MAX_RETRIES + 1}): {e}")
+                if attempt < MAX_RETRIES:
+                    continue
+            except RuntimeError:
+                raise
+            except Exception as e:
+                logger.error(f"완료 보고서 생성 실패: {e}")
+                raise RuntimeError(f"AI 완료 보고서 생성에 실패했습니다: {e}")
+
+        raise RuntimeError(f"AI 완료 보고서 생성에 실패했습니다: {last_error}")
+
+    async def generate_estimate(self, context: dict) -> dict:
+        """AI 견적서 생성 (items + total_amount + duration + notes)"""
+
+        system_prompt = """당신은 IT 외주 견적 산정 전문가입니다.
+프로젝트 범위와 과거 유사 프로젝트 데이터를 참고하여
+견적서 초안을 작성해 주세요.
+
+산정 원칙:
+1. 과거 유사 프로젝트의 항목별 단가를 참고
+2. 범위에 맞게 항목을 조정 (추가/제거/수량 변경)
+3. 금액은 만원 단위로 반올림
+4. 각 항목에 예상 소요일 포함
+5. 총액과 총 소요일 계산
+6. 참고한 과거 프로젝트 정보 명시
+
+주의:
+- 과거 데이터가 없으면 일반적인 IT 외주 시장 단가 기준으로 산정
+- 금액은 VAT 별도
+- 지나치게 낮거나 높은 금액 지양
+
+반드시 아래 JSON 형식으로 응답하세요:
+{
+  "items": [
+    {"name": "항목명", "description": "설명", "quantity": 1, "unit": "식", "unit_price": 3000000, "amount": 3000000, "estimated_days": 10}
+  ],
+  "total_amount": 42000000,
+  "estimated_duration_days": 75,
+  "notes": "산정 근거 설명",
+  "reference_projects": ["참고 프로젝트명"]
+}"""
+
+        # 과거 프로젝트 텍스트
+        past_projects = context.get("past_projects", [])
+        if past_projects:
+            past_text = "\n".join(
+                f"- {p.get('project_name', '')} "
+                f"(유형: {p.get('project_type', '')}, "
+                f"금액: {p.get('contract_amount', '미정')}, "
+                f"기간: {p.get('duration_days', '?')}일, "
+                f"업무: {p.get('task_count', 0)}건)"
+                + (
+                    "\n  견적 항목: " + ", ".join(
+                        f"{ei.get('name', '')}({ei.get('amount', 0):,}원/{ei.get('days', '?')}일)"
+                        for ei in p.get("estimate_items", [])
+                    )
+                    if p.get("estimate_items") else ""
+                )
+                for p in past_projects
+            )
+        else:
+            past_text = "참고 가능한 과거 프로젝트가 없습니다."
+
+        user_prompt = (
+            f"다음 프로젝트의 견적서를 작성해 주세요:\n\n"
+            f"유형: {context.get('project_type', '')}\n"
+            f"범위: {context.get('scope_description', '')}\n\n"
+            f"[참고 과거 프로젝트]\n{past_text}\n"
+        )
+
+        last_error = None
+        for attempt in range(MAX_RETRIES + 1):
+            try:
+                response = await self.client.aio.models.generate_content(
+                    model=self.model,
+                    contents=user_prompt,
+                    config=types.GenerateContentConfig(
+                        system_instruction=system_prompt,
+                        temperature=0.2,
+                        response_mime_type="application/json",
+                        http_options=types.HttpOptions(timeout=60_000),
+                    ),
+                )
+                result = self._parse_json_response(response.text)
+                items = result.get("items", [])
+                total_amount = result.get("total_amount", 0)
+                if not items or not total_amount:
+                    raise RuntimeError("AI가 유효한 견적서를 생성하지 못했습니다")
+                return {
+                    "items": items,
+                    "total_amount": total_amount,
+                    "estimated_duration_days": result.get("estimated_duration_days", 0),
+                    "notes": result.get("notes"),
+                    "reference_projects": result.get("reference_projects", []),
+                }
+            except (json.JSONDecodeError, KeyError, TypeError) as e:
+                last_error = e
+                logger.warning(f"견적서 파싱 실패 (시도 {attempt + 1}/{MAX_RETRIES + 1}): {e}")
+                if attempt < MAX_RETRIES:
+                    continue
+            except RuntimeError:
+                raise
+            except Exception as e:
+                logger.error(f"견적서 생성 실패: {e}")
+                raise RuntimeError(f"AI 견적서 생성에 실패했습니다: {e}")
+
+        raise RuntimeError(f"AI 견적서 생성에 실패했습니다: {last_error}")
+
     def _build_system_prompt(self) -> str:
         return """당신은 한국어 외주용역 계약서 분석 전문가입니다.
 계약서 텍스트를 분석하여 추진 일정과 관련된 모든 정보를 체계적으로 추출해야 합니다.

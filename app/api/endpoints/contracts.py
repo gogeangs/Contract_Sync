@@ -14,7 +14,7 @@ import logging
 
 from sqlalchemy.orm.attributes import flag_modified
 
-from app.database import get_db, Contract, User, Team, TeamMember, ActivityLog, Notification, utc_now
+from app.database import get_db, Contract, User, Team, TeamMember, ActivityLog, Notification, utc_now, TEAM_PERMISSIONS
 from app.api.endpoints.auth import require_current_user
 from app.limiter import limiter
 
@@ -75,7 +75,6 @@ async def _check_team_permission(
     member = result.scalar_one_or_none()
     if not member:
         raise HTTPException(status_code=403, detail="팀 멤버가 아닙니다.")
-    from app.database import TEAM_PERMISSIONS
     perms = TEAM_PERMISSIONS.get(member.role, set())
     if permission not in perms:
         raise HTTPException(status_code=403, detail="해당 작업에 대한 권한이 없습니다.")
@@ -159,7 +158,6 @@ async def save_contract(
             if contract_data.team_id not in team_ids:
                 raise HTTPException(status_code=403, detail="해당 팀의 멤버가 아닙니다.")
             # 역할 기반 권한 검증
-            from app.database import TEAM_PERMISSIONS
             _member_result = await db.execute(
                 select(TeamMember).where(
                     TeamMember.team_id == contract_data.team_id,

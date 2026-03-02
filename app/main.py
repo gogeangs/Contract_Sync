@@ -29,8 +29,11 @@ from app.limiter import limiter
 # 앱 루트 디렉토리
 BASE_DIR = Path(__file__).resolve().parent.parent
 
-# uploads 디렉토리 생성
-uploads_dir = BASE_DIR / "uploads"
+# uploads 디렉토리 생성 (Railway Volume 마운트 지원)
+if settings.data_dir:
+    uploads_dir = Path(settings.data_dir) / "uploads"
+else:
+    uploads_dir = BASE_DIR / "uploads"
 uploads_dir.mkdir(parents=True, exist_ok=True)
 logger.info(f"Uploads directory: {uploads_dir}")
 
@@ -147,6 +150,12 @@ templates = Jinja2Templates(directory=BASE_DIR / "templates")
 
 # API 라우터 등록
 app.include_router(api_router, prefix="/api/v1")
+
+
+@app.get("/health")
+async def health():
+    """헬스체크 엔드포인트 (Railway 배포용)"""
+    return {"status": "ok"}
 
 
 @app.get("/", response_class=HTMLResponse)

@@ -1,0 +1,46 @@
+{% extends "base_email.html" %}
+{% block title %}{{ project_name }} {{ report_type_label }}{% endblock %}
+{% block content %}
+<p style="margin: 0 0 20px; color: #374151; font-size: 15px; line-height: 1.7;">
+  안녕하세요,<br>
+  <strong>{{ project_name }}</strong> 프로젝트의 <strong>{{ report_type_label }}</strong>을 안내 드립니다.
+</p>
+
+<!-- 보고서 정보 -->
+<table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="background-color: #f9fafb; border-radius: 8px; margin-bottom: 24px;">
+  <tr>
+    <td style="padding: 16px 20px;">
+      <table role="presentation" width="100%" cellpadding="0" cellspacing="0">
+        <tr>
+          <td style="color: #6b7280; font-size: 13px; padding-bottom: 8px; width: 80px;">프로젝트</td>
+          <td style="color: #111827; font-size: 14px; font-weight: 600; padding-bottom: 8px;">{{ project_name }}</td>
+        </tr>
+        <tr>
+          <td style="color: #6b7280; font-size: 13px; padding-bottom: 8px;">보고 유형</td>
+          <td style="color: #111827; font-size: 14px; font-weight: 600; padding-bottom: 8px;">{{ report_type_label }}</td>
+        </tr>
+        {% if period %}
+        <tr>
+          <td style="color: #6b7280; font-size: 13px;">대상 기간</td>
+          <td style="color: #111827; font-size: 14px;">{{ period }}</td>
+        </tr>
+        {% endif %}
+      </table>
+    </td>
+  </tr>
+</table>
+
+<!-- 보고서 본문 -->
+<div style="margin-bottom: 28px; color: #374151; font-size: 14px; line-height: 1.8;">
+  {{ report_html | safe }}
+</div>
+
+<!-- 구분선 -->
+<hr style="border: none; border-top: 1px solid #e5e7eb; margin: 24px 0;">
+
+<!-- 안내 문구 -->
+<p style="margin: 0; color: #9ca3af; font-size: 12px; text-align: center; line-height: 1.6;">
+  본 보고서는 Contract Sync에서 자동 생성되었으며,<br>
+  담당자가 검토·편집 후 발송하였습니다.
+</p>
+{% endblock %}
