@@ -30,7 +30,11 @@ class Settings(BaseSettings):
     google_client_id: str = ""
     google_client_secret: str = ""
 
-    # SMTP (이메일 발송)
+    # 이메일 발송 (Resend HTTP API 우선, SMTP 폴백)
+    resend_api_key: str = ""  # Resend API 키 (Railway 등 SMTP 차단 환경용)
+    resend_from_email: str = "Contract Sync <onboarding@resend.dev>"  # Resend 발신자
+
+    # SMTP (이메일 발송) — Resend 미설정 시 폴백
     smtp_host: str = ""
     smtp_port: int = 587
     smtp_username: str = ""

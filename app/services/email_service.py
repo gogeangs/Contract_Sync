@@ -3,9 +3,9 @@ import os
 import random
 import string
 import logging
-import sys
 from datetime import timedelta
 
+import httpx
 from aiosmtplib import SMTP
 from email.mime.text import MIMEText
 from email.mime.multipart import MIMEMultipart
@@ -33,79 +33,147 @@ def generate_verification_code(length: int = 6) -> str:
     return ''.join(random.choices(string.digits, k=length))
 
 
-# ── 공통 SMTP 발송 (단계별 로깅) ──
+# ══════════════════════════════════════════
+#  Resend HTTP API (Railway 등 SMTP 차단 환경용)
+# ══════════════════════════════════════════
 
-async def _send_smtp_message(message: MIMEMultipart, recipients: list[str], label: str) -> bool:
-    """SMTP 단계별 연결 + 발송 (포트 587 STARTTLS / 465 직접 TLS 자동 감지)"""
+async def _send_via_resend(
+    to_emails: list[str],
+    subject: str,
+    html_body: str,
+    cc_emails: list[str] | None = None,
+) -> tuple[bool, str]:
+    """Resend HTTP API로 이메일 발송"""
+    print(f"[EMAIL] Resend API 발송: to={to_emails}, subject={subject}", flush=True)
+
+    payload = {
+        "from": settings.resend_from_email,
+        "to": to_emails,
+        "subject": subject,
+        "html": html_body,
+    }
+    if cc_emails:
+        payload["cc"] = cc_emails
+
+    try:
+        async with httpx.AsyncClient(timeout=15) as client:
+            resp = await client.post(
+                "https://api.resend.com/emails",
+                headers={
+                    "Authorization": f"Bearer {settings.resend_api_key}",
+                    "Content-Type": "application/json",
+                },
+                json=payload,
+            )
+
+        if resp.status_code == 200:
+            print(f"[EMAIL] Resend 발송 성공: {resp.json()}", flush=True)
+            logger.info(f"이메일 발송 성공 (Resend): to={to_emails}")
+            return True, ""
+        else:
+            err_msg = f"Resend API {resp.status_code}: {resp.text}"
+            print(f"[EMAIL] Resend 발송 실패: {err_msg}", flush=True)
+            logger.error(f"이메일 발송 실패 (Resend): {err_msg}")
+            return False, err_msg
+
+    except Exception as e:
+        err_msg = f"{type(e).__name__}: {e}"
+        print(f"[EMAIL] Resend 발송 실패: {err_msg}", flush=True)
+        logger.error(f"이메일 발송 실패 (Resend): {err_msg}")
+        return False, err_msg
+
+
+# ══════════════════════════════════════════
+#  SMTP 발송 (폴백)
+# ══════════════════════════════════════════
+
+async def _send_via_smtp(
+    to_emails: list[str],
+    subject: str,
+    html_body: str,
+    cc_emails: list[str] | None = None,
+) -> tuple[bool, str]:
+    """SMTP로 이메일 발송"""
     port = settings.smtp_port
     host = settings.smtp_host
 
-    # 포트별 TLS 모드 자동 감지
     if port == 465:
-        use_tls = True
-        start_tls = False
-        tls_mode = "implicit TLS (port 465)"
+        use_tls, start_tls = True, False
     else:
-        use_tls = False
-        start_tls = settings.smtp_use_tls
-        tls_mode = f"STARTTLS={start_tls} (port {port})"
+        use_tls, start_tls = False, settings.smtp_use_tls
 
-    # stdout에 직접 출력 (Railway 로그 보장)
-    print(f"[EMAIL] 발송 시작: {label}", flush=True)
-    print(f"[EMAIL] SMTP 설정: host={host}, port={port}, {tls_mode}, user={settings.smtp_username}", flush=True)
+    print(f"[EMAIL] SMTP 발송: host={host}:{port}, to={to_emails}", flush=True)
 
     try:
-        smtp = SMTP(
-            hostname=host,
-            port=port,
-            use_tls=use_tls,
-            start_tls=start_tls,
-            timeout=15,
-        )
+        message = MIMEMultipart("alternative")
+        message["From"] = settings.smtp_from_email
+        message["To"] = ", ".join(to_emails)
+        message["Subject"] = subject
+        if cc_emails:
+            message["Cc"] = ", ".join(cc_emails)
+        message.attach(MIMEText(html_body, "html", "utf-8"))
 
-        print(f"[EMAIL] SMTP 연결 중...", flush=True)
+        recipients = list(to_emails) + (cc_emails or [])
+
+        smtp = SMTP(hostname=host, port=port, use_tls=use_tls, start_tls=start_tls, timeout=15)
         await smtp.connect()
-        print(f"[EMAIL] SMTP 연결 성공", flush=True)
-
-        print(f"[EMAIL] SMTP 로그인 중... (user={settings.smtp_username})", flush=True)
         await smtp.login(settings.smtp_username, settings.smtp_password)
-        print(f"[EMAIL] SMTP 로그인 성공", flush=True)
-
-        print(f"[EMAIL] 메시지 발송 중... (to={recipients})", flush=True)
         await smtp.send_message(message, recipients=recipients)
-        print(f"[EMAIL] 메시지 발송 성공!", flush=True)
-
         await smtp.quit()
-        logger.info(f"이메일 발송 성공: {label}")
+
+        print(f"[EMAIL] SMTP 발송 성공", flush=True)
+        logger.info(f"이메일 발송 성공 (SMTP): to={to_emails}")
         return True, ""
 
     except Exception as e:
         err_msg = f"{type(e).__name__}: {e}"
-        print(f"[EMAIL] 발송 실패: {err_msg}", flush=True)
-        logger.error(f"이메일 발송 실패 [{label}]: {err_msg}")
+        print(f"[EMAIL] SMTP 발송 실패: {err_msg}", flush=True)
+        logger.error(f"이메일 발송 실패 (SMTP): {err_msg}")
         return False, err_msg
+
+
+# ══════════════════════════════════════════
+#  통합 발송 (Resend 우선 → SMTP 폴백 → 개발 모드)
+# ══════════════════════════════════════════
+
+def _is_test_recipient(email: str) -> bool:
+    """테스트 도메인 여부 확인"""
+    domain = email.split("@")[-1].lower() if "@" in email else ""
+    return domain in _TEST_DOMAINS
+
+
+async def _send_email(
+    to_emails: list[str],
+    subject: str,
+    html_body: str,
+    cc_emails: list[str] | None = None,
+) -> tuple[bool, str]:
+    """통합 이메일 발송 (Resend → SMTP → 개발모드)"""
+    # 테스트 도메인 스킵
+    all_recipients = list(to_emails) + (cc_emails or [])
+    if all(_is_test_recipient(e) for e in all_recipients):
+        logger.debug(f"테스트 도메인 발송 스킵: {all_recipients}")
+        return True, ""
+
+    # 1) Resend API (우선)
+    if settings.resend_api_key:
+        return await _send_via_resend(to_emails, subject, html_body, cc_emails)
+
+    # 2) SMTP (폴백)
+    if settings.smtp_host and settings.smtp_username:
+        return await _send_via_smtp(to_emails, subject, html_body, cc_emails)
+
+    # 3) 개발 모드
+    logger.info(f"[DEV] 이메일 미설정 - 발송 시뮬레이션: to={to_emails}, subject={subject}")
+    return True, ""
 
 
 async def send_verification_email(to_email: str, code: str) -> tuple[bool, str]:
     """이메일로 인증코드 발송. (성공여부, 에러메시지) 반환"""
 
-    # 테스트용 도메인은 실제 발송하지 않음
     domain = to_email.split("@")[-1].lower() if "@" in to_email else ""
     if domain in _TEST_DOMAINS:
-        logger.debug(f"테스트 도메인 발송 스킵: {to_email}")
         return True, ""
-
-    # SMTP 설정이 없으면 개발 모드
-    if not settings.smtp_host or not settings.smtp_username:
-        logger.info(f"[DEV] SMTP 미설정 - 인증코드 발송 시뮬레이션: {to_email}")
-        return True, ""
-
-    print(f"[EMAIL] 인증코드 발송 요청: {to_email}", flush=True)
-
-    message = MIMEMultipart("alternative")
-    message["From"] = settings.smtp_from_email
-    message["To"] = to_email
-    message["Subject"] = "[Contract Sync] 이메일 인증코드"
 
     html_content = f"""
     <html>
@@ -122,8 +190,11 @@ async def send_verification_email(to_email: str, code: str) -> tuple[bool, str]:
     </html>
     """
 
-    message.attach(MIMEText(html_content, "html"))
-    return await _send_smtp_message(message, [to_email], f"인증코드 → {to_email}")
+    return await _send_email(
+        to_emails=[to_email],
+        subject="[Contract Sync] 이메일 인증코드",
+        html_body=html_content,
+    )
 
 
 def get_code_expiry():
@@ -131,7 +202,7 @@ def get_code_expiry():
     return utc_now() + timedelta(minutes=10)
 
 
-# ── 범용 이메일 발송 ──
+# ── 템플릿 렌더링 ──
 
 def _render_template(template_name: str, context: dict) -> str:
     """Jinja2 이메일 템플릿 렌더링"""
@@ -139,45 +210,7 @@ def _render_template(template_name: str, context: dict) -> str:
     return template.render(**context)
 
 
-def _is_test_recipient(email: str) -> bool:
-    """테스트 도메인 여부 확인"""
-    domain = email.split("@")[-1].lower() if "@" in email else ""
-    return domain in _TEST_DOMAINS
-
-
-async def _send_email(
-    to_emails: list[str],
-    subject: str,
-    html_body: str,
-    cc_emails: list[str] | None = None,
-) -> bool:
-    """범용 이메일 발송 (단일 시도)"""
-    # 모든 수신자가 테스트 도메인이면 스킵
-    all_recipients = list(to_emails) + (cc_emails or [])
-    if all(_is_test_recipient(e) for e in all_recipients):
-        logger.debug(f"테스트 도메인 발송 스킵: {all_recipients}")
-        return True
-
-    # SMTP 미설정 → 개발 모드
-    if not settings.smtp_host or not settings.smtp_username:
-        logger.info(f"[DEV] SMTP 미설정 - 이메일 발송 시뮬레이션: to={to_emails}, subject={subject}")
-        return True
-
-    message = MIMEMultipart("alternative")
-    message["From"] = settings.smtp_from_email
-    message["To"] = ", ".join(to_emails)
-    message["Subject"] = subject
-    if cc_emails:
-        message["Cc"] = ", ".join(cc_emails)
-
-    message.attach(MIMEText(html_body, "html", "utf-8"))
-
-    recipients = list(to_emails)
-    if cc_emails:
-        recipients.extend(cc_emails)
-
-    return await _send_smtp_message(message, recipients, f"{subject} → {to_emails}")
-
+# ── 재시도 포함 발송 ──
 
 async def send_email_with_retry(
     to_emails: list[str],
@@ -187,13 +220,13 @@ async def send_email_with_retry(
     max_retries: int = 3,
     base_interval: int = 10,
 ) -> bool:
-    """재시도 로직 포함 이메일 발송 (지수 백오프: 10s → 30s → 90s, 최대 ~2분)"""
+    """재시도 로직 포함 이메일 발송"""
     for attempt in range(max_retries):
-        success = await _send_email(to_emails, subject, html_body, cc_emails)
+        success, _ = await _send_email(to_emails, subject, html_body, cc_emails)
         if success:
             return True
         if attempt < max_retries - 1:
-            wait = base_interval * (3 ** attempt)  # 10, 30, 90
+            wait = base_interval * (3 ** attempt)
             logger.warning(f"이메일 재시도 {attempt + 1}/{max_retries}, {wait}초 후 재시도")
             await asyncio.sleep(wait)
     logger.error(f"이메일 최종 발송 실패 ({max_retries}회): to={to_emails}")
