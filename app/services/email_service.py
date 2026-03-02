@@ -3,6 +3,7 @@ import os
 import random
 import string
 import logging
+import sys
 from datetime import timedelta
 
 from aiosmtplib import SMTP
@@ -32,62 +33,97 @@ def generate_verification_code(length: int = 6) -> str:
     return ''.join(random.choices(string.digits, k=length))
 
 
+# ── 공통 SMTP 발송 (단계별 로깅) ──
+
+async def _send_smtp_message(message: MIMEMultipart, recipients: list[str], label: str) -> bool:
+    """SMTP 단계별 연결 + 발송 (포트 587 STARTTLS / 465 직접 TLS 자동 감지)"""
+    port = settings.smtp_port
+    host = settings.smtp_host
+
+    # 포트별 TLS 모드 자동 감지
+    if port == 465:
+        use_tls = True
+        start_tls = False
+        tls_mode = "implicit TLS (port 465)"
+    else:
+        use_tls = False
+        start_tls = settings.smtp_use_tls
+        tls_mode = f"STARTTLS={start_tls} (port {port})"
+
+    # stdout에 직접 출력 (Railway 로그 보장)
+    print(f"[EMAIL] 발송 시작: {label}", flush=True)
+    print(f"[EMAIL] SMTP 설정: host={host}, port={port}, {tls_mode}, user={settings.smtp_username}", flush=True)
+
+    try:
+        smtp = SMTP(
+            hostname=host,
+            port=port,
+            use_tls=use_tls,
+            start_tls=start_tls,
+            timeout=15,
+        )
+
+        print(f"[EMAIL] SMTP 연결 중...", flush=True)
+        await smtp.connect()
+        print(f"[EMAIL] SMTP 연결 성공", flush=True)
+
+        print(f"[EMAIL] SMTP 로그인 중... (user={settings.smtp_username})", flush=True)
+        await smtp.login(settings.smtp_username, settings.smtp_password)
+        print(f"[EMAIL] SMTP 로그인 성공", flush=True)
+
+        print(f"[EMAIL] 메시지 발송 중... (to={recipients})", flush=True)
+        await smtp.send_message(message, recipients=recipients)
+        print(f"[EMAIL] 메시지 발송 성공!", flush=True)
+
+        await smtp.quit()
+        logger.info(f"이메일 발송 성공: {label}")
+        return True
+
+    except Exception as e:
+        err_msg = f"{type(e).__name__}: {e}"
+        print(f"[EMAIL] 발송 실패: {err_msg}", flush=True)
+        logger.error(f"이메일 발송 실패 [{label}]: {err_msg}")
+        return False
+
+
 async def send_verification_email(to_email: str, code: str) -> bool:
     """이메일로 인증코드 발송"""
 
     # 테스트용 도메인은 실제 발송하지 않음
     domain = to_email.split("@")[-1].lower() if "@" in to_email else ""
     if domain in _TEST_DOMAINS:
-        # H-2: 인증코드를 로그에 노출하지 않음
         logger.debug(f"테스트 도메인 발송 스킵: {to_email}")
         return True
 
-    # SMTP 설정이 없으면 개발 모드 (코드 노출 방지)
+    # SMTP 설정이 없으면 개발 모드
     if not settings.smtp_host or not settings.smtp_username:
-        # H-2: 인증코드 값을 로그에 노출하지 않음
         logger.info(f"[DEV] SMTP 미설정 - 인증코드 발송 시뮬레이션: {to_email}")
         return True
 
-    try:
-        message = MIMEMultipart("alternative")
-        message["From"] = settings.smtp_from_email
-        message["To"] = to_email
-        message["Subject"] = "[Contract Sync] 이메일 인증코드"
+    print(f"[EMAIL] 인증코드 발송 요청: {to_email}", flush=True)
 
-        html_content = f"""
-        <html>
-        <body style="font-family: Arial, sans-serif; padding: 20px;">
-            <div style="max-width: 600px; margin: 0 auto; background: #f9f9f9; padding: 30px; border-radius: 10px;">
-                <h2 style="color: #333; text-align: center;">Contract Sync 이메일 인증</h2>
-                <p style="color: #666; text-align: center;">아래 인증코드를 입력하여 이메일 인증을 완료하세요.</p>
-                <div style="background: #4F46E5; color: white; font-size: 32px; font-weight: bold; text-align: center; padding: 20px; border-radius: 8px; letter-spacing: 8px; margin: 20px 0;">
-                    {code}
-                </div>
-                <p style="color: #999; text-align: center; font-size: 14px;">이 인증코드는 10분간 유효합니다.</p>
+    message = MIMEMultipart("alternative")
+    message["From"] = settings.smtp_from_email
+    message["To"] = to_email
+    message["Subject"] = "[Contract Sync] 이메일 인증코드"
+
+    html_content = f"""
+    <html>
+    <body style="font-family: Arial, sans-serif; padding: 20px;">
+        <div style="max-width: 600px; margin: 0 auto; background: #f9f9f9; padding: 30px; border-radius: 10px;">
+            <h2 style="color: #333; text-align: center;">Contract Sync 이메일 인증</h2>
+            <p style="color: #666; text-align: center;">아래 인증코드를 입력하여 이메일 인증을 완료하세요.</p>
+            <div style="background: #4F46E5; color: white; font-size: 32px; font-weight: bold; text-align: center; padding: 20px; border-radius: 8px; letter-spacing: 8px; margin: 20px 0;">
+                {code}
             </div>
-        </body>
-        </html>
-        """
+            <p style="color: #999; text-align: center; font-size: 14px;">이 인증코드는 10분간 유효합니다.</p>
+        </div>
+    </body>
+    </html>
+    """
 
-        message.attach(MIMEText(html_content, "html"))
-
-        # M-13: SMTP 타임아웃 설정 (30초)
-        logger.info(f"SMTP 연결 시도: {settings.smtp_host}:{settings.smtp_port} (start_tls={settings.smtp_use_tls})")
-        async with SMTP(
-            hostname=settings.smtp_host,
-            port=settings.smtp_port,
-            start_tls=settings.smtp_use_tls,
-            username=settings.smtp_username,
-            password=settings.smtp_password,
-            timeout=30,
-        ) as smtp:
-            await smtp.send_message(message)
-
-        logger.info(f"인증코드 이메일 발송 성공: {to_email}")
-        return True
-    except Exception as e:
-        logger.error(f"이메일 발송 실패: {type(e).__name__}: {e}")
-        return False
+    message.attach(MIMEText(html_content, "html"))
+    return await _send_smtp_message(message, [to_email], f"인증코드 → {to_email}")
 
 
 def get_code_expiry():
@@ -127,35 +163,20 @@ async def _send_email(
         logger.info(f"[DEV] SMTP 미설정 - 이메일 발송 시뮬레이션: to={to_emails}, subject={subject}")
         return True
 
-    try:
-        message = MIMEMultipart("alternative")
-        message["From"] = settings.smtp_from_email
-        message["To"] = ", ".join(to_emails)
-        message["Subject"] = subject
-        if cc_emails:
-            message["Cc"] = ", ".join(cc_emails)
+    message = MIMEMultipart("alternative")
+    message["From"] = settings.smtp_from_email
+    message["To"] = ", ".join(to_emails)
+    message["Subject"] = subject
+    if cc_emails:
+        message["Cc"] = ", ".join(cc_emails)
 
-        message.attach(MIMEText(html_body, "html", "utf-8"))
+    message.attach(MIMEText(html_body, "html", "utf-8"))
 
-        recipients = list(to_emails)
-        if cc_emails:
-            recipients.extend(cc_emails)
+    recipients = list(to_emails)
+    if cc_emails:
+        recipients.extend(cc_emails)
 
-        async with SMTP(
-            hostname=settings.smtp_host,
-            port=settings.smtp_port,
-            start_tls=settings.smtp_use_tls,
-            username=settings.smtp_username,
-            password=settings.smtp_password,
-            timeout=30,
-        ) as smtp:
-            await smtp.send_message(message, recipients=recipients)
-
-        logger.info(f"이메일 발송 성공: to={to_emails}, subject={subject}")
-        return True
-    except Exception as e:
-        logger.error(f"이메일 발송 실패: to={to_emails}, error={e}")
-        return False
+    return await _send_smtp_message(message, recipients, f"{subject} → {to_emails}")
 
 
 async def send_email_with_retry(
