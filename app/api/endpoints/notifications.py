@@ -1,10 +1,9 @@
 from fastapi import APIRouter, Depends, HTTPException, Request, Query
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy import select, desc, func, update
-from typing import Optional
 import logging
 
-from app.database import get_db, Notification, utc_now
+from app.database import get_db, Notification
 from app.api.endpoints.auth import require_current_user
 
 logger = logging.getLogger(__name__)

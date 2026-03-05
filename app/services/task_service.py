@@ -8,7 +8,7 @@ import shutil
 import logging
 
 from app.database import (
-    Task, TaskAttachment, Project, Client, User, TeamMember,
+    Task, TaskAttachment, Project, User, TeamMember,
     Notification, utc_now,
 )
 from app.services.common import (

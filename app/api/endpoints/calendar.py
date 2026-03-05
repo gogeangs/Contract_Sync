@@ -1,7 +1,7 @@
 """캘린더 연동 엔드포인트 — Phase 6 (§17, 4개)"""
 import logging
 
-from fastapi import APIRouter, Depends, HTTPException, Request
+from fastapi import APIRouter, Depends, Request
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.database import get_db

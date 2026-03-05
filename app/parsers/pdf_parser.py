@@ -1,5 +1,4 @@
 import fitz  # PyMuPDF
-import io
 import logging
 import re
 from app.parsers.base import BaseParser, ParseResult

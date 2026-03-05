@@ -1,188 +1,154 @@
+"""v2 프로젝트 + 업무 API 테스트 (구 test_contracts.py → v2 전환)"""
 import pytest
-import pytest_asyncio
 
 
 @pytest.mark.asyncio
-async def test_create_contract(auth_client):
-    """계약 생성"""
-    resp = await auth_client.post("/api/v1/contracts/save", json={
-        "contract_name": "테스트 계약서",
-        "company_name": "테스트 기업",
-        "contractor": "수급자",
-        "client": "발주처",
-        "contract_start_date": "2025-01-01",
-        "contract_end_date": "2025-12-31",
-        "tasks": [
-            {"task_id": "TASK-001", "task_name": "업무1", "phase": "1단계", "due_date": "2025-03-01", "priority": "높음", "status": "대기"}
-        ],
+async def test_create_project(auth_client):
+    """프로젝트 생성"""
+    resp = await auth_client.post("/api/v1/projects", json={
+        "project_name": "테스트 프로젝트",
+        "project_type": "internal",
+        "start_date": "2025-01-01",
+        "end_date": "2025-12-31",
     })
     assert resp.status_code == 200
     data = resp.json()
-    assert data["contract_name"] == "테스트 계약서"
+    assert data["project_name"] == "테스트 프로젝트"
     assert data["id"] is not None
-    assert len(data["tasks"]) == 1
 
 
 @pytest.mark.asyncio
-async def test_create_duplicate_contract(auth_client):
-    """중복 계약명 생성 거부"""
-    await auth_client.post("/api/v1/contracts/save", json={"contract_name": "중복 테스트"})
-    resp = await auth_client.post("/api/v1/contracts/save", json={"contract_name": "중복 테스트"})
-    assert resp.status_code == 409
+async def test_list_projects(auth_client):
+    """프로젝트 목록 조회"""
+    await auth_client.post("/api/v1/projects", json={"project_name": "프로젝트A", "project_type": "internal"})
+    await auth_client.post("/api/v1/projects", json={"project_name": "프로젝트B", "project_type": "internal"})
 
-
-@pytest.mark.asyncio
-async def test_list_contracts(auth_client):
-    """계약 목록 조회 (페이지네이션)"""
-    # 2개 계약 생성
-    await auth_client.post("/api/v1/contracts/save", json={"contract_name": "계약A"})
-    await auth_client.post("/api/v1/contracts/save", json={"contract_name": "계약B"})
-
-    resp = await auth_client.get("/api/v1/contracts/list")
+    resp = await auth_client.get("/api/v1/projects")
     assert resp.status_code == 200
     data = resp.json()
     assert data["total"] == 2
-    assert len(data["items"]) == 2
-    assert data["page"] == 1
+    assert len(data["projects"]) == 2
 
 
 @pytest.mark.asyncio
-async def test_list_contracts_pagination(auth_client):
-    """계약 목록 페이지네이션"""
+async def test_list_projects_pagination(auth_client):
+    """프로젝트 목록 페이지네이션"""
     for i in range(3):
-        await auth_client.post("/api/v1/contracts/save", json={"contract_name": f"페이지 계약{i}"})
+        await auth_client.post("/api/v1/projects", json={"project_name": f"페이지 프로젝트{i}", "project_type": "internal"})
 
-    resp = await auth_client.get("/api/v1/contracts/list?page=1&size=2")
+    resp = await auth_client.get("/api/v1/projects?page=1&size=2")
     assert resp.status_code == 200
     data = resp.json()
     assert data["total"] == 3
-    assert len(data["items"]) == 2
-    assert data["pages"] == 2
+    assert len(data["projects"]) == 2
 
-    resp2 = await auth_client.get("/api/v1/contracts/list?page=2&size=2")
-    assert len(resp2.json()["items"]) == 1
+    resp2 = await auth_client.get("/api/v1/projects?page=2&size=2")
+    assert len(resp2.json()["projects"]) == 1
 
 
 @pytest.mark.asyncio
-async def test_get_contract(auth_client):
-    """계약 상세 조회"""
-    create_resp = await auth_client.post("/api/v1/contracts/save", json={"contract_name": "상세 조회"})
-    contract_id = create_resp.json()["id"]
+async def test_get_project(auth_client):
+    """프로젝트 상세 조회"""
+    create_resp = await auth_client.post("/api/v1/projects", json={"project_name": "상세 조회", "project_type": "internal"})
+    project_id = create_resp.json()["id"]
 
-    resp = await auth_client.get(f"/api/v1/contracts/{contract_id}")
+    resp = await auth_client.get(f"/api/v1/projects/{project_id}")
     assert resp.status_code == 200
-    assert resp.json()["contract_name"] == "상세 조회"
+    assert resp.json()["project_name"] == "상세 조회"
 
 
 @pytest.mark.asyncio
-async def test_get_contract_not_found(auth_client):
-    """존재하지 않는 계약 조회"""
-    resp = await auth_client.get("/api/v1/contracts/99999")
+async def test_get_project_not_found(auth_client):
+    """존재하지 않는 프로젝트 조회"""
+    resp = await auth_client.get("/api/v1/projects/99999")
     assert resp.status_code == 404
 
 
 @pytest.mark.asyncio
-async def test_update_contract(auth_client):
-    """계약 수정"""
-    create_resp = await auth_client.post("/api/v1/contracts/save", json={
-        "contract_name": "수정 전",
-        "company_name": "기업A",
+async def test_update_project(auth_client):
+    """프로젝트 수정"""
+    create_resp = await auth_client.post("/api/v1/projects", json={
+        "project_name": "수정 전",
+        "project_type": "internal",
+        "description": "설명A",
     })
-    contract_id = create_resp.json()["id"]
+    project_id = create_resp.json()["id"]
 
-    resp = await auth_client.put(f"/api/v1/contracts/{contract_id}", json={
-        "contract_name": "수정 후",
-        "company_name": "기업B",
+    resp = await auth_client.put(f"/api/v1/projects/{project_id}", json={
+        "project_name": "수정 후",
+        "description": "설명B",
     })
     assert resp.status_code == 200
     data = resp.json()
-    assert data["contract_name"] == "수정 후"
-    assert data["company_name"] == "기업B"
+    assert data["project_name"] == "수정 후"
+    assert data["description"] == "설명B"
 
 
 @pytest.mark.asyncio
-async def test_update_contract_duplicate_name(auth_client):
-    """계약 수정 시 중복 이름 거부"""
-    await auth_client.post("/api/v1/contracts/save", json={"contract_name": "기존 계약"})
-    create_resp = await auth_client.post("/api/v1/contracts/save", json={"contract_name": "수정할 계약"})
-    contract_id = create_resp.json()["id"]
+async def test_delete_project(auth_client):
+    """프로젝트 삭제"""
+    create_resp = await auth_client.post("/api/v1/projects", json={"project_name": "삭제 대상", "project_type": "internal"})
+    project_id = create_resp.json()["id"]
 
-    resp = await auth_client.put(f"/api/v1/contracts/{contract_id}", json={
-        "contract_name": "기존 계약",
-    })
-    assert resp.status_code == 409
-
-
-@pytest.mark.asyncio
-async def test_delete_contract(auth_client):
-    """계약 삭제"""
-    create_resp = await auth_client.post("/api/v1/contracts/save", json={"contract_name": "삭제 대상"})
-    contract_id = create_resp.json()["id"]
-
-    resp = await auth_client.delete(f"/api/v1/contracts/{contract_id}")
+    resp = await auth_client.delete(f"/api/v1/projects/{project_id}")
     assert resp.status_code == 200
 
-    # 삭제 후 조회 시 404
-    resp = await auth_client.get(f"/api/v1/contracts/{contract_id}")
+    resp = await auth_client.get(f"/api/v1/projects/{project_id}")
     assert resp.status_code == 404
 
 
 @pytest.mark.asyncio
-async def test_add_task(auth_client):
-    """업무 추가"""
-    create_resp = await auth_client.post("/api/v1/contracts/save", json={"contract_name": "업무 테스트"})
-    contract_id = create_resp.json()["id"]
+async def test_create_task(auth_client):
+    """업무 생성"""
+    proj_resp = await auth_client.post("/api/v1/projects", json={"project_name": "업무 테스트", "project_type": "internal"})
+    project_id = proj_resp.json()["id"]
 
-    resp = await auth_client.post(f"/api/v1/contracts/{contract_id}/tasks", json={
+    resp = await auth_client.post("/api/v1/tasks", json={
         "task_name": "새 업무",
+        "project_id": project_id,
         "phase": "1단계",
         "due_date": "2025-06-01",
         "priority": "높음",
     })
     assert resp.status_code == 200
     data = resp.json()
-    assert data["task"]["task_name"] == "새 업무"
-    assert data["task"]["task_id"].startswith("TASK-")
+    assert data["task_name"] == "새 업무"
+    assert data["task_code"] is not None
 
 
 @pytest.mark.asyncio
-async def test_add_standalone_task(auth_client):
-    """미분류 업무 추가"""
-    resp = await auth_client.post("/api/v1/contracts/tasks/add", json={
+async def test_create_standalone_task(auth_client):
+    """독립 업무 생성 (프로젝트 없이)"""
+    resp = await auth_client.post("/api/v1/tasks", json={
         "task_name": "독립 업무",
     })
     assert resp.status_code == 200
-    assert resp.json()["task"]["contract_name"] == "미분류"
+    assert resp.json()["project_id"] is None
 
 
 @pytest.mark.asyncio
 async def test_update_task_status(auth_client):
     """업무 상태 변경"""
-    create_resp = await auth_client.post("/api/v1/contracts/save", json={
-        "contract_name": "상태 테스트",
-        "tasks": [{"task_id": "TASK-001", "task_name": "업무", "status": "대기", "priority": "보통", "phase": "", "due_date": ""}],
+    resp = await auth_client.post("/api/v1/tasks", json={
+        "task_name": "상태 테스트",
+        "priority": "보통",
     })
-    contract_id = create_resp.json()["id"]
+    task_id = resp.json()["id"]
 
-    resp = await auth_client.patch(f"/api/v1/contracts/{contract_id}/tasks/status", json={
-        "task_id": "TASK-001",
-        "status": "진행중",
+    resp = await auth_client.patch(f"/api/v1/tasks/{task_id}/status", json={
+        "status": "in_progress",
     })
     assert resp.status_code == 200
-    assert resp.json()["status"] == "진행중"
+    assert resp.json()["status"] == "in_progress"
 
 
 @pytest.mark.asyncio
 async def test_update_task_note(auth_client):
     """업무 노트 수정"""
-    create_resp = await auth_client.post("/api/v1/contracts/save", json={
-        "contract_name": "노트 테스트",
-        "tasks": [{"task_id": "TASK-001", "task_name": "업무", "status": "대기", "priority": "보통", "phase": "", "due_date": ""}],
-    })
-    contract_id = create_resp.json()["id"]
+    resp = await auth_client.post("/api/v1/tasks", json={"task_name": "노트 테스트"})
+    task_id = resp.json()["id"]
 
-    resp = await auth_client.patch(f"/api/v1/contracts/{contract_id}/tasks/note", json={
-        "task_id": "TASK-001",
+    resp = await auth_client.patch(f"/api/v1/tasks/{task_id}/note", json={
         "note": "처리 완료",
     })
     assert resp.status_code == 200
@@ -190,61 +156,48 @@ async def test_update_task_note(auth_client):
 
 @pytest.mark.asyncio
 async def test_delete_task(auth_client):
-    """개별 업무 삭제"""
-    create_resp = await auth_client.post("/api/v1/contracts/save", json={
-        "contract_name": "업무 삭제 테스트",
-        "tasks": [
-            {"task_id": "TASK-001", "task_name": "업무1", "status": "대기", "priority": "보통", "phase": "", "due_date": ""},
-            {"task_id": "TASK-002", "task_name": "업무2", "status": "대기", "priority": "보통", "phase": "", "due_date": ""},
-        ],
-    })
-    contract_id = create_resp.json()["id"]
+    """업무 삭제"""
+    resp = await auth_client.post("/api/v1/tasks", json={"task_name": "삭제 업무"})
+    task_id = resp.json()["id"]
 
-    resp = await auth_client.delete(f"/api/v1/contracts/{contract_id}/tasks/TASK-001")
+    resp = await auth_client.delete(f"/api/v1/tasks/{task_id}")
     assert resp.status_code == 200
-    assert resp.json()["task_id"] == "TASK-001"
 
-    # 삭제 후 계약 조회 시 업무 1개만 남아있는지 확인
-    contract_resp = await auth_client.get(f"/api/v1/contracts/{contract_id}")
-    assert len(contract_resp.json()["tasks"]) == 1
-    assert contract_resp.json()["tasks"][0]["task_id"] == "TASK-002"
-
-
-@pytest.mark.asyncio
-async def test_delete_task_not_found(auth_client):
-    """존재하지 않는 업무 삭제"""
-    create_resp = await auth_client.post("/api/v1/contracts/save", json={"contract_name": "빈 계약"})
-    contract_id = create_resp.json()["id"]
-
-    resp = await auth_client.delete(f"/api/v1/contracts/{contract_id}/tasks/TASK-999")
+    resp = await auth_client.get(f"/api/v1/tasks/{task_id}")
     assert resp.status_code == 404
 
 
 @pytest.mark.asyncio
 async def test_dashboard_summary(auth_client):
     """대시보드 요약"""
-    await auth_client.post("/api/v1/contracts/save", json={
-        "contract_name": "대시보드 테스트",
-        "tasks": [
-            {"task_id": "TASK-001", "task_name": "업무1", "status": "대기", "priority": "높음", "phase": "", "due_date": "2025-01-01"},
-            {"task_id": "TASK-002", "task_name": "업무2", "status": "진행중", "priority": "보통", "phase": "", "due_date": "2025-02-01"},
-        ],
+    proj_resp = await auth_client.post("/api/v1/projects", json={
+        "project_name": "대시보드 테스트",
+        "project_type": "internal",
+    })
+    project_id = proj_resp.json()["id"]
+
+    # 프로젝트를 active로 변경
+    await auth_client.patch(f"/api/v1/projects/{project_id}/status", json={"status": "active"})
+
+    await auth_client.post("/api/v1/tasks", json={
+        "task_name": "업무1", "project_id": project_id, "priority": "높음",
+    })
+    await auth_client.post("/api/v1/tasks", json={
+        "task_name": "업무2", "project_id": project_id, "priority": "보통",
     })
 
-    resp = await auth_client.get("/api/v1/contracts/dashboard/summary")
+    resp = await auth_client.get("/api/v1/dashboard/summary")
     assert resp.status_code == 200
     data = resp.json()
-    assert data["total_contracts"] == 1
-    assert data["total_tasks"] == 2
-    assert data["pending_tasks"] == 1
-    assert data["in_progress_tasks"] == 1
+    assert data["active_projects"] == 1
+    assert data["pending_tasks"] == 2
 
 
 @pytest.mark.asyncio
-async def test_unauthenticated_contract_access(client):
-    """미인증 계약 접근 거부"""
-    resp = await client.get("/api/v1/contracts/list")
+async def test_unauthenticated_project_access(client):
+    """미인증 프로젝트 접근 거부"""
+    resp = await client.get("/api/v1/projects")
     assert resp.status_code == 401
 
-    resp = await client.post("/api/v1/contracts/save", json={"contract_name": "X"})
+    resp = await client.post("/api/v1/projects", json={"project_name": "X"})
     assert resp.status_code == 401

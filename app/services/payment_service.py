@@ -1,9 +1,9 @@
 """수금 관리 서비스 — Phase 4"""
 import logging
-from datetime import datetime, timedelta
+from datetime import timedelta
 
 from fastapi import HTTPException
-from sqlalchemy import select, func, desc
+from sqlalchemy import select, func
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.database import PaymentSchedule, Project, utc_now

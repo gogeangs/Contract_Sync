@@ -6,7 +6,7 @@ from typing import Optional
 import json as json_mod
 import logging
 
-from app.database import get_db, User, Team, TeamMember, ActivityLog, Notification, TEAM_PERMISSIONS, utc_now
+from app.database import get_db, User, Team, TeamMember, ActivityLog, Notification, TEAM_PERMISSIONS
 from app.api.endpoints.auth import require_current_user
 from app.limiter import limiter
 
@@ -275,7 +275,7 @@ async def invite_member(
         user_id=target_user.id,
         type="team_invite",
         title=f"{user.name or user.email}님이 팀에 초대했습니다",
-        message=f"팀에 초대되었습니다.",
+        message="팀에 초대되었습니다.",
         link=json_mod.dumps({"team_id": team_id}),
     ))
 

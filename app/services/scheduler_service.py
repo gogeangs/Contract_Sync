@@ -8,7 +8,6 @@ import logging
 from datetime import datetime, timedelta, timezone
 
 from sqlalchemy import select
-from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.database import RecurringTask, Task, Project, async_session, utc_now
 

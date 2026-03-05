@@ -1,0 +1,11 @@
+[lint]
+select = ["E", "F"]
+ignore = [
+    "E402",   # module level import not at top (conftest.py 환경설정 필수)
+    "E501",   # line too long (기존 코드 다수 해당)
+    "E712",   # SQLAlchemy == True 비교 필수
+    "F841",   # 할당 후 미사용 (테스트 응답 검증)
+]
+
+[lint.per-file-ignores]
+"app/api/endpoints/contracts.py" = ["F401"]  # 레거시 v1 코드

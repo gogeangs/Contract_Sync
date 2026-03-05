@@ -1,5 +1,4 @@
 """문서 관리 + 계약 검토 프로세스 API"""
-import json
 import logging
 from pathlib import Path
 
@@ -9,14 +8,14 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy import select
 
 from app.database import (
-    get_db, Project, Document, DocumentReview, User, TeamMember, utc_now,
+    get_db, Project, Document, DocumentReview, User, TeamMember,
 )
 from app.api.endpoints.auth import require_current_user
 from app.limiter import limiter
 from app.services.document_service import DocumentService
 from app.services.sheets_service import SheetsService
 from app.schemas.document import (
-    DocumentCreate, DocumentUpdate, DocumentStatusUpdate, DocumentResponse,
+    DocumentUpdate, DocumentStatusUpdate, DocumentResponse,
     DocumentListResponse, GenerateTasksRequest,
     ReviewCreate, ReviewSubmit, ReviewResponse,
     AIHighlightsResponse,

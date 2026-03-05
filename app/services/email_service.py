@@ -121,7 +121,7 @@ async def _send_via_smtp(
         await smtp.send_message(message, recipients=recipients)
         await smtp.quit()
 
-        print(f"[EMAIL] SMTP 발송 성공", flush=True)
+        print("[EMAIL] SMTP 발송 성공", flush=True)
         logger.info(f"이메일 발송 성공 (SMTP): to={to_emails}")
         return True, ""
 

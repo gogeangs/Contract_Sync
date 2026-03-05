@@ -3,13 +3,13 @@
 통계 요약, 매출 추이, 팀 워크로드, AI 인사이트.
 """
 import logging
-from datetime import datetime, timedelta
+from datetime import timedelta
 
-from sqlalchemy import select, func, and_, or_, case
+from sqlalchemy import select, func, case
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.database import (
-    Project, Task, PaymentSchedule, CompletionReport, User, utc_now,
+    Project, Task, PaymentSchedule, User, utc_now,
 )
 from app.services.common import get_user_team_ids, access_filter
 

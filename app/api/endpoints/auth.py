@@ -4,14 +4,13 @@ from authlib.integrations.starlette_client import OAuth
 from pydantic import BaseModel, EmailStr
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy import select
-from datetime import datetime
 import secrets
 import bcrypt
 import re
 import logging
 
 from app.config import settings
-from app.database import get_db, User, VerificationCode, UserSession, Team, TeamMember, init_db, utc_now
+from app.database import get_db, User, VerificationCode, UserSession, Team, TeamMember, utc_now
 from app.limiter import limiter
 
 from app.services.email_service import generate_verification_code, send_verification_email, get_code_expiry

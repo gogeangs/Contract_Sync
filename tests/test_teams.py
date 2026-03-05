@@ -1,11 +1,10 @@
-"""팀(조직) 시스템 + 업무 담당자 지정 테스트"""
+"""팀(조직) 시스템 + 업무 담당자 지정 테스트 (v2 API 전환)"""
 import pytest
-import pytest_asyncio
 from httpx import AsyncClient, ASGITransport
 from sqlalchemy import select
 
 from tests.conftest import TestSessionLocal, app
-from app.database import User, VerificationCode, Team, TeamMember
+from app.database import User, VerificationCode
 
 
 # ============ 헬퍼 ============
@@ -107,14 +106,11 @@ async def test_delete_team(auth_client):
 @pytest.mark.asyncio
 async def test_invite_member(auth_client):
     """멤버 초대"""
-    # 두 번째 사용자 생성
     user2 = await make_auth_client("user2@example.com")
 
-    # 팀 생성
     create_resp = await auth_client.post("/api/v1/teams", json={"name": "초대팀"})
     team_id = create_resp.json()["id"]
 
-    # 멤버 초대
     resp = await auth_client.post(
         f"/api/v1/teams/{team_id}/members",
         json={"email": "user2@example.com"}
@@ -122,7 +118,6 @@ async def test_invite_member(auth_client):
     assert resp.status_code == 200
     assert resp.json()["member"]["email"] == "user2@example.com"
 
-    # 멤버 목록 확인
     detail_resp = await auth_client.get(f"/api/v1/teams/{team_id}")
     assert len(detail_resp.json()["members"]) == 2
 
@@ -138,7 +133,6 @@ async def test_invite_duplicate_member(auth_client):
     team_id = create_resp.json()["id"]
 
     await auth_client.post(f"/api/v1/teams/{team_id}/members", json={"email": "dup@example.com"})
-    # 두 번째 초대 - 409
     resp = await auth_client.post(f"/api/v1/teams/{team_id}/members", json={"email": "dup@example.com"})
     assert resp.status_code == 409
 
@@ -155,7 +149,6 @@ async def test_remove_member(auth_client):
 
     await auth_client.post(f"/api/v1/teams/{team_id}/members", json={"email": "remove@example.com"})
 
-    # user2의 ID 조회
     async with TestSessionLocal() as db:
         result = await db.execute(select(User).where(User.email == "remove@example.com"))
         user2_id = result.scalar_one().id
@@ -163,7 +156,6 @@ async def test_remove_member(auth_client):
     resp = await auth_client.delete(f"/api/v1/teams/{team_id}/members/{user2_id}")
     assert resp.status_code == 200
 
-    # 멤버 수 확인
     detail = await auth_client.get(f"/api/v1/teams/{team_id}")
     assert len(detail.json()["members"]) == 1
 
@@ -194,11 +186,11 @@ async def test_update_member_role(auth_client):
     await user2.aclose()
 
 
-# ============ 팀 계약 접근 제어 테스트 ============
+# ============ 팀 프로젝트 접근 제어 테스트 ============
 
 @pytest.mark.asyncio
-async def test_team_contract_access(auth_client):
-    """팀 계약은 팀 멤버만 접근 가능"""
+async def test_team_project_access(auth_client):
+    """팀 프로젝트는 팀 멤버만 접근 가능"""
     user2 = await make_auth_client("access@example.com")
 
     # 팀 생성 + 멤버 초대
@@ -206,55 +198,55 @@ async def test_team_contract_access(auth_client):
     team_id = create_resp.json()["id"]
     await auth_client.post(f"/api/v1/teams/{team_id}/members", json={"email": "access@example.com"})
 
-    # 팀 계약 생성
-    contract_resp = await auth_client.post("/api/v1/contracts/save", json={
-        "contract_name": "팀 계약서",
-        "team_id": team_id,
+    # 팀 프로젝트 생성
+    proj_resp = await auth_client.post(f"/api/v1/projects?team_id={team_id}", json={
+        "project_name": "팀 프로젝트",
+        "project_type": "internal",
     })
-    assert contract_resp.status_code == 200
-    contract_id = contract_resp.json()["id"]
+    assert proj_resp.status_code == 200
+    project_id = proj_resp.json()["id"]
 
-    # user2도 팀 계약 조회 가능
-    detail = await user2.get(f"/api/v1/contracts/{contract_id}")
+    # user2도 팀 프로젝트 조회 가능
+    detail = await user2.get(f"/api/v1/projects/{project_id}")
     assert detail.status_code == 200
-    assert detail.json()["contract_name"] == "팀 계약서"
+    assert detail.json()["project_name"] == "팀 프로젝트"
 
     await user2.aclose()
 
 
 @pytest.mark.asyncio
-async def test_non_member_cannot_access_team_contract(auth_client):
-    """비멤버는 팀 계약 접근 불가"""
+async def test_non_member_cannot_access_team_project(auth_client):
+    """비멤버는 팀 프로젝트 접근 불가"""
     outsider = await make_auth_client("outsider@example.com")
 
     create_resp = await auth_client.post("/api/v1/teams", json={"name": "비공개팀"})
     team_id = create_resp.json()["id"]
 
-    contract_resp = await auth_client.post("/api/v1/contracts/save", json={
-        "contract_name": "비공개 계약",
-        "team_id": team_id,
+    proj_resp = await auth_client.post(f"/api/v1/projects?team_id={team_id}", json={
+        "project_name": "비공개 프로젝트",
+        "project_type": "internal",
     })
-    contract_id = contract_resp.json()["id"]
+    project_id = proj_resp.json()["id"]
 
     # 비멤버 접근 실패
-    detail = await outsider.get(f"/api/v1/contracts/{contract_id}")
+    detail = await outsider.get(f"/api/v1/projects/{project_id}")
     assert detail.status_code == 404
 
     await outsider.aclose()
 
 
 @pytest.mark.asyncio
-async def test_personal_contract_not_visible_to_team(auth_client):
-    """개인 계약은 팀 목록에 안 보임"""
-    # 개인 계약 생성
-    await auth_client.post("/api/v1/contracts/save", json={"contract_name": "개인 계약"})
+async def test_personal_project_not_visible_to_team(auth_client):
+    """개인 프로젝트는 팀 목록에 안 보임"""
+    # 개인 프로젝트 생성
+    await auth_client.post("/api/v1/projects", json={"project_name": "개인 프로젝트", "project_type": "internal"})
 
     # 팀 생성
     create_resp = await auth_client.post("/api/v1/teams", json={"name": "필터팀"})
     team_id = create_resp.json()["id"]
 
-    # 팀 필터로 조회 시 개인 계약 안 보임
-    resp = await auth_client.get(f"/api/v1/contracts/list?team_id={team_id}")
+    # 팀 필터로 조회 시 개인 프로젝트 안 보임
+    resp = await auth_client.get(f"/api/v1/projects?team_id={team_id}")
     assert resp.status_code == 200
     assert resp.json()["total"] == 0
 
@@ -264,57 +256,51 @@ async def test_personal_contract_not_visible_to_team(auth_client):
 @pytest.mark.asyncio
 async def test_assign_task(auth_client):
     """업무 담당자 지정"""
-    # 팀 + 계약 생성
     create_resp = await auth_client.post("/api/v1/teams", json={"name": "담당팀"})
     team_id = create_resp.json()["id"]
 
-    contract_resp = await auth_client.post("/api/v1/contracts/save", json={
-        "contract_name": "담당 계약",
-        "team_id": team_id,
-        "tasks": [{"task_id": "TASK-001", "task_name": "테스트업무", "priority": "보통", "status": "대기"}],
+    proj_resp = await auth_client.post(f"/api/v1/projects?team_id={team_id}", json={
+        "project_name": "담당 프로젝트",
+        "project_type": "internal",
     })
-    contract_id = contract_resp.json()["id"]
+    project_id = proj_resp.json()["id"]
+
+    task_resp = await auth_client.post("/api/v1/tasks", json={
+        "task_name": "테스트업무",
+        "project_id": project_id,
+        "priority": "보통",
+    })
+    task_id = task_resp.json()["id"]
 
     # 자신의 ID 조회
     me_resp = await auth_client.get("/api/v1/auth/me")
     my_id = me_resp.json()["user"]["id"]
 
     # 담당자 지정
-    resp = await auth_client.patch(
-        f"/api/v1/contracts/{contract_id}/tasks/assignee",
-        json={"task_id": "TASK-001", "assignee_id": my_id}
-    )
+    resp = await auth_client.patch(f"/api/v1/tasks/{task_id}/assignee", json={
+        "assignee_id": my_id,
+    })
     assert resp.status_code == 200
     assert resp.json()["assignee_id"] == my_id
-
-    # 계약 조회하여 담당자 확인
-    detail = await auth_client.get(f"/api/v1/contracts/{contract_id}")
-    task = detail.json()["tasks"][0]
-    assert task["assignee_id"] == my_id
-    assert task["assignee_name"] is not None
 
 
 @pytest.mark.asyncio
 async def test_unassign_task(auth_client):
     """업무 담당자 해제"""
-    create_resp = await auth_client.post("/api/v1/teams", json={"name": "해제팀"})
-    team_id = create_resp.json()["id"]
-
     me_resp = await auth_client.get("/api/v1/auth/me")
     my_id = me_resp.json()["user"]["id"]
 
-    contract_resp = await auth_client.post("/api/v1/contracts/save", json={
-        "contract_name": "해제 계약",
-        "team_id": team_id,
-        "tasks": [{"task_id": "TASK-001", "task_name": "해제업무", "priority": "보통", "status": "대기", "assignee_id": my_id}],
+    task_resp = await auth_client.post("/api/v1/tasks", json={
+        "task_name": "해제업무",
+        "priority": "보통",
+        "assignee_id": my_id,
     })
-    contract_id = contract_resp.json()["id"]
+    task_id = task_resp.json()["id"]
 
     # 담당자 해제
-    resp = await auth_client.patch(
-        f"/api/v1/contracts/{contract_id}/tasks/assignee",
-        json={"task_id": "TASK-001", "assignee_id": None}
-    )
+    resp = await auth_client.patch(f"/api/v1/tasks/{task_id}/assignee", json={
+        "assignee_id": None,
+    })
     assert resp.status_code == 200
     assert resp.json()["assignee_id"] is None
 
@@ -322,25 +308,15 @@ async def test_unassign_task(auth_client):
 @pytest.mark.asyncio
 async def test_add_task_with_assignee(auth_client):
     """업무 추가 시 담당자 지정"""
-    create_resp = await auth_client.post("/api/v1/teams", json={"name": "추가팀"})
-    team_id = create_resp.json()["id"]
-
     me_resp = await auth_client.get("/api/v1/auth/me")
     my_id = me_resp.json()["user"]["id"]
 
-    contract_resp = await auth_client.post("/api/v1/contracts/save", json={
-        "contract_name": "추가 계약",
-        "team_id": team_id,
+    resp = await auth_client.post("/api/v1/tasks", json={
+        "task_name": "담당업무",
+        "assignee_id": my_id,
     })
-    contract_id = contract_resp.json()["id"]
-
-    resp = await auth_client.post(
-        f"/api/v1/contracts/{contract_id}/tasks",
-        json={"task_name": "담당업무", "assignee_id": my_id}
-    )
     assert resp.status_code == 200
-    task = resp.json()["task"]
-    assert task["assignee_id"] == my_id
+    assert resp.json()["assignee_id"] == my_id
 
 
 @pytest.mark.asyncio
@@ -351,22 +327,27 @@ async def test_non_member_cannot_be_assignee(auth_client):
     create_resp = await auth_client.post("/api/v1/teams", json={"name": "검증팀"})
     team_id = create_resp.json()["id"]
 
-    contract_resp = await auth_client.post("/api/v1/contracts/save", json={
-        "contract_name": "검증 계약",
-        "team_id": team_id,
-        "tasks": [{"task_id": "TASK-001", "task_name": "검증업무", "priority": "보통", "status": "대기"}],
+    proj_resp = await auth_client.post(f"/api/v1/projects?team_id={team_id}", json={
+        "project_name": "검증 프로젝트",
+        "project_type": "internal",
     })
-    contract_id = contract_resp.json()["id"]
+    project_id = proj_resp.json()["id"]
+
+    task_resp = await auth_client.post("/api/v1/tasks", json={
+        "task_name": "검증업무",
+        "project_id": project_id,
+        "priority": "보통",
+    })
+    task_id = task_resp.json()["id"]
 
     # 비멤버 ID
     async with TestSessionLocal() as db:
         result = await db.execute(select(User).where(User.email == "notmember@example.com"))
         outsider_id = result.scalar_one().id
 
-    resp = await auth_client.patch(
-        f"/api/v1/contracts/{contract_id}/tasks/assignee",
-        json={"task_id": "TASK-001", "assignee_id": outsider_id}
-    )
+    resp = await auth_client.patch(f"/api/v1/tasks/{task_id}/assignee", json={
+        "assignee_id": outsider_id,
+    })
     assert resp.status_code == 400
 
     await outsider.aclose()
@@ -388,25 +369,25 @@ async def test_auth_me_includes_teams(auth_client):
     assert data["teams"][0]["role"] == "owner"
 
 
-# ============ 기존 개인 계약 하위 호환 테스트 ============
+# ============ 기존 개인 프로젝트 하위 호환 테스트 ============
 
 @pytest.mark.asyncio
-async def test_personal_contract_still_works(auth_client):
-    """기존 개인 계약 생성/조회가 정상 동작"""
-    # team_id 없이 계약 생성 (기존 방식)
-    resp = await auth_client.post("/api/v1/contracts/save", json={
-        "contract_name": "하위호환 계약",
+async def test_personal_project_still_works(auth_client):
+    """기존 개인 프로젝트 생성/조회가 정상 동작"""
+    resp = await auth_client.post("/api/v1/projects", json={
+        "project_name": "하위호환 프로젝트",
+        "project_type": "internal",
     })
     assert resp.status_code == 200
-    contract_id = resp.json()["id"]
+    project_id = resp.json()["id"]
     assert resp.json()["team_id"] is None
 
     # 목록 조회
-    list_resp = await auth_client.get("/api/v1/contracts/list")
+    list_resp = await auth_client.get("/api/v1/projects")
     assert list_resp.status_code == 200
     assert list_resp.json()["total"] >= 1
 
     # 상세 조회
-    detail_resp = await auth_client.get(f"/api/v1/contracts/{contract_id}")
+    detail_resp = await auth_client.get(f"/api/v1/projects/{project_id}")
     assert detail_resp.status_code == 200
-    assert detail_resp.json()["contract_name"] == "하위호환 계약"
+    assert detail_resp.json()["project_name"] == "하위호환 프로젝트"

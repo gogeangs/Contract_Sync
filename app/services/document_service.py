@@ -5,9 +5,8 @@ from pathlib import Path
 
 import aiofiles
 from fastapi import UploadFile
-from sqlalchemy import select, func
+from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
-from sqlalchemy.orm import joinedload
 
 from app.config import settings
 from app.database import Document, DocumentReview, Project, Task, User, Notification, ActivityLog, utc_now

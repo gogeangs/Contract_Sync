@@ -10,7 +10,7 @@ os.environ["EMAIL_VALIDATOR_CHECK_DELIVERABILITY"] = "false"
 import email_validator
 email_validator.TEST_ENVIRONMENT = True
 
-from app.database import Base, get_db, utc_now, UserSession
+from app.database import Base, get_db
 from app.main import app
 from app.limiter import limiter
 

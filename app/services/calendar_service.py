@@ -3,7 +3,6 @@
 Google Calendar / Outlook 연동.
 OAuth code → token 교환, 업무 → 캘린더 이벤트 동기화.
 """
-import asyncio
 import logging
 
 import httpx

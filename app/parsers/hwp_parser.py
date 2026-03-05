@@ -1,7 +1,6 @@
 import zipfile
 import zlib
 import struct
-from pathlib import Path
 from xml.etree import ElementTree as ET
 
 import olefile

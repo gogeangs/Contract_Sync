@@ -7,10 +7,10 @@ from fastapi import HTTPException
 from sqlalchemy import select, desc
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from app.database import Project, Document, Task, utc_now
+from app.database import Project, Document, Task
 from app.services.common import get_user_team_ids, access_filter, get_accessible, log_activity
 from app.services.gemini_service import GeminiService
-from app.services.sheets_service import SheetsService, ESTIMATE_TEMPLATE
+from app.services.sheets_service import SheetsService
 
 logger = logging.getLogger(__name__)
 

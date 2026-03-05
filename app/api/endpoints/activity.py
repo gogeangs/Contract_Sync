@@ -4,7 +4,7 @@ from sqlalchemy import select, desc, func, or_
 from typing import Optional
 import logging
 
-from app.database import get_db, User, ActivityLog, TeamMember, Project
+from app.database import get_db, User, ActivityLog, Project
 from app.api.endpoints.auth import require_current_user
 from app.services.common import get_user_team_ids
 

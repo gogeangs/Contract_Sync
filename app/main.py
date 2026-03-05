@@ -3,7 +3,7 @@ from fastapi import FastAPI, Request
 from fastapi.staticfiles import StaticFiles
 from fastapi.templating import Jinja2Templates
 from fastapi.middleware.cors import CORSMiddleware
-from fastapi.responses import HTMLResponse, JSONResponse
+from fastapi.responses import HTMLResponse
 from starlette.middleware.sessions import SessionMiddleware
 from slowapi import _rate_limit_exceeded_handler
 from slowapi.errors import RateLimitExceeded
@@ -111,7 +111,7 @@ if not settings.secret_key:
     import secrets as _secrets
     if settings.debug:
         _generated_key = _secrets.token_urlsafe(32)
-        logger.warning(f"SECRET_KEY 미설정. 개발 모드이므로 임시 키를 생성합니다.")
+        logger.warning("SECRET_KEY 미설정. 개발 모드이므로 임시 키를 생성합니다.")
         settings.secret_key = _generated_key
     else:
         raise RuntimeError("SECRET_KEY가 설정되지 않았습니다. 환경변수 SECRET_KEY를 설정하세요.")
