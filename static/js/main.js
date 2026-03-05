@@ -488,6 +488,7 @@ function dashboardPage() {
         },
 
         async load() {
+            if (!document.cookie.includes('session_token')) { this.loading = false; return; }
             this.loading = true;
             try {
                 const [pData, tData, pending, inProg, done] = await Promise.all([
