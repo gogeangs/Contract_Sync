@@ -306,6 +306,8 @@ function appShell() {
                 this.currentPage = 'estimate'; this.pageParams = {};
             } else if (path === '/templates') {
                 this.currentPage = 'templates'; this.pageParams = {};
+            } else if ((m = path.match(/^\/portal\/([a-zA-Z0-9_-]+)$/))) {
+                this.currentPage = 'portal'; this.pageParams = { token: m[1] };
             } else if (path === '/settings') {
                 this.currentPage = 'settings'; this.pageParams = {};
             } else {
@@ -721,6 +723,7 @@ function projectDetailPage() {
         showEditModal: false, saving: false,
         showTaskModal: false, taskSaving: false,
         showTaskDetailModal: false, selectedTask: null,
+        portalToken: null, portalLoading: false, showPortalModal: false,
         form: {},
         taskForm: { task_name: '', phase: '', priority: '보통', due_date: '', start_date: '', assignee_id: '', is_client_facing: false, description: '' },
 
@@ -851,6 +854,45 @@ function projectDetailPage() {
                 this.showTaskDetailModal = false;
                 window.toast.success('업무가 삭제되었습니다.');
             } catch (e) { window.toast.error(e.message); }
+        },
+
+        // 포털 토큰 관리
+        async openPortalModal() {
+            this.showPortalModal = true;
+            this.portalLoading = true;
+            try {
+                const res = await api.get(`/projects/${this.project.id}/portal-token`);
+                this.portalToken = res?.token ? res : null;
+            } catch { this.portalToken = null; }
+            finally { this.portalLoading = false; }
+        },
+
+        async createPortalToken() {
+            this.portalLoading = true;
+            try {
+                this.portalToken = await api.post(`/projects/${this.project.id}/portal-token`, {});
+                window.toast.success('포털 링크가 생성되었습니다.');
+            } catch (e) { window.toast.error(e.message); }
+            finally { this.portalLoading = false; }
+        },
+
+        async revokePortalToken() {
+            if (!this.portalToken) return;
+            if (!await window.confirmDialog('포털 링크를 비활성화하시겠습니까?', { title: '포털 링크 비활성화', confirmText: '비활성화', danger: true })) return;
+            try {
+                await api.del(`/portal-tokens/${this.portalToken.id}`);
+                this.portalToken = null;
+                window.toast.success('포털 링크가 비활성화되었습니다.');
+            } catch (e) { window.toast.error(e.message); }
+        },
+
+        copyPortalUrl() {
+            if (!this.portalToken?.portal_url) return;
+            const url = this.portalToken.portal_url.replace(/\/api\/v1\/portal\//, '/#/portal/').replace(/\/data$/, '');
+            navigator.clipboard.writeText(url).then(
+                () => window.toast.success('포털 URL이 복사되었습니다.'),
+                () => window.toast.error('복사에 실패했습니다.')
+            );
         },
     };
 }
@@ -1988,5 +2030,93 @@ function templatePage() {
             const t = (window._teams || []).find(tm => (tm.id || tm.team_id) === teamId);
             return t ? t.name : '팀';
         },
+    };
+}
+
+// ============================================================
+// [Phase 6] 클라이언트 포털 페이지 (비로그인, 토큰 기반)
+// ============================================================
+
+function clientPortalPage() {
+    return {
+        loading: true, token: '', data: null, error: null,
+        activeTab: 'tasks',
+
+        init() {
+            const m = (window.location.hash || '').match(/^#\/portal\/([a-zA-Z0-9_-]+)/);
+            if (m) { this.token = m[1]; this.load(); }
+            else { this.error = '유효하지 않은 포털 링크입니다.'; this.loading = false; }
+        },
+
+        async load() {
+            try { this.data = await api.get(`/portal/${this.token}/data`); }
+            catch (e) { this.error = e.message || '포털 데이터를 불러올 수 없습니다.'; }
+            finally { this.loading = false; }
+        },
+
+        get progress() { return Math.round(this.data?.progress_percent || 0); },
+        get taskCount() { return this.data?.tasks?.length || 0; },
+        get pendingFeedbackCount() { return this.data?.pending_feedbacks?.length || 0; },
+        get reportCount() { return this.data?.reports?.length || 0; },
+        getStatusBadge(s) { return CS.statusClass[s] || 'bg-gray-100 text-gray-600'; },
+        getStatusLabel(s) { return CS.statusLabel[s] || s; },
+    };
+}
+
+// ============================================================
+// [Phase 6] 설정 페이지 (캘린더 연동)
+// ============================================================
+
+function settingsPage() {
+    return {
+        loading: true, calendarSyncs: [], connecting: false, syncing: {},
+
+        async init() { await this.loadCalendarStatus(); },
+
+        async loadCalendarStatus() {
+            this.loading = true;
+            try { this.calendarSyncs = await api.get('/calendar/status') || []; }
+            catch { this.calendarSyncs = []; }
+            finally { this.loading = false; }
+        },
+
+        async connectGoogle() {
+            const clientId = window._googleClientId || '';
+            if (!clientId) { window.toast.error('Google OAuth 설정이 필요합니다. 관리자에게 문의하세요.'); return; }
+            const redirectUri = window.location.origin + '/api/v1/auth/google/callback';
+            const scope = 'https://www.googleapis.com/auth/calendar';
+            const url = `https://accounts.google.com/o/oauth2/v2/auth?client_id=${encodeURIComponent(clientId)}&redirect_uri=${encodeURIComponent(redirectUri)}&response_type=code&scope=${encodeURIComponent(scope)}&access_type=offline&prompt=consent&state=calendar_connect`;
+            const popup = window.open(url, 'google_calendar_auth', 'width=500,height=600');
+            window._calendarAuthCallback = async (code) => {
+                this.connecting = true;
+                try {
+                    await api.post('/calendar/connect', { provider: 'google', auth_code: code });
+                    window.toast.success('Google Calendar 연동이 완료되었습니다.');
+                    await this.loadCalendarStatus();
+                } catch (e) { window.toast.error(e.message); }
+                finally { this.connecting = false; }
+            };
+        },
+
+        async disconnectCalendar(syncId) {
+            if (!await window.confirmDialog('캘린더 연동을 해제하시겠습니까?', { title: '연동 해제', confirmText: '해제', danger: true })) return;
+            try {
+                await api.del(`/calendar/${syncId}`);
+                window.toast.success('캘린더 연동이 해제되었습니다.');
+                await this.loadCalendarStatus();
+            } catch (e) { window.toast.error(e.message); }
+        },
+
+        async syncCalendar(syncId) {
+            this.syncing[syncId] = true;
+            try {
+                const res = await api.post(`/calendar/${syncId}/sync`);
+                window.toast.success(`${res.synced_count}건의 업무가 동기화되었습니다.`);
+                await this.loadCalendarStatus();
+            } catch (e) { window.toast.error(e.message); }
+            finally { this.syncing[syncId] = false; }
+        },
+
+        getProviderLabel(p) { return { google: 'Google Calendar', outlook: 'Outlook' }[p] || p; },
     };
 }

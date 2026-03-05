@@ -6,6 +6,8 @@ from app.api.endpoints import (
     reports,  # Phase 3
     payments, estimates,  # Phase 4
     templates,  # Phase 5
+    portal, calendar,  # Phase 6
+    dashboard,  # Phase 7
 )
 
 api_router = APIRouter()
@@ -38,3 +40,10 @@ api_router.include_router(estimates.router, tags=["AI 견적"])
 
 # Phase 5 — 템플릿 + 반복 업무
 api_router.include_router(templates.router, tags=["템플릿 + 반복 업무"])
+
+# Phase 6 — 클라이언트 포털 + 캘린더 연동
+api_router.include_router(portal.router, tags=["클라이언트 포털"])
+api_router.include_router(calendar.router, prefix="/calendar", tags=["캘린더 연동"])
+
+# Phase 7 — 대시보드
+api_router.include_router(dashboard.router, prefix="/dashboard", tags=["대시보드"])

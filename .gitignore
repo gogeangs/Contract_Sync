@@ -30,3 +30,5 @@ Thumbs.db
 
 # Logs
 *.log
+contract_sync.db-shm
+contract_sync.db-wal
