@@ -402,7 +402,7 @@ function appShell() {
             this.formLoading = true; this.formError = '';
             try {
                 const res = await fetch('/api/v1/auth/signup', { method: 'POST', headers: {'Content-Type':'application/json'}, body: JSON.stringify({ email: this.email, password: this.password, password_confirm: this.passwordConfirm }) });
-                if (!res.ok) { const d = await res.json(); throw new Error(d.detail || '회원가입 실패'); }
+                if (!res.ok) { let msg = '회원가입 실패'; try { const d = await res.json(); msg = d.detail || msg; } catch { msg = `서버 오류 (${res.status})`; } throw new Error(msg); }
                 this.closeModal(); await this.checkAuth();
             } catch (e) { this.formError = e.message; }
             finally { this.formLoading = false; }
@@ -413,7 +413,7 @@ function appShell() {
             this.formLoading = true; this.formError = '';
             try {
                 const res = await fetch('/api/v1/auth/login/email', { method: 'POST', headers: {'Content-Type':'application/json'}, body: JSON.stringify({ email: this.email, password: this.password }) });
-                if (!res.ok) { const d = await res.json(); throw new Error(d.detail || '로그인 실패'); }
+                if (!res.ok) { let msg = '로그인 실패'; try { const d = await res.json(); msg = d.detail || msg; } catch { msg = `서버 오류 (${res.status})`; } throw new Error(msg); }
                 this.closeModal(); await this.checkAuth();
             } catch (e) { this.formError = e.message; }
             finally { this.formLoading = false; }
