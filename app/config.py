@@ -30,6 +30,9 @@ class Settings(BaseSettings):
     google_client_id: str = ""
     google_client_secret: str = ""
 
+    # Google Sheets (서비스 계정 JSON)
+    google_sheets_credentials: str = ""
+
     # 이메일 발송 (Resend HTTP API 우선, SMTP 폴백)
     resend_api_key: str = ""  # Resend API 키 (Railway 등 SMTP 차단 환경용)
     resend_from_email: str = "Contract Sync <onboarding@resend.dev>"  # Resend 발신자

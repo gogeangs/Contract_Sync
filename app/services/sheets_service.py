@@ -28,7 +28,8 @@ class SheetsService:
     def __init__(self, credentials: dict | None = None):
         """
         Args:
-            credentials: Google OAuth2 인증 정보 (access_token 포함)
+            credentials: Google OAuth2 인증 정보 (access_token 포함).
+                         None이면 서비스 계정(GOOGLE_SHEETS_CREDENTIALS)으로 폴백.
         """
         self.credentials = credentials
 
@@ -36,15 +37,34 @@ class SheetsService:
         """Google Sheets API 서비스 객체 생성 (public)"""
         return self._get_service()
 
-    def _get_service(self):
-        """Google Sheets API 서비스 객체 생성"""
-        if not self.credentials:
-            raise ValueError("Google 계정 연동이 필요합니다. 설정에서 Google 계정을 연결해 주세요.")
+    def _get_service_account_creds(self):
+        """환경변수의 서비스 계정 JSON으로 인증 객체 생성"""
+        sa_json = settings.google_sheets_credentials
+        if not sa_json:
+            return None
+        try:
+            from google.oauth2.service_account import Credentials as SACredentials
+            info = json.loads(sa_json)
+            return SACredentials.from_service_account_info(
+                info, scopes=["https://www.googleapis.com/auth/spreadsheets"]
+            )
+        except Exception as e:
+            logger.warning(f"서비스 계정 인증 실패: {e}")
+            return None
 
+    def _get_service(self):
+        """Google Sheets API 서비스 객체 생성 (OAuth 우선, 서비스 계정 폴백)"""
         try:
             from googleapiclient.discovery import build
-            from google.oauth2.credentials import Credentials
+        except ImportError:
+            raise RuntimeError(
+                "Google API 클라이언트가 설치되지 않았습니다. "
+                "'pip install google-api-python-client google-auth' 를 실행해 주세요."
+            )
 
+        # 1) 사용자 OAuth 토큰이 있으면 우선 사용
+        if self.credentials:
+            from google.oauth2.credentials import Credentials
             creds = Credentials(
                 token=self.credentials.get("access_token"),
                 refresh_token=self.credentials.get("refresh_token"),
@@ -53,28 +73,39 @@ class SheetsService:
                 client_secret=settings.google_client_secret,
             )
             return build("sheets", "v4", credentials=creds)
-        except ImportError:
-            raise RuntimeError(
-                "Google API 클라이언트가 설치되지 않았습니다. "
-                "'pip install google-api-python-client google-auth' 를 실행해 주세요."
-            )
+
+        # 2) 서비스 계정 폴백
+        sa_creds = self._get_service_account_creds()
+        if sa_creds:
+            return build("sheets", "v4", credentials=sa_creds)
+
+        raise ValueError("Google 계정 연동이 필요합니다. 설정에서 Google 계정을 연결해 주세요.")
 
     def _get_drive_service(self):
-        """Google Drive API 서비스 객체 생성"""
-        if not self.credentials:
-            raise ValueError("Google 계정 연동이 필요합니다.")
-
+        """Google Drive API 서비스 객체 생성 (OAuth 우선, 서비스 계정 폴백)"""
         from googleapiclient.discovery import build
-        from google.oauth2.credentials import Credentials
 
-        creds = Credentials(
-            token=self.credentials.get("access_token"),
-            refresh_token=self.credentials.get("refresh_token"),
-            token_uri="https://oauth2.googleapis.com/token",
-            client_id=settings.google_client_id,
-            client_secret=settings.google_client_secret,
-        )
-        return build("drive", "v3", credentials=creds)
+        if self.credentials:
+            from google.oauth2.credentials import Credentials
+            creds = Credentials(
+                token=self.credentials.get("access_token"),
+                refresh_token=self.credentials.get("refresh_token"),
+                token_uri="https://oauth2.googleapis.com/token",
+                client_id=settings.google_client_id,
+                client_secret=settings.google_client_secret,
+            )
+            return build("drive", "v3", credentials=creds)
+
+        sa_json = settings.google_sheets_credentials
+        if sa_json:
+            from google.oauth2.service_account import Credentials as SACredentials
+            info = json.loads(sa_json)
+            sa_creds = SACredentials.from_service_account_info(
+                info, scopes=["https://www.googleapis.com/auth/drive"]
+            )
+            return build("drive", "v3", credentials=sa_creds)
+
+        raise ValueError("Google 계정 연동이 필요합니다.")
 
     # ── 시트 생성 ──
 
