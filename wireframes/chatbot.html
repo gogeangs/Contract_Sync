@@ -1,0 +1,404 @@
+<!DOCTYPE html>
+<html lang="ko" class="">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Contract Sync v2 - AI 챗봇</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <script defer src="https://cdn.jsdelivr.net/npm/alpinejs@3.x.x/dist/cdn.min.js"></script>
+  <script>tailwind.config = { darkMode: 'class' }</script>
+  <style>
+    [x-cloak] { display: none !important; }
+    @keyframes pulse-dot { 0%, 80%, 100% { transform: scale(0); } 40% { transform: scale(1); } }
+    .typing-dot { animation: pulse-dot 1.4s infinite ease-in-out both; }
+    .typing-dot:nth-child(1) { animation-delay: -0.32s; }
+    .typing-dot:nth-child(2) { animation-delay: -0.16s; }
+    @keyframes slideUp { from { transform: translateY(100%); opacity: 0; } to { transform: translateY(0); opacity: 1; } }
+    .slide-up { animation: slideUp 0.3s ease-out; }
+    @keyframes bounce-in { 0% { transform: scale(0); } 50% { transform: scale(1.1); } 100% { transform: scale(1); } }
+    .bounce-in { animation: bounce-in 0.3s ease-out; }
+  </style>
+</head>
+<body class="bg-gray-50 dark:bg-gray-900 text-gray-800 dark:text-gray-100 transition-colors duration-300">
+
+<div x-data="appLayout()" class="flex h-screen overflow-hidden">
+
+  <!-- 좌측 사이드바 -->
+  <aside class="hidden lg:flex lg:flex-col w-64 bg-white dark:bg-gray-800 border-r border-gray-200 dark:border-gray-700 fixed inset-y-0 left-0 z-30">
+    <div class="flex items-center gap-3 px-6 py-5 border-b border-gray-200 dark:border-gray-700">
+      <div class="w-8 h-8 bg-indigo-600 rounded-lg flex items-center justify-center">
+        <svg class="w-5 h-5 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"/></svg>
+      </div>
+      <span class="text-lg font-bold text-gray-800 dark:text-white">Contract Sync</span>
+    </div>
+    <div class="px-4 py-3">
+      <div class="w-full flex items-center justify-between px-3 py-2 text-sm bg-gray-50 dark:bg-gray-700 rounded-lg">
+        <div class="flex items-center gap-2">
+          <svg class="w-4 h-4 text-gray-500" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17 20h5v-2a3 3 0 00-5.356-1.857M17 20H7m10 0v-2c0-.656-.126-1.283-.356-1.857M7 20H2v-2a3 3 0 015.356-1.857M7 20v-2c0-.656.126-1.283.356-1.857m0 0a5.002 5.002 0 019.288 0M15 7a3 3 0 11-6 0 3 3 0 016 0z"/></svg>
+          <span class="text-gray-700 dark:text-gray-200">디자인팀</span>
+        </div>
+        <svg class="w-4 h-4 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7"/></svg>
+      </div>
+    </div>
+    <nav class="flex-1 px-3 py-2 space-y-1 overflow-y-auto">
+      <a href="dashboard.html" class="flex items-center gap-3 px-3 py-2.5 rounded-lg bg-indigo-50 dark:bg-indigo-900/30 text-indigo-600 dark:text-indigo-400 font-medium text-sm"><svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 12l2-2m0 0l7-7 7 7M5 10v10a1 1 0 001 1h3m10-11l2 2m-2-2v10a1 1 0 01-1 1h-3m-6 0a1 1 0 001-1v-4a1 1 0 011-1h2a1 1 0 011 1v4a1 1 0 001 1m-6 0h6"/></svg><span>대시보드</span></a>
+      <a href="clients.html" class="flex items-center gap-3 px-3 py-2.5 rounded-lg text-gray-600 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700 text-sm transition-colors"><svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 21V5a2 2 0 00-2-2H7a2 2 0 00-2 2v16m14 0h2m-2 0h-5m-9 0H3m2 0h5M9 7h1m-1 4h1m4-4h1m-1 4h1m-5 10v-5a1 1 0 011-1h2a1 1 0 011 1v5m-4 0h4"/></svg><span>발주처</span></a>
+      <a href="projects.html" class="flex items-center gap-3 px-3 py-2.5 rounded-lg text-gray-600 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700 text-sm transition-colors"><svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 7v10a2 2 0 002 2h14a2 2 0 002-2V9a2 2 0 00-2-2h-6l-2-2H5a2 2 0 00-2 2z"/></svg><span>프로젝트</span></a>
+      <a href="tasks.html" class="flex items-center gap-3 px-3 py-2.5 rounded-lg text-gray-600 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700 text-sm transition-colors"><svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2m-6 9l2 2 4-4"/></svg><span>업무</span></a>
+      <a href="report-hub.html" class="flex items-center gap-3 px-3 py-2.5 rounded-lg text-gray-600 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700 text-sm transition-colors"><svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 17v-2m3 2v-4m3 4v-6m2 10H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"/></svg><span>보고서</span></a>
+      <a href="payments.html" class="flex items-center gap-3 px-3 py-2.5 rounded-lg text-gray-600 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700 text-sm transition-colors"><svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8c-1.657 0-3 .895-3 2s1.343 2 3 2 3 .895 3 2-1.343 2-3 2m0-8c1.11 0 2.08.402 2.599 1M12 8V7m0 1v8m0 0v1m0-1c-1.11 0-2.08-.402-2.599-1M21 12a9 9 0 11-18 0 9 9 0 0118 0z"/></svg><span>수금</span></a>
+    </nav>
+    <div class="px-3 py-3 border-t border-gray-200 dark:border-gray-700">
+      <a href="notifications.html" class="flex items-center gap-3 px-3 py-2.5 rounded-lg text-gray-600 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700 text-sm transition-colors"><svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 17h5l-1.405-1.405A2.032 2.032 0 0118 14.158V11a6.002 6.002 0 00-4-5.659V5a2 2 0 10-4 0v.341C7.67 6.165 6 8.388 6 11v3.159c0 .538-.214 1.055-.595 1.436L4 17h5m6 0v1a3 3 0 11-6 0v-1m6 0H9"/></svg><span>알림</span></a>
+      <a href="settings.html" class="flex items-center gap-3 px-3 py-2.5 rounded-lg text-gray-600 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700 text-sm transition-colors"><svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10.325 4.317c.426-1.756 2.924-1.756 3.35 0a1.724 1.724 0 002.573 1.066c1.543-.94 3.31.826 2.37 2.37a1.724 1.724 0 001.066 2.573c1.756.426 1.756 2.924 0 3.35a1.724 1.724 0 00-1.066 2.573c.94 1.543-.826 3.31-2.37 2.37a1.724 1.724 0 00-2.573 1.066c-.426 1.756-2.924 1.756-3.35 0a1.724 1.724 0 00-2.573-1.066c-1.543.94-3.31-.826-2.37-2.37a1.724 1.724 0 00-1.066-2.573c-1.756-.426-1.756-2.924 0-3.35a1.724 1.724 0 001.066-2.573c-.94-1.543.826-3.31 2.37-2.37.996.608 2.296.07 2.572-1.065z"/><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z"/></svg><span>설정</span></a>
+    </div>
+  </aside>
+
+  <div class="flex-1 flex flex-col lg:ml-64 overflow-hidden">
+    <header class="bg-white dark:bg-gray-800 border-b border-gray-200 dark:border-gray-700 px-4 lg:px-6 py-3 flex items-center justify-between sticky top-0 z-20">
+      <button @click="mobileMenu = !mobileMenu" class="lg:hidden p-2 rounded-lg hover:bg-gray-100 dark:hover:bg-gray-700"><svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 6h16M4 12h16M4 18h16"/></svg></button>
+      <h1 class="text-lg font-semibold hidden sm:block">대시보드</h1>
+      <div class="flex items-center gap-2">
+        <button class="relative p-2 rounded-lg hover:bg-gray-100 dark:hover:bg-gray-700"><svg class="w-5 h-5 text-gray-500 dark:text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 17h5l-1.405-1.405A2.032 2.032 0 0118 14.158V11a6.002 6.002 0 00-4-5.659V5a2 2 0 10-4 0v.341C7.67 6.165 6 8.388 6 11v3.159c0 .538-.214 1.055-.595 1.436L4 17h5m6 0v1a3 3 0 11-6 0v-1m6 0H9"/></svg><span class="absolute -top-0.5 -right-0.5 w-4 h-4 bg-red-500 text-white text-[10px] rounded-full flex items-center justify-center">3</span></button>
+        <button @click="toggleDark()" class="p-2 rounded-lg hover:bg-gray-100 dark:hover:bg-gray-700"><svg x-show="!darkMode" class="w-5 h-5 text-gray-500" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M20.354 15.354A9 9 0 018.646 3.646 9.003 9.003 0 0012 21a9.003 9.003 0 008.354-5.646z"/></svg><svg x-show="darkMode" x-cloak class="w-5 h-5 text-yellow-400" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 3v1m0 16v1m9-9h-1M4 12H3m15.364 6.364l-.707-.707M6.343 6.343l-.707-.707m12.728 0l-.707.707M6.343 17.657l-.707.707M16 12a4 4 0 11-8 0 4 4 0 018 0z"/></svg></button>
+        <div class="flex items-center gap-2 pl-2 border-l border-gray-200 dark:border-gray-600"><div class="w-8 h-8 bg-indigo-500 rounded-full flex items-center justify-center text-white text-sm font-medium">홍</div><span class="text-sm text-gray-700 dark:text-gray-200 hidden sm:block">홍길동</span></div>
+      </div>
+    </header>
+
+    <!-- 메인 콘텐츠 (대시보드 요약 — 챗봇 데모용 배경) -->
+    <main class="flex-1 overflow-y-auto p-4 lg:p-6 pb-20 lg:pb-6">
+      <div class="grid grid-cols-2 lg:grid-cols-4 gap-4 mb-6">
+        <div class="bg-white dark:bg-gray-800 rounded-lg shadow-sm border border-gray-100 dark:border-gray-700 p-4">
+          <p class="text-xs text-gray-500 dark:text-gray-400">진행 중 프로젝트</p>
+          <p class="text-2xl font-bold text-gray-800 dark:text-white mt-1">5</p>
+        </div>
+        <div class="bg-white dark:bg-gray-800 rounded-lg shadow-sm border border-gray-100 dark:border-gray-700 p-4">
+          <p class="text-xs text-gray-500 dark:text-gray-400">대기 업무</p>
+          <p class="text-2xl font-bold text-orange-600 dark:text-orange-400 mt-1">12</p>
+        </div>
+        <div class="bg-white dark:bg-gray-800 rounded-lg shadow-sm border border-gray-100 dark:border-gray-700 p-4">
+          <p class="text-xs text-gray-500 dark:text-gray-400">이번 주 마감</p>
+          <p class="text-2xl font-bold text-red-600 dark:text-red-400 mt-1">3</p>
+        </div>
+        <div class="bg-white dark:bg-gray-800 rounded-lg shadow-sm border border-gray-100 dark:border-gray-700 p-4">
+          <p class="text-xs text-gray-500 dark:text-gray-400">피드백 대기</p>
+          <p class="text-2xl font-bold text-purple-600 dark:text-purple-400 mt-1">2</p>
+        </div>
+      </div>
+      <div class="bg-white dark:bg-gray-800 rounded-lg shadow-sm border border-gray-100 dark:border-gray-700 p-6">
+        <p class="text-sm text-gray-500 dark:text-gray-400 text-center py-12">대시보드 콘텐츠 영역 — 우하단 AI 챗봇 버튼을 클릭하세요</p>
+      </div>
+    </main>
+
+    <!-- 모바일 하단 탭바 -->
+    <nav class="lg:hidden fixed bottom-0 inset-x-0 bg-white dark:bg-gray-800 border-t border-gray-200 dark:border-gray-700 z-20">
+      <div class="flex items-center justify-around py-2">
+        <a href="dashboard.html" class="flex flex-col items-center gap-1 px-3 py-1 text-indigo-600 dark:text-indigo-400"><svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 12l2-2m0 0l7-7 7 7M5 10v10a1 1 0 001 1h3m10-11l2 2m-2-2v10a1 1 0 01-1 1h-3m-6 0a1 1 0 001-1v-4a1 1 0 011-1h2a1 1 0 011 1v4a1 1 0 001 1m-6 0h6"/></svg><span class="text-[10px] font-medium">대시보드</span></a>
+        <a href="projects.html" class="flex flex-col items-center gap-1 px-3 py-1 text-gray-400"><svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 7v10a2 2 0 002 2h14a2 2 0 002-2V9a2 2 0 00-2-2h-6l-2-2H5a2 2 0 00-2 2z"/></svg><span class="text-[10px]">프로젝트</span></a>
+        <a href="tasks.html" class="flex flex-col items-center gap-1 px-3 py-1 text-gray-400"><svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2m-6 9l2 2 4-4"/></svg><span class="text-[10px]">업무</span></a>
+        <a href="notifications.html" class="flex flex-col items-center gap-1 px-3 py-1 text-gray-400"><svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 17h5l-1.405-1.405A2.032 2.032 0 0118 14.158V11a6.002 6.002 0 00-4-5.659V5a2 2 0 10-4 0v.341C7.67 6.165 6 8.388 6 11v3.159c0 .538-.214 1.055-.595 1.436L4 17h5m6 0v1a3 3 0 11-6 0v-1m6 0H9"/></svg><span class="text-[10px]">알림</span></a>
+      </div>
+    </nav>
+  </div>
+
+  <!-- ========================================== -->
+  <!-- AI 챗봇 (D-1 ~ D-4 통합 와이어프레임)       -->
+  <!-- ========================================== -->
+  <div x-data="chatbotWidget()" x-cloak>
+
+    <!-- D-1: 플로팅 버튼 -->
+    <button @click="toggle()"
+      :class="isOpen ? 'scale-0 opacity-0' : 'scale-100 opacity-100'"
+      class="fixed bottom-6 right-6 lg:bottom-8 lg:right-8 z-50 w-14 h-14 bg-gradient-to-br from-indigo-500 to-purple-600 rounded-full shadow-lg hover:shadow-xl flex items-center justify-center text-white transition-all duration-300 hover:scale-110 group">
+      <!-- AI 아이콘 -->
+      <svg class="w-7 h-7" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9.75 3.104v5.714a2.25 2.25 0 01-.659 1.591L5 14.5M9.75 3.104c-.251.023-.501.05-.75.082m.75-.082a24.301 24.301 0 014.5 0m0 0v5.714a2.25 2.25 0 00.659 1.591L19 14.5M14.25 3.104c.251.023.501.05.75.082M19 14.5l-2.47 2.47a2.25 2.25 0 00-.659 1.59v.876c0 .828-.672 1.5-1.5 1.5h-4.742c-.828 0-1.5-.672-1.5-1.5v-.876a2.25 2.25 0 00-.659-1.59L5 14.5m14 0V5a2 2 0 00-2-2H7a2 2 0 00-2 2v9.5"/></svg>
+      <!-- 호버 툴팁 -->
+      <span class="absolute -top-10 right-0 bg-gray-900 dark:bg-gray-700 text-white text-xs px-3 py-1.5 rounded-lg whitespace-nowrap opacity-0 group-hover:opacity-100 transition-opacity pointer-events-none">AI 어시스턴트</span>
+      <!-- 알림 뱃지 -->
+      <span class="absolute -top-1 -right-1 w-5 h-5 bg-red-500 text-white text-[10px] font-bold rounded-full flex items-center justify-center bounce-in">1</span>
+    </button>
+
+    <!-- D-2 + D-3 + D-4: 채팅 패널 -->
+    <div x-show="isOpen" x-transition:enter="transition ease-out duration-300" x-transition:enter-start="translate-y-4 opacity-0 scale-95" x-transition:enter-end="translate-y-0 opacity-100 scale-100" x-transition:leave="transition ease-in duration-200" x-transition:leave-start="translate-y-0 opacity-100 scale-100" x-transition:leave-end="translate-y-4 opacity-0 scale-95"
+      :class="isMobileFullscreen ? 'fixed inset-0 z-50 rounded-none' : 'fixed bottom-6 right-6 lg:bottom-8 lg:right-8 z-50 w-[380px] h-[600px] max-h-[80vh] rounded-2xl'"
+      class="bg-white dark:bg-gray-800 shadow-2xl border border-gray-200 dark:border-gray-700 flex flex-col overflow-hidden">
+
+      <!-- 패널 헤더 -->
+      <div class="bg-gradient-to-r from-indigo-600 to-purple-600 px-4 py-3 flex items-center justify-between flex-shrink-0">
+        <div class="flex items-center gap-3">
+          <div class="w-9 h-9 bg-white/20 rounded-full flex items-center justify-center">
+            <svg class="w-5 h-5 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9.75 3.104v5.714a2.25 2.25 0 01-.659 1.591L5 14.5M9.75 3.104c-.251.023-.501.05-.75.082m.75-.082a24.301 24.301 0 014.5 0m0 0v5.714a2.25 2.25 0 00.659 1.591L19 14.5M14.25 3.104c.251.023.501.05.75.082M19 14.5l-2.47 2.47a2.25 2.25 0 00-.659 1.59v.876c0 .828-.672 1.5-1.5 1.5h-4.742c-.828 0-1.5-.672-1.5-1.5v-.876a2.25 2.25 0 00-.659-1.59L5 14.5m14 0V5a2 2 0 00-2-2H7a2 2 0 00-2 2v9.5"/></svg>
+          </div>
+          <div>
+            <h3 class="text-white font-semibold text-sm">CS 어시스턴트</h3>
+            <div class="flex items-center gap-1.5">
+              <span class="w-2 h-2 bg-green-400 rounded-full"></span>
+              <span class="text-white/70 text-xs">온라인</span>
+            </div>
+          </div>
+        </div>
+        <div class="flex items-center gap-1">
+          <!-- 세션 목록 버튼 -->
+          <button @click="showSessions = !showSessions" class="p-2 hover:bg-white/10 rounded-lg transition-colors" title="대화 이력">
+            <svg class="w-4 h-4 text-white/80" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z"/></svg>
+          </button>
+          <!-- D-4: 모바일 전체화면 토글 -->
+          <button @click="isMobileFullscreen = !isMobileFullscreen" class="p-2 hover:bg-white/10 rounded-lg transition-colors lg:hidden" title="전체화면">
+            <svg class="w-4 h-4 text-white/80" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 8V4m0 0h4M4 4l5 5m11-1V4m0 0h-4m4 0l-5 5M4 16v4m0 0h4m-4 0l5-5m11 5l-5-5m5 5v-4m0 4h-4"/></svg>
+          </button>
+          <!-- 닫기 -->
+          <button @click="toggle()" class="p-2 hover:bg-white/10 rounded-lg transition-colors">
+            <svg class="w-4 h-4 text-white/80" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"/></svg>
+          </button>
+        </div>
+      </div>
+
+      <!-- 세션 이력 드롭다운 -->
+      <div x-show="showSessions" x-cloak class="border-b border-gray-200 dark:border-gray-700 bg-gray-50 dark:bg-gray-900 px-4 py-3 flex-shrink-0">
+        <p class="text-xs font-semibold text-gray-500 dark:text-gray-400 mb-2">이전 대화</p>
+        <div class="space-y-1.5 max-h-32 overflow-y-auto">
+          <template x-for="session in sessions" :key="session.id">
+            <button @click="loadSession(session.id)" class="w-full text-left px-3 py-2 text-xs rounded-lg hover:bg-gray-100 dark:hover:bg-gray-800 transition-colors flex items-center justify-between">
+              <span class="text-gray-700 dark:text-gray-300 truncate" x-text="session.title"></span>
+              <span class="text-gray-400 text-[10px] flex-shrink-0 ml-2" x-text="session.date"></span>
+            </button>
+          </template>
+        </div>
+        <button @click="newSession()" class="w-full mt-2 px-3 py-2 text-xs text-indigo-600 dark:text-indigo-400 hover:bg-indigo-50 dark:hover:bg-indigo-900/20 rounded-lg font-medium transition-colors flex items-center gap-1.5">
+          <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4"/></svg>
+          새 대화 시작
+        </button>
+      </div>
+
+      <!-- 메시지 영역 -->
+      <div class="flex-1 overflow-y-auto px-4 py-4 space-y-4" id="chatMessages">
+
+        <!-- 빠른 질문 프리셋 (첫 화면) -->
+        <div x-show="messages.length === 0" class="space-y-4">
+          <div class="text-center py-4">
+            <div class="w-16 h-16 bg-gradient-to-br from-indigo-100 to-purple-100 dark:from-indigo-900/30 dark:to-purple-900/30 rounded-2xl flex items-center justify-center mx-auto mb-3">
+              <svg class="w-8 h-8 text-indigo-500" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9.75 3.104v5.714a2.25 2.25 0 01-.659 1.591L5 14.5M9.75 3.104c-.251.023-.501.05-.75.082m.75-.082a24.301 24.301 0 014.5 0m0 0v5.714a2.25 2.25 0 00.659 1.591L19 14.5M14.25 3.104c.251.023.501.05.75.082M19 14.5l-2.47 2.47a2.25 2.25 0 00-.659 1.59v.876c0 .828-.672 1.5-1.5 1.5h-4.742c-.828 0-1.5-.672-1.5-1.5v-.876a2.25 2.25 0 00-.659-1.59L5 14.5m14 0V5a2 2 0 00-2-2H7a2 2 0 00-2 2v9.5"/></svg>
+            </div>
+            <h4 class="text-sm font-semibold text-gray-800 dark:text-white">안녕하세요, 홍길동님!</h4>
+            <p class="text-xs text-gray-500 dark:text-gray-400 mt-1">무엇을 도와드릴까요?</p>
+          </div>
+
+          <!-- 빠른 질문 버튼 그리드 -->
+          <div class="grid grid-cols-2 gap-2">
+            <template x-for="preset in presets" :key="preset.text">
+              <button @click="sendPreset(preset.query)"
+                class="flex items-center gap-2 px-3 py-2.5 text-left text-xs bg-gray-50 dark:bg-gray-700/50 hover:bg-indigo-50 dark:hover:bg-indigo-900/20 border border-gray-200 dark:border-gray-600 hover:border-indigo-300 dark:hover:border-indigo-700 rounded-xl transition-colors">
+                <span x-text="preset.icon" class="text-base flex-shrink-0"></span>
+                <span class="text-gray-700 dark:text-gray-300 leading-tight" x-text="preset.text"></span>
+              </button>
+            </template>
+          </div>
+        </div>
+
+        <!-- D-3: 메시지 말풍선 -->
+        <template x-for="(msg, idx) in messages" :key="idx">
+          <div :class="msg.role === 'user' ? 'flex justify-end' : 'flex justify-start'" class="slide-up">
+            <!-- AI 메시지 -->
+            <div x-show="msg.role === 'ai'" class="flex gap-2.5 max-w-[85%]">
+              <div class="w-7 h-7 bg-gradient-to-br from-indigo-500 to-purple-600 rounded-full flex items-center justify-center flex-shrink-0 mt-1">
+                <svg class="w-4 h-4 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9.75 3.104v5.714a2.25 2.25 0 01-.659 1.591L5 14.5M14.25 3.104v5.714a2.25 2.25 0 00.659 1.591L19 14.5"/></svg>
+              </div>
+              <div>
+                <div class="bg-gray-100 dark:bg-gray-700 rounded-2xl rounded-tl-md px-4 py-3 text-sm text-gray-800 dark:text-gray-100 leading-relaxed" x-html="msg.content"></div>
+                <span class="text-[10px] text-gray-400 dark:text-gray-500 mt-1 block pl-1" x-text="msg.time"></span>
+              </div>
+            </div>
+            <!-- 사용자 메시지 -->
+            <div x-show="msg.role === 'user'" class="max-w-[85%]">
+              <div class="bg-indigo-600 text-white rounded-2xl rounded-tr-md px-4 py-3 text-sm leading-relaxed" x-text="msg.content"></div>
+              <span class="text-[10px] text-gray-400 dark:text-gray-500 mt-1 block text-right pr-1" x-text="msg.time"></span>
+            </div>
+          </div>
+        </template>
+
+        <!-- 타이핑 인디케이터 -->
+        <div x-show="isTyping" class="flex gap-2.5">
+          <div class="w-7 h-7 bg-gradient-to-br from-indigo-500 to-purple-600 rounded-full flex items-center justify-center flex-shrink-0">
+            <svg class="w-4 h-4 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9.75 3.104v5.714a2.25 2.25 0 01-.659 1.591L5 14.5M14.25 3.104v5.714a2.25 2.25 0 00.659 1.591L19 14.5"/></svg>
+          </div>
+          <div class="bg-gray-100 dark:bg-gray-700 rounded-2xl rounded-tl-md px-4 py-3 flex items-center gap-1.5">
+            <div class="w-2 h-2 bg-gray-400 dark:bg-gray-500 rounded-full typing-dot"></div>
+            <div class="w-2 h-2 bg-gray-400 dark:bg-gray-500 rounded-full typing-dot"></div>
+            <div class="w-2 h-2 bg-gray-400 dark:bg-gray-500 rounded-full typing-dot"></div>
+          </div>
+        </div>
+      </div>
+
+      <!-- 빠른 질문 (대화 중 — 입력창 상단) -->
+      <div x-show="messages.length > 0 && !isTyping" x-cloak class="px-4 py-2 border-t border-gray-100 dark:border-gray-700 flex-shrink-0">
+        <div class="flex gap-1.5 overflow-x-auto pb-1">
+          <template x-for="preset in quickPresets" :key="preset">
+            <button @click="sendPreset(preset)" class="whitespace-nowrap px-3 py-1.5 text-[11px] bg-gray-100 dark:bg-gray-700 hover:bg-indigo-100 dark:hover:bg-indigo-900/30 text-gray-600 dark:text-gray-300 rounded-full border border-gray-200 dark:border-gray-600 transition-colors" x-text="preset"></button>
+          </template>
+        </div>
+      </div>
+
+      <!-- 입력창 -->
+      <div class="px-4 py-3 border-t border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-800 flex-shrink-0">
+        <div class="flex items-end gap-2">
+          <div class="flex-1 relative">
+            <textarea x-model="input" @keydown.enter.prevent="!$event.shiftKey && send()" rows="1" placeholder="메시지를 입력하세요..." class="w-full px-4 py-2.5 bg-gray-100 dark:bg-gray-700 border-0 rounded-xl text-sm resize-none focus:outline-none focus:ring-2 focus:ring-indigo-500 max-h-24 text-gray-800 dark:text-gray-100 placeholder-gray-400" style="field-sizing: content;"></textarea>
+          </div>
+          <button @click="send()" :disabled="!input.trim() || isTyping"
+            :class="input.trim() && !isTyping ? 'bg-indigo-600 hover:bg-indigo-700 text-white' : 'bg-gray-200 dark:bg-gray-700 text-gray-400 cursor-not-allowed'"
+            class="w-10 h-10 rounded-xl flex items-center justify-center flex-shrink-0 transition-colors">
+            <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 19l9 2-9-18-9 18 9-2zm0 0v-8"/></svg>
+          </button>
+        </div>
+        <p class="text-[10px] text-gray-400 dark:text-gray-500 mt-1.5 text-center">CS 어시스턴트는 읽기 전용이며, 데이터를 수정할 수 없습니다.</p>
+      </div>
+    </div>
+  </div>
+
+  <!-- 모바일 사이드바 오버레이 -->
+  <div x-show="mobileMenu" x-cloak @click="mobileMenu = false" class="lg:hidden fixed inset-0 bg-black/50 z-40"></div>
+  <aside x-show="mobileMenu" x-cloak x-transition:enter="transition ease-out duration-200" x-transition:enter-start="-translate-x-full" x-transition:enter-end="translate-x-0" x-transition:leave="transition ease-in duration-200" x-transition:leave-start="translate-x-0" x-transition:leave-end="-translate-x-full" class="lg:hidden fixed inset-y-0 left-0 w-64 bg-white dark:bg-gray-800 z-50 shadow-xl">
+    <div class="flex items-center justify-between px-6 py-5 border-b border-gray-200 dark:border-gray-700">
+      <span class="text-lg font-bold text-gray-800 dark:text-white">Contract Sync</span>
+      <button @click="mobileMenu = false" class="p-1 rounded hover:bg-gray-100 dark:hover:bg-gray-700"><svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"/></svg></button>
+    </div>
+    <nav class="px-3 py-4 space-y-1">
+      <a href="dashboard.html" class="flex items-center gap-3 px-3 py-2.5 rounded-lg bg-indigo-50 dark:bg-indigo-900/30 text-indigo-600 dark:text-indigo-400 font-medium text-sm">대시보드</a>
+      <a href="clients.html" class="flex items-center gap-3 px-3 py-2.5 rounded-lg text-gray-600 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700 text-sm">발주처</a>
+      <a href="projects.html" class="flex items-center gap-3 px-3 py-2.5 rounded-lg text-gray-600 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700 text-sm">프로젝트</a>
+      <a href="tasks.html" class="flex items-center gap-3 px-3 py-2.5 rounded-lg text-gray-600 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700 text-sm">업무</a>
+      <a href="report-hub.html" class="flex items-center gap-3 px-3 py-2.5 rounded-lg text-gray-600 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700 text-sm">보고서</a>
+      <a href="payments.html" class="flex items-center gap-3 px-3 py-2.5 rounded-lg text-gray-600 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700 text-sm">수금</a>
+      <a href="notifications.html" class="flex items-center gap-3 px-3 py-2.5 rounded-lg text-gray-600 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700 text-sm">알림</a>
+      <a href="settings.html" class="flex items-center gap-3 px-3 py-2.5 rounded-lg text-gray-600 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700 text-sm">설정</a>
+    </nav>
+  </aside>
+
+</div>
+
+<script>
+function appLayout() {
+  return {
+    mobileMenu: false,
+    darkMode: localStorage.getItem('darkMode') === 'true',
+    init() { if (this.darkMode) document.documentElement.classList.add('dark'); },
+    toggleDark() { this.darkMode = !this.darkMode; document.documentElement.classList.toggle('dark'); localStorage.setItem('darkMode', this.darkMode); }
+  }
+}
+
+function chatbotWidget() {
+  return {
+    isOpen: false,
+    isTyping: false,
+    isMobileFullscreen: window.innerWidth < 1024,
+    showSessions: false,
+    input: '',
+    messages: [],
+
+    // 빠른 질문 프리셋 (첫 화면용 — 공통 3 + 직무별 3)
+    presets: [
+      { icon: '📋', text: '내 미완료 업무', query: '나에게 할당된 미완료 업무 목록을 보여줘' },
+      { icon: '📊', text: '진행 중 프로젝트', query: '현재 진행 중인 프로젝트 목록과 진행률을 보여줘' },
+      { icon: '⏰', text: '이번 주 마감 업무', query: '이번 주 내 마감인 업무를 알려줘' },
+      { icon: '📌', text: '오늘의 업무 요약', query: '오늘 내가 해야 할 업무를 정리해줘' },
+      { icon: '🎨', text: '내 디자인 업무', query: '나에게 할당된 디자인 단계 업무 목록' },
+      { icon: '🔄', text: '수정 요청 목록', query: '고객 수정 요청 상태인 업무' },
+    ],
+
+    // 대화 중 빠른 질문 (입력창 상단)
+    quickPresets: ['내 업무', '프로젝트 현황', '팀 업무량', '읽지 않은 알림'],
+
+    // 이전 대화 세션
+    sessions: [
+      { id: 1, title: '프로젝트 진행 현황 질의', date: '오늘' },
+      { id: 2, title: '디자인 업무 확인', date: '어제' },
+      { id: 3, title: '팀 업무량 조회', date: '3월 6일' },
+    ],
+
+    toggle() {
+      this.isOpen = !this.isOpen;
+      if (this.isOpen && window.innerWidth < 1024) {
+        this.isMobileFullscreen = true;
+      }
+    },
+
+    send() {
+      const text = this.input.trim();
+      if (!text || this.isTyping) return;
+
+      this.messages.push({ role: 'user', content: text, time: this.now() });
+      this.input = '';
+      this.isTyping = true;
+
+      // AI 응답 시뮬레이션 (1.5초 후)
+      setTimeout(() => {
+        this.isTyping = false;
+        this.messages.push({
+          role: 'ai',
+          content: this.getResponse(text),
+          time: this.now()
+        });
+        this.$nextTick(() => {
+          const el = document.getElementById('chatMessages');
+          if (el) el.scrollTop = el.scrollHeight;
+        });
+      }, 1500);
+
+      this.$nextTick(() => {
+        const el = document.getElementById('chatMessages');
+        if (el) el.scrollTop = el.scrollHeight;
+      });
+    },
+
+    sendPreset(query) {
+      this.input = query;
+      this.send();
+    },
+
+    loadSession(id) {
+      this.showSessions = false;
+      this.messages = [
+        { role: 'ai', content: '이전 대화를 불러왔습니다. 이어서 대화할 수 있습니다.', time: '이전' }
+      ];
+    },
+
+    newSession() {
+      this.showSessions = false;
+      this.messages = [];
+    },
+
+    now() {
+      const d = new Date();
+      return `${d.getHours()}:${String(d.getMinutes()).padStart(2, '0')}`;
+    },
+
+    getResponse(query) {
+      if (query.includes('미완료') || query.includes('할당') || query.includes('내 업무')) {
+        return `홍길동님의 미완료 업무 <strong>4건</strong>입니다:\n\n<ul class="list-disc pl-4 mt-2 space-y-1"><li>📋 <strong>메인 페이지 반응형 작업</strong> — ABC Corp 웹 리뉴얼 (기한: 3/10)</li><li>📋 <strong>API 문서 작성</strong> — OO시스템 구축 (기한: 3/12)</li><li>📋 <strong>서브 페이지 디자인 시안</strong> — DEF미디어 브랜딩 (기한: 3/14)</li><li>📋 <strong>관리자 대시보드 UI</strong> — 모바일 앱 MVP (기한: 3/15)</li></ul>`;
+      }
+      if (query.includes('프로젝트') && (query.includes('진행') || query.includes('현황'))) {
+        return `현재 진행 중인 프로젝트 <strong>5건</strong>입니다:\n\n<table class="w-full text-xs mt-2"><tr class="border-b border-gray-200 dark:border-gray-600"><td class="py-1.5 font-medium">ABC Corp 웹 리뉴얼</td><td class="text-right text-indigo-600 dark:text-indigo-400">72%</td></tr><tr class="border-b border-gray-200 dark:border-gray-600"><td class="py-1.5 font-medium">DEF미디어 브랜딩</td><td class="text-right text-indigo-600 dark:text-indigo-400">45%</td></tr><tr class="border-b border-gray-200 dark:border-gray-600"><td class="py-1.5 font-medium">OO시스템 구축</td><td class="text-right text-indigo-600 dark:text-indigo-400">30%</td></tr><tr class="border-b border-gray-200 dark:border-gray-600"><td class="py-1.5 font-medium">모바일 앱 MVP</td><td class="text-right text-orange-600 dark:text-orange-400">15%</td></tr><tr><td class="py-1.5 font-medium">GHI쇼핑몰 리뉴얼</td><td class="text-right text-orange-600 dark:text-orange-400">8%</td></tr></table>`;
+      }
+      if (query.includes('마감') || query.includes('이번 주')) {
+        return `이번 주 마감 업무 <strong>3건</strong>입니다:\n\n<ul class="list-none mt-2 space-y-2"><li>⚠️ <strong>메인 페이지 반응형 작업</strong><br><span class="text-xs text-red-500">마감: 3/10 (월) — 2일 남음</span></li><li>⚠️ <strong>로고 디자인 최종안</strong><br><span class="text-xs text-orange-500">마감: 3/12 (수) — 4일 남음</span></li><li>📋 <strong>API 문서 작성</strong><br><span class="text-xs text-orange-500">마감: 3/12 (수) — 4일 남음</span></li></ul>`;
+      }
+      if (query.includes('팀') && query.includes('업무량')) {
+        return `디자인팀 현재 업무량입니다:\n\n<table class="w-full text-xs mt-2"><tr class="border-b border-gray-200 dark:border-gray-600"><td class="py-1.5">홍길동</td><td class="text-right"><span class="text-red-500 font-medium">8/10</span> (과부하)</td></tr><tr class="border-b border-gray-200 dark:border-gray-600"><td class="py-1.5">김개발</td><td class="text-right"><span class="text-yellow-500 font-medium">6/8</span></td></tr><tr class="border-b border-gray-200 dark:border-gray-600"><td class="py-1.5">박프론</td><td class="text-right"><span class="text-green-500 font-medium">3/8</span></td></tr><tr><td class="py-1.5">이테스</td><td class="text-right"><span class="text-yellow-500 font-medium">7/8</span></td></tr></table>`;
+      }
+      if (query.includes('미수금') || query.includes('수금') || query.includes('매출')) {
+        return '수금 정보는 <strong>관리자만 조회할 수 있습니다</strong>. 대표님에게 문의해주세요.';
+      }
+      if (query.includes('알림')) {
+        return '읽지 않은 알림 <strong>5건</strong>입니다:\n\n<ul class="list-none mt-2 space-y-1.5"><li>🔔 업무 상태 변경: UI 디자인 시안 작성 (10분 전)</li><li>💬 새 댓글: 메인 페이지 반응형 (25분 전)</li><li>📁 프로젝트 마감 임박: ABC Corp (1시간 전)</li><li>💰 수금 연체 알림 (2시간 전)</li><li>📋 새 업무 배정: API 문서 작성 (3시간 전)</li></ul>';
+      }
+      if (query.includes('오늘') && query.includes('업무')) {
+        return `오늘의 업무 요약입니다:\n\n<div class="mt-2 space-y-2"><div class="flex items-center gap-2"><span class="text-green-500">✅</span><span class="text-xs">완료: 2건</span></div><div class="flex items-center gap-2"><span class="text-blue-500">🔄</span><span class="text-xs">진행 중: 3건</span></div><div class="flex items-center gap-2"><span class="text-orange-500">⏳</span><span class="text-xs">대기: 1건</span></div></div>\n\n<p class="mt-2 text-xs">가장 긴급한 업무: <strong>메인 페이지 반응형 작업</strong> (마감 3/10)</p>`;
+      }
+      return '질문을 이해했습니다. 관련 데이터를 조회하고 있습니다. 구체적인 프로젝트명이나 업무명을 포함하면 더 정확한 결과를 제공할 수 있습니다.';
+    }
+  }
+}
+</script>
+
+</body>
+</html>

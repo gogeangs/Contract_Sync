@@ -1,0 +1,708 @@
+<!DOCTYPE html>
+<html lang="ko" class="">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Contract Sync v2 - 피드백 요청</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <script defer src="https://cdn.jsdelivr.net/npm/alpinejs@3.x.x/dist/cdn.min.js"></script>
+  <script>
+    tailwind.config = { darkMode: 'class' }
+  </script>
+  <style>
+    [x-cloak] { display: none !important; }
+    @keyframes fadeIn { from { opacity: 0; transform: translateY(8px); } to { opacity: 1; transform: translateY(0); } }
+    .fade-in { animation: fadeIn 0.3s ease-out; }
+  </style>
+</head>
+<body class="bg-gray-50 dark:bg-gray-900 text-gray-800 dark:text-gray-100 transition-colors duration-300">
+
+<div x-data="appLayout()" class="flex h-screen overflow-hidden">
+
+  <!-- 좌측 사이드바 (데스크톱) -->
+  <aside class="hidden lg:flex lg:flex-col w-64 bg-white dark:bg-gray-800 border-r border-gray-200 dark:border-gray-700 fixed inset-y-0 left-0 z-30">
+    <div class="flex items-center gap-3 px-6 py-5 border-b border-gray-200 dark:border-gray-700">
+      <div class="w-8 h-8 bg-indigo-600 rounded-lg flex items-center justify-center">
+        <svg class="w-5 h-5 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"/></svg>
+      </div>
+      <span class="text-lg font-bold text-gray-800 dark:text-white">Contract Sync</span>
+    </div>
+    <div class="px-4 py-3">
+      <div class="relative">
+        <button class="w-full flex items-center justify-between px-3 py-2 text-sm bg-gray-50 dark:bg-gray-700 rounded-lg hover:bg-gray-100 dark:hover:bg-gray-600 transition-colors">
+          <div class="flex items-center gap-2">
+            <svg class="w-4 h-4 text-gray-500 dark:text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17 20h5v-2a3 3 0 00-5.356-1.857M17 20H7m10 0v-2c0-.656-.126-1.283-.356-1.857M7 20H2v-2a3 3 0 015.356-1.857M7 20v-2c0-.656.126-1.283.356-1.857m0 0a5.002 5.002 0 019.288 0M15 7a3 3 0 11-6 0 3 3 0 016 0z"/></svg>
+            <span class="text-gray-700 dark:text-gray-200">디자인팀</span>
+          </div>
+          <svg class="w-4 h-4 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7"/></svg>
+        </button>
+      </div>
+    </div>
+    <nav class="flex-1 px-3 py-2 space-y-1 overflow-y-auto">
+      <a href="dashboard.html" class="flex items-center gap-3 px-3 py-2.5 rounded-lg text-gray-600 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700 text-sm transition-colors">
+        <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 12l2-2m0 0l7-7 7 7M5 10v10a1 1 0 001 1h3m10-11l2 2m-2-2v10a1 1 0 01-1 1h-3m-6 0a1 1 0 001-1v-4a1 1 0 011-1h2a1 1 0 011 1v4a1 1 0 001 1m-6 0h6"/></svg>
+        <span>대시보드</span>
+      </a>
+      <a href="clients.html" class="flex items-center gap-3 px-3 py-2.5 rounded-lg text-gray-600 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700 text-sm transition-colors">
+        <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 21V5a2 2 0 00-2-2H7a2 2 0 00-2 2v16m14 0h2m-2 0h-5m-9 0H3m2 0h5M9 7h1m-1 4h1m4-4h1m-1 4h1m-5 10v-5a1 1 0 011-1h2a1 1 0 011 1v5m-4 0h4"/></svg>
+        <span>발주처</span>
+      </a>
+      <a href="projects.html" class="flex items-center gap-3 px-3 py-2.5 rounded-lg bg-indigo-50 dark:bg-indigo-900/30 text-indigo-600 dark:text-indigo-400 font-medium text-sm">
+        <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 7v10a2 2 0 002 2h14a2 2 0 002-2V9a2 2 0 00-2-2h-6l-2-2H5a2 2 0 00-2 2z"/></svg>
+        <span>프로젝트</span>
+      </a>
+      <a href="tasks.html" class="flex items-center gap-3 px-3 py-2.5 rounded-lg text-gray-600 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700 text-sm transition-colors">
+        <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2m-6 9l2 2 4-4"/></svg>
+        <span>업무</span>
+      </a>
+      <a href="report-hub.html" class="flex items-center gap-3 px-3 py-2.5 rounded-lg text-gray-600 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700 text-sm transition-colors">
+        <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 17v-2m3 2v-4m3 4v-6m2 10H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"/></svg>
+        <span>보고서</span>
+      </a>
+      <a href="payments.html" class="flex items-center gap-3 px-3 py-2.5 rounded-lg text-gray-600 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700 text-sm transition-colors">
+        <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8c-1.657 0-3 .895-3 2s1.343 2 3 2 3 .895 3 2-1.343 2-3 2m0-8c1.11 0 2.08.402 2.599 1M12 8V7m0 1v8m0 0v1m0-1c-1.11 0-2.08-.402-2.599-1M21 12a9 9 0 11-18 0 9 9 0 0118 0z"/></svg>
+        <span>수금</span>
+      </a>
+      <a href="feedback-dashboard.html" class="flex items-center gap-3 px-3 py-2.5 rounded-lg text-gray-600 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700 text-sm transition-colors">
+        <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 10h.01M12 10h.01M16 10h.01M9 16H5a2 2 0 01-2-2V6a2 2 0 012-2h14a2 2 0 012 2v8a2 2 0 01-2 2h-5l-5 5v-5z"/></svg>
+        <span>피드백</span>
+      </a>
+      <a href="notifications.html" class="flex items-center gap-3 px-3 py-2.5 rounded-lg text-gray-600 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700 text-sm transition-colors">
+        <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 17h5l-1.405-1.405A2.032 2.032 0 0118 14.158V11a6.002 6.002 0 00-4-5.659V5a2 2 0 10-4 0v.341C7.67 6.165 6 8.388 6 11v3.159c0 .538-.214 1.055-.595 1.436L4 17h5m6 0v1a3 3 0 11-6 0v-1m6 0H9"/></svg>
+        <span>알림</span>
+      </a>
+      <a href="settings.html" class="flex items-center gap-3 px-3 py-2.5 rounded-lg text-gray-600 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700 text-sm transition-colors">
+        <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10.325 4.317c.426-1.756 2.924-1.756 3.35 0a1.724 1.724 0 002.573 1.066c1.543-.94 3.31.826 2.37 2.37a1.724 1.724 0 001.066 2.573c1.756.426 1.756 2.924 0 3.35a1.724 1.724 0 00-1.066 2.573c.94 1.543-.826 3.31-2.37 2.37a1.724 1.724 0 00-2.573 1.066c-.426 1.756-2.924 1.756-3.35 0a1.724 1.724 0 00-2.573-1.066c-1.543.94-3.31-.826-2.37-2.37a1.724 1.724 0 00-1.066-2.573c-1.756-.426-1.756-2.924 0-3.35a1.724 1.724 0 001.066-2.573c-.94-1.543.826-3.31 2.37-2.37.996.608 2.296.07 2.572-1.065z"/><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z"/></svg>
+        <span>설정</span>
+      </a>
+    </nav>
+    <div class="px-4 py-3 border-t border-gray-200 dark:border-gray-700">
+      <div class="flex items-center gap-3">
+        <div class="w-8 h-8 bg-indigo-100 dark:bg-indigo-900 rounded-full flex items-center justify-center">
+          <span class="text-sm font-medium text-indigo-600 dark:text-indigo-400">김</span>
+        </div>
+        <div class="flex-1 min-w-0">
+          <p class="text-sm font-medium truncate">김매니저</p>
+          <p class="text-xs text-gray-500 dark:text-gray-400 truncate">pm@company.com</p>
+        </div>
+        <button @click="darkMode = !darkMode; $el.closest('html')?.classList.toggle('dark')" class="p-1.5 rounded-lg hover:bg-gray-100 dark:hover:bg-gray-700">
+          <svg x-show="!darkMode" class="w-4 h-4 text-gray-500" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M20.354 15.354A9 9 0 018.646 3.646 9.003 9.003 0 0012 21a9.003 9.003 0 008.354-5.646z"/></svg>
+          <svg x-show="darkMode" x-cloak class="w-4 h-4 text-yellow-400" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 3v1m0 16v1m9-9h-1M4 12H3m15.364 6.364l-.707-.707M6.343 6.343l-.707-.707m12.728 0l-.707.707M6.343 17.657l-.707.707M16 12a4 4 0 11-8 0 4 4 0 018 0z"/></svg>
+        </button>
+      </div>
+    </div>
+  </aside>
+
+  <!-- 모바일 오버레이 -->
+  <div x-show="mobileMenuOpen" x-cloak @click="mobileMenuOpen = false" class="fixed inset-0 bg-black/50 z-40 lg:hidden"></div>
+
+  <!-- 메인 콘텐츠 -->
+  <div class="flex-1 flex flex-col lg:ml-64 min-h-screen">
+    <!-- 상단 헤더 -->
+    <header class="sticky top-0 z-20 bg-white dark:bg-gray-800 border-b border-gray-200 dark:border-gray-700">
+      <div class="flex items-center justify-between px-4 lg:px-6 py-3">
+        <div class="flex items-center gap-3">
+          <button @click="mobileMenuOpen = true" class="lg:hidden p-2 rounded-lg hover:bg-gray-100 dark:hover:bg-gray-700">
+            <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 6h16M4 12h16M4 18h16"/></svg>
+          </button>
+          <div>
+            <div class="flex items-center gap-2 text-sm text-gray-500 dark:text-gray-400">
+              <a href="projects.html" class="hover:text-indigo-600 dark:hover:text-indigo-400">프로젝트</a>
+              <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7"/></svg>
+              <span>홈페이지 리뉴얼</span>
+              <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7"/></svg>
+              <span class="text-gray-800 dark:text-gray-200 font-medium">피드백 요청</span>
+            </div>
+            <h1 class="text-lg font-bold mt-0.5">고객 피드백 요청</h1>
+          </div>
+        </div>
+        <div class="flex items-center gap-2">
+          <button class="p-2 rounded-lg hover:bg-gray-100 dark:hover:bg-gray-700 relative">
+            <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 17h5l-1.405-1.405A2.032 2.032 0 0118 14.158V11a6.002 6.002 0 00-4-5.659V5a2 2 0 10-4 0v.341C7.67 6.165 6 8.388 6 11v3.159c0 .538-.214 1.055-.595 1.436L4 17h5m6 0v1a3 3 0 11-6 0v-1m6 0H9"/></svg>
+          </button>
+        </div>
+      </div>
+      <!-- 프로젝트 상세 탭 바 -->
+      <div class="px-4 lg:px-6 border-t border-gray-100 dark:border-gray-700">
+        <nav class="flex gap-1 -mb-px overflow-x-auto">
+          <a href="project-detail.html" class="px-4 py-3 text-sm text-gray-500 dark:text-gray-400 hover:text-gray-700 dark:hover:text-gray-300 border-b-2 border-transparent whitespace-nowrap">개요</a>
+          <a href="tasks.html" class="px-4 py-3 text-sm text-gray-500 dark:text-gray-400 hover:text-gray-700 dark:hover:text-gray-300 border-b-2 border-transparent whitespace-nowrap">업무</a>
+          <a href="document-detail.html" class="px-4 py-3 text-sm text-gray-500 dark:text-gray-400 hover:text-gray-700 dark:hover:text-gray-300 border-b-2 border-transparent whitespace-nowrap">문서</a>
+          <a href="#" class="px-4 py-3 text-sm text-gray-500 dark:text-gray-400 hover:text-gray-700 dark:hover:text-gray-300 border-b-2 border-transparent whitespace-nowrap">댓글</a>
+          <a href="figma-tab.html" class="px-4 py-3 text-sm text-gray-500 dark:text-gray-400 hover:text-gray-700 dark:hover:text-gray-300 border-b-2 border-transparent whitespace-nowrap">Figma 시안</a>
+          <a href="#" class="px-4 py-3 text-sm font-medium text-indigo-600 dark:text-indigo-400 border-b-2 border-indigo-600 dark:border-indigo-400 whitespace-nowrap">피드백</a>
+        </nav>
+      </div>
+    </header>
+
+    <!-- 메인 콘텐츠 -->
+    <main class="flex-1 p-4 lg:p-6" x-data="feedbackRequestPage()">
+
+      <!-- 요약 카드 -->
+      <div class="grid grid-cols-2 lg:grid-cols-4 gap-4 mb-6">
+        <div class="bg-white dark:bg-gray-800 rounded-xl border border-gray-200 dark:border-gray-700 p-4">
+          <div class="flex items-center gap-3">
+            <div class="w-10 h-10 bg-blue-100 dark:bg-blue-900/30 rounded-lg flex items-center justify-center">
+              <svg class="w-5 h-5 text-blue-600 dark:text-blue-400" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 8l7.89 5.26a2 2 0 002.22 0L21 8M5 19h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z"/></svg>
+            </div>
+            <div>
+              <p class="text-2xl font-bold" x-text="stats.total">4</p>
+              <p class="text-xs text-gray-500 dark:text-gray-400">전체 요청</p>
+            </div>
+          </div>
+        </div>
+        <div class="bg-white dark:bg-gray-800 rounded-xl border border-gray-200 dark:border-gray-700 p-4">
+          <div class="flex items-center gap-3">
+            <div class="w-10 h-10 bg-amber-100 dark:bg-amber-900/30 rounded-lg flex items-center justify-center">
+              <svg class="w-5 h-5 text-amber-600 dark:text-amber-400" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z"/></svg>
+            </div>
+            <div>
+              <p class="text-2xl font-bold text-amber-600 dark:text-amber-400" x-text="stats.waiting">2</p>
+              <p class="text-xs text-gray-500 dark:text-gray-400">응답 대기</p>
+            </div>
+          </div>
+        </div>
+        <div class="bg-white dark:bg-gray-800 rounded-xl border border-gray-200 dark:border-gray-700 p-4">
+          <div class="flex items-center gap-3">
+            <div class="w-10 h-10 bg-green-100 dark:bg-green-900/30 rounded-lg flex items-center justify-center">
+              <svg class="w-5 h-5 text-green-600 dark:text-green-400" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7"/></svg>
+            </div>
+            <div>
+              <p class="text-2xl font-bold text-green-600 dark:text-green-400" x-text="stats.responded">1</p>
+              <p class="text-xs text-gray-500 dark:text-gray-400">응답 완료</p>
+            </div>
+          </div>
+        </div>
+        <div class="bg-white dark:bg-gray-800 rounded-xl border border-gray-200 dark:border-gray-700 p-4">
+          <div class="flex items-center gap-3">
+            <div class="w-10 h-10 bg-red-100 dark:bg-red-900/30 rounded-lg flex items-center justify-center">
+              <svg class="w-5 h-5 text-red-600 dark:text-red-400" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8v4m0 4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"/></svg>
+            </div>
+            <div>
+              <p class="text-2xl font-bold text-red-600 dark:text-red-400" x-text="stats.expired">1</p>
+              <p class="text-xs text-gray-500 dark:text-gray-400">만료</p>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- 액션 바 -->
+      <div class="flex items-center justify-between mb-4">
+        <div class="flex items-center gap-2">
+          <!-- 상태 필터 -->
+          <template x-for="f in filters" :key="f.value">
+            <button @click="activeFilter = f.value" class="px-3 py-1.5 text-sm rounded-full transition-colors" :class="activeFilter === f.value ? 'bg-indigo-100 dark:bg-indigo-900/30 text-indigo-700 dark:text-indigo-300 font-medium' : 'text-gray-500 dark:text-gray-400 hover:bg-gray-100 dark:hover:bg-gray-700'">
+              <span x-text="f.label"></span>
+              <span class="ml-1 text-xs" x-text="'(' + f.count + ')'"></span>
+            </button>
+          </template>
+        </div>
+        <button @click="showCreateModal = true" class="px-4 py-2 bg-indigo-600 hover:bg-indigo-700 text-white text-sm rounded-lg transition-colors flex items-center gap-1.5">
+          <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4"/></svg>
+          피드백 요청
+        </button>
+      </div>
+
+      <!-- 요청 이력 테이블 -->
+      <div class="bg-white dark:bg-gray-800 rounded-xl border border-gray-200 dark:border-gray-700 overflow-hidden">
+        <!-- 데스크톱 테이블 -->
+        <div class="hidden md:block overflow-x-auto">
+          <table class="w-full">
+            <thead>
+              <tr class="border-b border-gray-200 dark:border-gray-700 bg-gray-50 dark:bg-gray-900/50">
+                <th class="text-left px-5 py-3 text-xs font-medium text-gray-500 dark:text-gray-400 uppercase">요청 제목</th>
+                <th class="text-left px-5 py-3 text-xs font-medium text-gray-500 dark:text-gray-400 uppercase">수신자</th>
+                <th class="text-left px-5 py-3 text-xs font-medium text-gray-500 dark:text-gray-400 uppercase">상태</th>
+                <th class="text-left px-5 py-3 text-xs font-medium text-gray-500 dark:text-gray-400 uppercase">리마인더</th>
+                <th class="text-left px-5 py-3 text-xs font-medium text-gray-500 dark:text-gray-400 uppercase">요청일</th>
+                <th class="text-left px-5 py-3 text-xs font-medium text-gray-500 dark:text-gray-400 uppercase">응답일</th>
+                <th class="text-right px-5 py-3 text-xs font-medium text-gray-500 dark:text-gray-400 uppercase">액션</th>
+              </tr>
+            </thead>
+            <tbody class="divide-y divide-gray-100 dark:divide-gray-700">
+              <template x-for="req in filteredRequests" :key="req.id">
+                <tr class="hover:bg-gray-50 dark:hover:bg-gray-700/30 transition-colors">
+                  <td class="px-5 py-4">
+                    <div>
+                      <p class="text-sm font-medium" x-text="req.subject"></p>
+                      <p class="text-xs text-gray-500 dark:text-gray-400 mt-0.5 truncate max-w-[200px]" x-text="req.message"></p>
+                    </div>
+                  </td>
+                  <td class="px-5 py-4">
+                    <div>
+                      <p class="text-sm" x-text="req.recipientName"></p>
+                      <p class="text-xs text-gray-400 dark:text-gray-500" x-text="req.recipientEmail"></p>
+                    </div>
+                  </td>
+                  <td class="px-5 py-4">
+                    <span class="inline-flex items-center gap-1 px-2 py-1 text-xs font-medium rounded-full" :class="statusClass(req.status)">
+                      <span class="w-1.5 h-1.5 rounded-full" :class="statusDot(req.status)"></span>
+                      <span x-text="statusLabel(req.status)"></span>
+                    </span>
+                  </td>
+                  <td class="px-5 py-4">
+                    <div class="flex items-center gap-1" x-show="req.reminderCount > 0">
+                      <template x-for="i in 3" :key="i">
+                        <div class="w-2 h-2 rounded-full" :class="i <= req.reminderCount ? 'bg-amber-400' : 'bg-gray-200 dark:bg-gray-600'"></div>
+                      </template>
+                      <span class="text-xs text-gray-500 dark:text-gray-400 ml-1" x-text="req.reminderCount + '/3회'"></span>
+                    </div>
+                    <span x-show="req.reminderCount === 0" class="text-xs text-gray-400 dark:text-gray-500">-</span>
+                  </td>
+                  <td class="px-5 py-4 text-sm text-gray-500 dark:text-gray-400" x-text="req.createdAt"></td>
+                  <td class="px-5 py-4 text-sm" :class="req.respondedAt ? 'text-gray-700 dark:text-gray-300' : 'text-gray-400 dark:text-gray-500'" x-text="req.respondedAt || '-'"></td>
+                  <td class="px-5 py-4 text-right">
+                    <div class="flex items-center justify-end gap-1">
+                      <button @click="viewDetail(req)" class="p-1.5 hover:bg-gray-100 dark:hover:bg-gray-700 rounded-lg text-gray-500 dark:text-gray-400 transition-colors" title="상세 보기">
+                        <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z"/><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z"/></svg>
+                      </button>
+                      <button x-show="req.status === 'sent'" @click="resendReminder(req)" class="p-1.5 hover:bg-amber-50 dark:hover:bg-amber-900/20 rounded-lg text-amber-500 dark:text-amber-400 transition-colors" title="리마인더 발송">
+                        <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 17h5l-1.405-1.405A2.032 2.032 0 0118 14.158V11a6.002 6.002 0 00-4-5.659V5a2 2 0 10-4 0v.341C7.67 6.165 6 8.388 6 11v3.159c0 .538-.214 1.055-.595 1.436L4 17h5m6 0v1a3 3 0 11-6 0v-1m6 0H9"/></svg>
+                      </button>
+                      <button x-show="req.status === 'sent'" @click="stopReminder(req)" class="p-1.5 hover:bg-red-50 dark:hover:bg-red-900/20 rounded-lg text-red-400 dark:text-red-500 transition-colors" title="리마인더 중단">
+                        <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 12a9 9 0 11-18 0 9 9 0 0118 0z"/><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 10a1 1 0 011-1h4a1 1 0 011 1v4a1 1 0 01-1 1h-4a1 1 0 01-1-1v-4z"/></svg>
+                      </button>
+                    </div>
+                  </td>
+                </tr>
+              </template>
+            </tbody>
+          </table>
+        </div>
+
+        <!-- 모바일 카드 리스트 -->
+        <div class="md:hidden divide-y divide-gray-100 dark:divide-gray-700">
+          <template x-for="req in filteredRequests" :key="req.id">
+            <div class="p-4" @click="viewDetail(req)">
+              <div class="flex items-start justify-between mb-2">
+                <p class="text-sm font-medium flex-1" x-text="req.subject"></p>
+                <span class="inline-flex items-center gap-1 px-2 py-0.5 text-[10px] font-medium rounded-full ml-2 flex-shrink-0" :class="statusClass(req.status)">
+                  <span x-text="statusLabel(req.status)"></span>
+                </span>
+              </div>
+              <div class="flex items-center gap-4 text-xs text-gray-500 dark:text-gray-400">
+                <span x-text="req.recipientName"></span>
+                <span x-text="req.createdAt"></span>
+                <span x-show="req.reminderCount > 0" class="text-amber-500" x-text="'리마인더 ' + req.reminderCount + '회'"></span>
+              </div>
+            </div>
+          </template>
+        </div>
+      </div>
+
+      <!-- 피드백 요청 생성 모달 -->
+      <div x-show="showCreateModal" x-cloak class="fixed inset-0 z-50 flex items-center justify-center p-4" x-transition>
+        <div class="absolute inset-0 bg-black/50" @click="showCreateModal = false"></div>
+        <div class="relative bg-white dark:bg-gray-800 rounded-2xl shadow-2xl w-full max-w-lg max-h-[90vh] overflow-y-auto p-6 fade-in">
+          <div class="flex items-center justify-between mb-5">
+            <h3 class="text-lg font-bold">피드백 요청 생성</h3>
+            <button @click="showCreateModal = false" class="p-1 hover:bg-gray-100 dark:hover:bg-gray-700 rounded-lg">
+              <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"/></svg>
+            </button>
+          </div>
+
+          <div class="space-y-4">
+            <!-- 프로젝트 정보 (자동) -->
+            <div class="bg-gray-50 dark:bg-gray-900 rounded-lg p-3">
+              <div class="flex items-center gap-2 text-sm">
+                <svg class="w-4 h-4 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 7v10a2 2 0 002 2h14a2 2 0 002-2V9a2 2 0 00-2-2h-6l-2-2H5a2 2 0 00-2 2z"/></svg>
+                <span class="text-gray-500 dark:text-gray-400">프로젝트:</span>
+                <span class="font-medium">홈페이지 리뉴얼</span>
+              </div>
+              <div class="flex items-center gap-2 text-sm mt-1">
+                <svg class="w-4 h-4 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 21V5a2 2 0 00-2-2H7a2 2 0 00-2 2v16m14 0h2m-2 0h-5m-9 0H3m2 0h5M9 7h1m-1 4h1m4-4h1m-1 4h1m-5 10v-5a1 1 0 011-1h2a1 1 0 011 1v5m-4 0h4"/></svg>
+                <span class="text-gray-500 dark:text-gray-400">발주처:</span>
+                <span class="font-medium">(주)테크솔루션</span>
+              </div>
+            </div>
+
+            <!-- 수신자 이메일 -->
+            <div>
+              <label class="block text-sm font-medium mb-1.5">수신자 이메일 <span class="text-red-500">*</span></label>
+              <input type="email" x-model="form.email" placeholder="client@example.com" class="w-full px-3 py-2.5 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-sm focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 outline-none">
+            </div>
+
+            <!-- 요청 제목 -->
+            <div>
+              <label class="block text-sm font-medium mb-1.5">요청 제목 <span class="text-red-500">*</span></label>
+              <input type="text" x-model="form.subject" placeholder="예: 메인 페이지 시안 확인 요청" class="w-full px-3 py-2.5 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-sm focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 outline-none">
+            </div>
+
+            <!-- 요청 내용 -->
+            <div>
+              <label class="block text-sm font-medium mb-1.5">요청 내용 <span class="text-red-500">*</span></label>
+              <textarea x-model="form.message" rows="3" placeholder="시안에 대한 설명과 확인 포인트를 작성해주세요" class="w-full px-3 py-2.5 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-sm focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 outline-none resize-none"></textarea>
+            </div>
+
+            <!-- Figma 링크 (선택) -->
+            <div>
+              <label class="block text-sm font-medium mb-1.5">Figma 시안 링크 <span class="text-gray-400 font-normal">(선택)</span></label>
+              <input type="url" x-model="form.figmaUrl" placeholder="https://www.figma.com/design/..." class="w-full px-3 py-2.5 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-sm focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 outline-none">
+            </div>
+
+            <!-- 첨부 파일 (선택) -->
+            <div>
+              <label class="block text-sm font-medium mb-1.5">첨부 파일 <span class="text-gray-400 font-normal">(선택)</span></label>
+              <div class="border-2 border-dashed border-gray-300 dark:border-gray-600 rounded-lg p-4 text-center hover:border-indigo-400 dark:hover:border-indigo-500 transition-colors cursor-pointer">
+                <svg class="w-8 h-8 text-gray-400 mx-auto" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M7 16a4 4 0 01-.88-7.903A5 5 0 1115.9 6L16 6a5 5 0 011 9.9M15 13l-3-3m0 0l-3 3m3-3v12"/></svg>
+                <p class="text-sm text-gray-500 dark:text-gray-400 mt-2">시안 이미지를 드래그하거나 클릭하여 업로드</p>
+                <p class="text-xs text-gray-400 dark:text-gray-500 mt-1">PNG, JPG, PDF (최대 10MB)</p>
+              </div>
+            </div>
+
+            <!-- 응답 기한 (선택) -->
+            <div>
+              <label class="block text-sm font-medium mb-1.5">응답 기한 <span class="text-gray-400 font-normal">(선택)</span></label>
+              <input type="date" x-model="form.deadline" class="w-full px-3 py-2.5 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-sm focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 outline-none">
+            </div>
+          </div>
+
+          <!-- 미리보기 안내 -->
+          <div class="mt-4 p-3 bg-blue-50 dark:bg-blue-900/20 rounded-lg">
+            <div class="flex items-start gap-2">
+              <svg class="w-4 h-4 text-blue-500 mt-0.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"/></svg>
+              <p class="text-xs text-blue-700 dark:text-blue-300">이메일이 발송되며, 고객은 비로그인 포털에서 시안을 확인하고 피드백을 남길 수 있습니다. 미응답 시 3영업일 후 자동 리마인더가 발송됩니다.</p>
+            </div>
+          </div>
+
+          <div class="flex justify-end gap-2 mt-6">
+            <button @click="showCreateModal = false" class="px-4 py-2 text-sm text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700 rounded-lg transition-colors">취소</button>
+            <button @click="sendRequest()" :disabled="!canSubmit" class="px-4 py-2 text-sm bg-indigo-600 hover:bg-indigo-700 disabled:bg-gray-300 disabled:dark:bg-gray-600 text-white rounded-lg transition-colors flex items-center gap-1.5">
+              <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 8l7.89 5.26a2 2 0 002.22 0L21 8M5 19h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z"/></svg>
+              이메일 발송
+            </button>
+          </div>
+        </div>
+      </div>
+
+      <!-- 상세 보기 모달 -->
+      <div x-show="showDetailModal" x-cloak class="fixed inset-0 z-50 flex items-center justify-center p-4" x-transition>
+        <div class="absolute inset-0 bg-black/50" @click="showDetailModal = false"></div>
+        <div class="relative bg-white dark:bg-gray-800 rounded-2xl shadow-2xl w-full max-w-lg max-h-[90vh] overflow-y-auto p-6 fade-in">
+          <div class="flex items-center justify-between mb-5">
+            <h3 class="text-lg font-bold">피드백 상세</h3>
+            <button @click="showDetailModal = false" class="p-1 hover:bg-gray-100 dark:hover:bg-gray-700 rounded-lg">
+              <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"/></svg>
+            </button>
+          </div>
+
+          <template x-if="detailReq">
+            <div class="space-y-4">
+              <!-- 상태 배지 -->
+              <div class="flex items-center gap-2">
+                <span class="inline-flex items-center gap-1 px-2.5 py-1 text-xs font-medium rounded-full" :class="statusClass(detailReq.status)">
+                  <span class="w-1.5 h-1.5 rounded-full" :class="statusDot(detailReq.status)"></span>
+                  <span x-text="statusLabel(detailReq.status)"></span>
+                </span>
+                <span class="text-sm text-gray-500 dark:text-gray-400" x-text="detailReq.createdAt"></span>
+              </div>
+
+              <!-- 요청 정보 -->
+              <div>
+                <h4 class="text-base font-semibold" x-text="detailReq.subject"></h4>
+                <p class="text-sm text-gray-600 dark:text-gray-300 mt-2" x-text="detailReq.message"></p>
+              </div>
+
+              <!-- 수신자 정보 -->
+              <div class="bg-gray-50 dark:bg-gray-900 rounded-lg p-3 space-y-1">
+                <div class="flex items-center justify-between text-sm">
+                  <span class="text-gray-500 dark:text-gray-400">수신자</span>
+                  <span class="font-medium" x-text="detailReq.recipientName + ' (' + detailReq.recipientEmail + ')'"></span>
+                </div>
+                <div class="flex items-center justify-between text-sm">
+                  <span class="text-gray-500 dark:text-gray-400">열람 여부</span>
+                  <span x-text="detailReq.viewedAt || '미열람'" :class="detailReq.viewedAt ? 'text-green-600 dark:text-green-400' : 'text-gray-400'"></span>
+                </div>
+                <div class="flex items-center justify-between text-sm">
+                  <span class="text-gray-500 dark:text-gray-400">응답 기한</span>
+                  <span x-text="detailReq.deadline || '없음'"></span>
+                </div>
+                <div class="flex items-center justify-between text-sm">
+                  <span class="text-gray-500 dark:text-gray-400">리마인더</span>
+                  <span x-text="detailReq.reminderCount + '/3회 발송'"></span>
+                </div>
+              </div>
+
+              <!-- 고객 피드백 (응답 있을 때) -->
+              <div x-show="detailReq.response" class="border border-green-200 dark:border-green-800 rounded-lg p-4 bg-green-50 dark:bg-green-900/20">
+                <h5 class="text-sm font-semibold text-green-700 dark:text-green-300 mb-2">고객 피드백</h5>
+                <div class="space-y-2">
+                  <div class="flex items-center gap-2">
+                    <span class="text-xs px-2 py-0.5 rounded-full font-medium" :class="{
+                      'bg-green-200 text-green-800': detailReq.response?.type === 'approved',
+                      'bg-orange-200 text-orange-800': detailReq.response?.type === 'revision_requested',
+                      'bg-blue-200 text-blue-800': detailReq.response?.type === 'comment'
+                    }" x-text="detailReq.response?.type === 'approved' ? '승인' : detailReq.response?.type === 'revision_requested' ? '수정 요청' : '의견'"></span>
+                    <span class="text-xs text-gray-500" x-text="detailReq.respondedAt"></span>
+                  </div>
+                  <p class="text-sm text-gray-700 dark:text-gray-300" x-text="detailReq.response?.content"></p>
+                </div>
+              </div>
+
+              <!-- 타임라인 -->
+              <div>
+                <h5 class="text-sm font-semibold mb-3">진행 이력</h5>
+                <div class="space-y-3">
+                  <template x-for="event in detailReq.timeline || []" :key="event.id">
+                    <div class="flex items-start gap-3">
+                      <div class="w-2 h-2 rounded-full mt-1.5 flex-shrink-0" :class="event.color"></div>
+                      <div>
+                        <p class="text-sm" x-text="event.text"></p>
+                        <p class="text-xs text-gray-400 dark:text-gray-500" x-text="event.time"></p>
+                      </div>
+                    </div>
+                  </template>
+                </div>
+              </div>
+            </div>
+          </template>
+        </div>
+      </div>
+
+    </main>
+
+    <!-- 모바일 하단 탭 바 -->
+    <nav class="lg:hidden fixed bottom-0 left-0 right-0 bg-white dark:bg-gray-800 border-t border-gray-200 dark:border-gray-700 z-30">
+      <div class="flex justify-around py-2">
+        <a href="dashboard.html" class="flex flex-col items-center gap-1 px-3 py-1 text-gray-400 dark:text-gray-500">
+          <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 12l2-2m0 0l7-7 7 7M5 10v10a1 1 0 001 1h3m10-11l2 2m-2-2v10a1 1 0 01-1 1h-3m-6 0a1 1 0 001-1v-4a1 1 0 011-1h2a1 1 0 011 1v4a1 1 0 001 1m-6 0h6"/></svg>
+          <span class="text-[10px]">홈</span>
+        </a>
+        <a href="projects.html" class="flex flex-col items-center gap-1 px-3 py-1 text-indigo-600 dark:text-indigo-400">
+          <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 7v10a2 2 0 002 2h14a2 2 0 002-2V9a2 2 0 00-2-2h-6l-2-2H5a2 2 0 00-2 2z"/></svg>
+          <span class="text-[10px] font-medium">프로젝트</span>
+        </a>
+        <a href="tasks.html" class="flex flex-col items-center gap-1 px-3 py-1 text-gray-400 dark:text-gray-500">
+          <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2m-6 9l2 2 4-4"/></svg>
+          <span class="text-[10px]">업무</span>
+        </a>
+        <a href="notifications.html" class="flex flex-col items-center gap-1 px-3 py-1 text-gray-400 dark:text-gray-500">
+          <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 17h5l-1.405-1.405A2.032 2.032 0 0118 14.158V11a6.002 6.002 0 00-4-5.659V5a2 2 0 10-4 0v.341C7.67 6.165 6 8.388 6 11v3.159c0 .538-.214 1.055-.595 1.436L4 17h5m6 0v1a3 3 0 11-6 0v-1m6 0H9"/></svg>
+          <span class="text-[10px]">알림</span>
+        </a>
+        <a href="settings.html" class="flex flex-col items-center gap-1 px-3 py-1 text-gray-400 dark:text-gray-500">
+          <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10.325 4.317c.426-1.756 2.924-1.756 3.35 0a1.724 1.724 0 002.573 1.066c1.543-.94 3.31.826 2.37 2.37a1.724 1.724 0 001.066 2.573c1.756.426 1.756 2.924 0 3.35a1.724 1.724 0 00-1.066 2.573c.94 1.543-.826 3.31-2.37 2.37a1.724 1.724 0 00-2.573 1.066c-.426 1.756-2.924 1.756-3.35 0a1.724 1.724 0 00-2.573-1.066c-1.543.94-3.31-.826-2.37-2.37a1.724 1.724 0 00-1.066-2.573c-1.756-.426-1.756-2.924 0-3.35a1.724 1.724 0 001.066-2.573c-.94-1.543.826-3.31 2.37-2.37.996.608 2.296.07 2.572-1.065z"/><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z"/></svg>
+          <span class="text-[10px]">설정</span>
+        </a>
+      </div>
+    </nav>
+  </div>
+</div>
+
+<script>
+function appLayout() {
+  return {
+    mobileMenuOpen: false,
+    darkMode: false,
+    init() {
+      if (window.matchMedia('(prefers-color-scheme: dark)').matches) {
+        this.darkMode = true;
+        document.documentElement.classList.add('dark');
+      }
+    }
+  }
+}
+
+function feedbackRequestPage() {
+  return {
+    activeFilter: 'all',
+    showCreateModal: false,
+    showDetailModal: false,
+    detailReq: null,
+
+    form: {
+      email: '',
+      subject: '',
+      message: '',
+      figmaUrl: '',
+      deadline: ''
+    },
+
+    stats: { total: 4, waiting: 2, responded: 1, expired: 1 },
+
+    filters: [
+      { value: 'all', label: '전체', count: 4 },
+      { value: 'sent', label: '대기 중', count: 2 },
+      { value: 'responded', label: '응답 완료', count: 1 },
+      { value: 'expired', label: '만료', count: 1 }
+    ],
+
+    requests: [
+      {
+        id: 1,
+        subject: '메인 페이지 시안 v3 확인 요청',
+        message: '메인 히어로 섹션과 네비게이션 디자인이 변경되었습니다. 확인 부탁드립니다.',
+        recipientName: '박상무',
+        recipientEmail: 'park@techsolution.co.kr',
+        status: 'sent',
+        reminderCount: 1,
+        createdAt: '2026-03-05',
+        respondedAt: null,
+        viewedAt: '2026-03-06 14:23',
+        deadline: '2026-03-10',
+        response: null,
+        timeline: [
+          { id: 1, text: '피드백 요청 이메일 발송', time: '2026-03-05 10:00', color: 'bg-blue-500' },
+          { id: 2, text: '고객이 포털을 열람했습니다', time: '2026-03-06 14:23', color: 'bg-green-500' },
+          { id: 3, text: '1차 리마인더 발송', time: '2026-03-08 10:00', color: 'bg-amber-500' }
+        ]
+      },
+      {
+        id: 2,
+        subject: '서비스 소개 페이지 시안 확인 요청',
+        message: '서비스 소개 페이지의 전체 레이아웃과 아이콘 디자인을 검토해주세요.',
+        recipientName: '박상무',
+        recipientEmail: 'park@techsolution.co.kr',
+        status: 'responded',
+        reminderCount: 0,
+        createdAt: '2026-02-28',
+        respondedAt: '2026-03-01 11:45',
+        viewedAt: '2026-03-01 09:30',
+        deadline: '2026-03-05',
+        response: {
+          type: 'approved',
+          content: '전체적으로 잘 만들어주셨습니다. 진행해주세요!'
+        },
+        timeline: [
+          { id: 1, text: '피드백 요청 이메일 발송', time: '2026-02-28 14:00', color: 'bg-blue-500' },
+          { id: 2, text: '고객이 포털을 열람했습니다', time: '2026-03-01 09:30', color: 'bg-green-500' },
+          { id: 3, text: '고객이 피드백을 제출했습니다 (승인)', time: '2026-03-01 11:45', color: 'bg-green-600' }
+        ]
+      },
+      {
+        id: 3,
+        subject: '모바일 시안 1차 확인 요청',
+        message: '모바일 반응형 시안 초안입니다. 전체적인 방향성 확인 부탁드립니다.',
+        recipientName: '이팀장',
+        recipientEmail: 'lee@techsolution.co.kr',
+        status: 'sent',
+        reminderCount: 2,
+        createdAt: '2026-02-25',
+        respondedAt: null,
+        viewedAt: null,
+        deadline: '2026-03-03',
+        response: null,
+        timeline: [
+          { id: 1, text: '피드백 요청 이메일 발송', time: '2026-02-25 09:00', color: 'bg-blue-500' },
+          { id: 2, text: '1차 리마인더 발송', time: '2026-02-28 10:00', color: 'bg-amber-500' },
+          { id: 3, text: '2차 리마인더 발송', time: '2026-03-05 10:00', color: 'bg-amber-500' }
+        ]
+      },
+      {
+        id: 4,
+        subject: '로고 시안 A/B안 확인',
+        message: '로고 시안 2종을 제안드립니다. 선호하시는 안을 선택해주세요.',
+        recipientName: '최대표',
+        recipientEmail: 'choi@techsolution.co.kr',
+        status: 'expired',
+        reminderCount: 3,
+        createdAt: '2026-02-10',
+        respondedAt: null,
+        viewedAt: null,
+        deadline: '2026-02-20',
+        response: null,
+        timeline: [
+          { id: 1, text: '피드백 요청 이메일 발송', time: '2026-02-10 11:00', color: 'bg-blue-500' },
+          { id: 2, text: '1차 리마인더 발송', time: '2026-02-13 10:00', color: 'bg-amber-500' },
+          { id: 3, text: '2차 리마인더 발송', time: '2026-02-18 10:00', color: 'bg-amber-500' },
+          { id: 4, text: '3차 리마인더 발송', time: '2026-02-25 10:00', color: 'bg-amber-500' },
+          { id: 5, text: '토큰 만료 — 직접 연락 필요', time: '2026-03-01', color: 'bg-red-500' }
+        ]
+      }
+    ],
+
+    get filteredRequests() {
+      if (this.activeFilter === 'all') return this.requests;
+      return this.requests.filter(r => r.status === this.activeFilter);
+    },
+
+    get canSubmit() {
+      return this.form.email && this.form.subject && this.form.message;
+    },
+
+    statusClass(status) {
+      const map = {
+        sent: 'bg-amber-100 dark:bg-amber-900/30 text-amber-700 dark:text-amber-300',
+        viewed: 'bg-blue-100 dark:bg-blue-900/30 text-blue-700 dark:text-blue-300',
+        responded: 'bg-green-100 dark:bg-green-900/30 text-green-700 dark:text-green-300',
+        expired: 'bg-red-100 dark:bg-red-900/30 text-red-700 dark:text-red-300'
+      };
+      return map[status] || '';
+    },
+
+    statusDot(status) {
+      const map = {
+        sent: 'bg-amber-500',
+        viewed: 'bg-blue-500',
+        responded: 'bg-green-500',
+        expired: 'bg-red-500'
+      };
+      return map[status] || '';
+    },
+
+    statusLabel(status) {
+      const map = {
+        sent: '대기 중',
+        viewed: '열람',
+        responded: '응답 완료',
+        expired: '만료'
+      };
+      return map[status] || status;
+    },
+
+    viewDetail(req) {
+      this.detailReq = req;
+      this.showDetailModal = true;
+    },
+
+    sendRequest() {
+      if (!this.canSubmit) return;
+      this.requests.unshift({
+        id: Date.now(),
+        subject: this.form.subject,
+        message: this.form.message,
+        recipientName: '고객',
+        recipientEmail: this.form.email,
+        status: 'sent',
+        reminderCount: 0,
+        createdAt: '방금 전',
+        respondedAt: null,
+        viewedAt: null,
+        deadline: this.form.deadline || null,
+        response: null,
+        timeline: [
+          { id: 1, text: '피드백 요청 이메일 발송', time: '방금 전', color: 'bg-blue-500' }
+        ]
+      });
+      this.form = { email: '', subject: '', message: '', figmaUrl: '', deadline: '' };
+      this.showCreateModal = false;
+      this.stats.total++;
+      this.stats.waiting++;
+    },
+
+    resendReminder(req) {
+      if (req.reminderCount < 3) {
+        req.reminderCount++;
+        req.timeline.push({
+          id: Date.now(),
+          text: req.reminderCount + '차 리마인더 수동 발송',
+          time: '방금 전',
+          color: 'bg-amber-500'
+        });
+      }
+    },
+
+    stopReminder(req) {
+      req.timeline.push({
+        id: Date.now(),
+        text: '리마인더 수동 중단',
+        time: '방금 전',
+        color: 'bg-red-500'
+      });
+      req.reminderCount = 3;
+    }
+  }
+}
+</script>
+</body>
+</html>

@@ -1,0 +1,414 @@
+<!DOCTYPE html>
+<html lang="ko" class="">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Contract Sync v2 - 이메일 템플릿</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <script defer src="https://cdn.jsdelivr.net/npm/alpinejs@3.x.x/dist/cdn.min.js"></script>
+  <script>
+    tailwind.config = { darkMode: 'class' }
+  </script>
+  <style>
+    [x-cloak] { display: none !important; }
+  </style>
+</head>
+<body class="bg-gray-50 dark:bg-gray-900 text-gray-800 dark:text-gray-100 transition-colors duration-300">
+
+<div x-data="appLayout()" class="flex h-screen overflow-hidden">
+
+  <!-- 좌측 사이드바 -->
+  <aside class="hidden lg:flex lg:flex-col w-64 bg-white dark:bg-gray-800 border-r border-gray-200 dark:border-gray-700 fixed inset-y-0 left-0 z-30">
+    <div class="flex items-center gap-3 px-6 py-5 border-b border-gray-200 dark:border-gray-700">
+      <div class="w-8 h-8 bg-indigo-600 rounded-lg flex items-center justify-center">
+        <svg class="w-5 h-5 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"/></svg>
+      </div>
+      <span class="text-lg font-bold text-gray-800 dark:text-white">Contract Sync</span>
+    </div>
+    <div class="px-4 py-3">
+      <button class="w-full flex items-center justify-between px-3 py-2 text-sm bg-gray-50 dark:bg-gray-700 rounded-lg">
+        <div class="flex items-center gap-2">
+          <svg class="w-4 h-4 text-gray-500 dark:text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17 20h5v-2a3 3 0 00-5.356-1.857M17 20H7m10 0v-2c0-.656-.126-1.283-.356-1.857M7 20H2v-2a3 3 0 015.356-1.857M7 20v-2c0-.656.126-1.283.356-1.857m0 0a5.002 5.002 0 019.288 0M15 7a3 3 0 11-6 0 3 3 0 016 0z"/></svg>
+          <span class="text-gray-700 dark:text-gray-200">디자인팀</span>
+        </div>
+        <svg class="w-4 h-4 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7"/></svg>
+      </button>
+    </div>
+    <nav class="flex-1 px-3 py-2 space-y-1 overflow-y-auto">
+      <a href="dashboard.html" class="flex items-center gap-3 px-3 py-2.5 rounded-lg text-gray-600 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700 text-sm transition-colors">
+        <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 12l2-2m0 0l7-7 7 7M5 10v10a1 1 0 001 1h3m10-11l2 2m-2-2v10a1 1 0 01-1 1h-3m-6 0a1 1 0 001-1v-4a1 1 0 011-1h2a1 1 0 011 1v4a1 1 0 001 1m-6 0h6"/></svg>
+        <span>대시보드</span>
+      </a>
+      <a href="projects.html" class="flex items-center gap-3 px-3 py-2.5 rounded-lg text-gray-600 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700 text-sm transition-colors">
+        <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 7v10a2 2 0 002 2h14a2 2 0 002-2V9a2 2 0 00-2-2h-6l-2-2H5a2 2 0 00-2 2z"/></svg>
+        <span>프로젝트</span>
+      </a>
+      <a href="feedback-dashboard.html" class="flex items-center gap-3 px-3 py-2.5 rounded-lg bg-indigo-50 dark:bg-indigo-900/30 text-indigo-600 dark:text-indigo-400 font-medium text-sm">
+        <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 10h.01M12 10h.01M16 10h.01M9 16H5a2 2 0 01-2-2V6a2 2 0 012-2h14a2 2 0 012 2v8a2 2 0 01-2 2h-5l-5 5v-5z"/></svg>
+        <span>피드백</span>
+      </a>
+      <a href="notifications.html" class="flex items-center gap-3 px-3 py-2.5 rounded-lg text-gray-600 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700 text-sm transition-colors">
+        <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 17h5l-1.405-1.405A2.032 2.032 0 0118 14.158V11a6.002 6.002 0 00-4-5.659V5a2 2 0 10-4 0v.341C7.67 6.165 6 8.388 6 11v3.159c0 .538-.214 1.055-.595 1.436L4 17h5m6 0v1a3 3 0 11-6 0v-1m6 0H9"/></svg>
+        <span>알림</span>
+      </a>
+      <a href="settings.html" class="flex items-center gap-3 px-3 py-2.5 rounded-lg text-gray-600 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700 text-sm transition-colors">
+        <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10.325 4.317c.426-1.756 2.924-1.756 3.35 0a1.724 1.724 0 002.573 1.066c1.543-.94 3.31.826 2.37 2.37a1.724 1.724 0 001.066 2.573c1.756.426 1.756 2.924 0 3.35a1.724 1.724 0 00-1.066 2.573c.94 1.543-.826 3.31-2.37 2.37a1.724 1.724 0 00-2.573 1.066c-.426 1.756-2.924 1.756-3.35 0a1.724 1.724 0 00-2.573-1.066c-1.543.94-3.31-.826-2.37-2.37a1.724 1.724 0 00-1.066-2.573c-1.756-.426-1.756-2.924 0-3.35a1.724 1.724 0 001.066-2.573c-.94-1.543.826-3.31 2.37-2.37.996.608 2.296.07 2.572-1.065z"/><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z"/></svg>
+        <span>설정</span>
+      </a>
+    </nav>
+    <div class="px-4 py-3 border-t border-gray-200 dark:border-gray-700">
+      <div class="flex items-center gap-3">
+        <div class="w-8 h-8 bg-indigo-100 dark:bg-indigo-900 rounded-full flex items-center justify-center">
+          <span class="text-sm font-medium text-indigo-600 dark:text-indigo-400">김</span>
+        </div>
+        <div class="flex-1 min-w-0">
+          <p class="text-sm font-medium truncate">김매니저</p>
+          <p class="text-xs text-gray-500 dark:text-gray-400 truncate">pm@company.com</p>
+        </div>
+        <button @click="darkMode = !darkMode; $el.closest('html')?.classList.toggle('dark')" class="p-1.5 rounded-lg hover:bg-gray-100 dark:hover:bg-gray-700">
+          <svg x-show="!darkMode" class="w-4 h-4 text-gray-500" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M20.354 15.354A9 9 0 018.646 3.646 9.003 9.003 0 0012 21a9.003 9.003 0 008.354-5.646z"/></svg>
+          <svg x-show="darkMode" x-cloak class="w-4 h-4 text-yellow-400" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 3v1m0 16v1m9-9h-1M4 12H3m15.364 6.364l-.707-.707M6.343 6.343l-.707-.707m12.728 0l-.707.707M6.343 17.657l-.707.707M16 12a4 4 0 11-8 0 4 4 0 018 0z"/></svg>
+        </button>
+      </div>
+    </div>
+  </aside>
+
+  <!-- 모바일 오버레이 -->
+  <div x-show="mobileMenuOpen" x-cloak @click="mobileMenuOpen = false" class="fixed inset-0 bg-black/50 z-40 lg:hidden"></div>
+
+  <!-- 메인 콘텐츠 -->
+  <div class="flex-1 flex flex-col lg:ml-64 min-h-screen">
+    <header class="sticky top-0 z-20 bg-white dark:bg-gray-800 border-b border-gray-200 dark:border-gray-700">
+      <div class="flex items-center justify-between px-4 lg:px-6 py-3">
+        <div class="flex items-center gap-3">
+          <button @click="mobileMenuOpen = true" class="lg:hidden p-2 rounded-lg hover:bg-gray-100 dark:hover:bg-gray-700">
+            <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 6h16M4 12h16M4 18h16"/></svg>
+          </button>
+          <div>
+            <div class="flex items-center gap-2 text-sm text-gray-500 dark:text-gray-400">
+              <a href="feedback-dashboard.html" class="hover:text-indigo-600 dark:hover:text-indigo-400">피드백</a>
+              <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7"/></svg>
+              <span class="text-gray-800 dark:text-gray-200 font-medium">이메일 템플릿</span>
+            </div>
+            <h1 class="text-lg font-bold mt-0.5">피드백 이메일 템플릿</h1>
+          </div>
+        </div>
+      </div>
+    </header>
+
+    <main class="flex-1 p-4 lg:p-6 pb-20 lg:pb-6" x-data="emailTemplates()">
+
+      <!-- 템플릿 탭 선택 -->
+      <div class="flex flex-col lg:flex-row gap-6">
+        <!-- 좌측: 템플릿 목록 -->
+        <div class="lg:w-72 flex-shrink-0">
+          <div class="bg-white dark:bg-gray-800 rounded-xl border border-gray-200 dark:border-gray-700">
+            <div class="px-4 py-3 border-b border-gray-200 dark:border-gray-700">
+              <h3 class="text-sm font-semibold">이메일 종류</h3>
+            </div>
+            <div class="divide-y divide-gray-100 dark:divide-gray-700">
+              <template x-for="(tmpl, idx) in templates" :key="tmpl.id">
+                <button @click="selectedIdx = idx" class="w-full text-left px-4 py-3 transition-colors" :class="selectedIdx === idx ? 'bg-indigo-50 dark:bg-indigo-900/20 border-l-2 border-indigo-500' : 'hover:bg-gray-50 dark:hover:bg-gray-700/50'">
+                  <div class="flex items-center gap-3">
+                    <div class="w-8 h-8 rounded-lg flex items-center justify-center flex-shrink-0" :class="tmpl.iconBg">
+                      <svg class="w-4 h-4" :class="tmpl.iconColor" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" :d="tmpl.iconPath"/></svg>
+                    </div>
+                    <div>
+                      <p class="text-sm font-medium" x-text="tmpl.name"></p>
+                      <p class="text-xs text-gray-500 dark:text-gray-400" x-text="tmpl.desc"></p>
+                    </div>
+                  </div>
+                </button>
+              </template>
+            </div>
+          </div>
+
+          <!-- 변수 가이드 -->
+          <div class="bg-white dark:bg-gray-800 rounded-xl border border-gray-200 dark:border-gray-700 mt-4">
+            <div class="px-4 py-3 border-b border-gray-200 dark:border-gray-700">
+              <h3 class="text-sm font-semibold">템플릿 변수</h3>
+            </div>
+            <div class="px-4 py-3 space-y-2">
+              <template x-for="v in variables" :key="v.name">
+                <div class="flex items-start gap-2">
+                  <code class="text-[11px] bg-gray-100 dark:bg-gray-700 px-1.5 py-0.5 rounded font-mono text-indigo-600 dark:text-indigo-400 flex-shrink-0" x-text="v.name"></code>
+                  <span class="text-xs text-gray-500 dark:text-gray-400" x-text="v.desc"></span>
+                </div>
+              </template>
+            </div>
+          </div>
+        </div>
+
+        <!-- 우측: 미리보기 -->
+        <div class="flex-1 min-w-0">
+          <div class="bg-white dark:bg-gray-800 rounded-xl border border-gray-200 dark:border-gray-700">
+            <!-- 미리보기 헤더 -->
+            <div class="px-5 py-3 border-b border-gray-200 dark:border-gray-700 flex items-center justify-between">
+              <div class="flex items-center gap-3">
+                <h3 class="text-sm font-semibold" x-text="selectedTemplate.name + ' 미리보기'"></h3>
+                <span class="text-xs px-2 py-0.5 rounded-full" :class="selectedTemplate.badgeClass" x-text="selectedTemplate.badge"></span>
+              </div>
+              <div class="flex items-center gap-2">
+                <button class="px-3 py-1.5 text-xs text-gray-600 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700 rounded-lg transition-colors flex items-center gap-1">
+                  <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 5H6a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2v-1M8 5a2 2 0 002 2h2a2 2 0 002-2M8 5a2 2 0 012-2h2a2 2 0 012 2m0 0h2a2 2 0 012 2v3m2 4H10m0 0l3-3m-3 3l3 3"/></svg>
+                  HTML 복사
+                </button>
+                <button class="px-3 py-1.5 text-xs text-indigo-600 dark:text-indigo-400 hover:bg-indigo-50 dark:hover:bg-indigo-900/20 rounded-lg transition-colors flex items-center gap-1">
+                  <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 8l7.89 5.26a2 2 0 002.22 0L21 8M5 19h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z"/></svg>
+                  테스트 발송
+                </button>
+              </div>
+            </div>
+
+            <!-- 이메일 메타 -->
+            <div class="px-5 py-3 bg-gray-50 dark:bg-gray-900/50 border-b border-gray-200 dark:border-gray-700 text-sm space-y-1">
+              <div class="flex items-center gap-2">
+                <span class="text-gray-500 dark:text-gray-400 w-16">제목:</span>
+                <span class="font-medium" x-text="selectedTemplate.subject"></span>
+              </div>
+              <div class="flex items-center gap-2">
+                <span class="text-gray-500 dark:text-gray-400 w-16">발신:</span>
+                <span>IT솔루션 &lt;noreply@itsolution.co.kr&gt;</span>
+              </div>
+              <div class="flex items-center gap-2">
+                <span class="text-gray-500 dark:text-gray-400 w-16">수신:</span>
+                <span>박상무 &lt;park@techsolution.co.kr&gt;</span>
+              </div>
+            </div>
+
+            <!-- 이메일 본문 미리보기 -->
+            <div class="p-5">
+              <div class="bg-white dark:bg-gray-900 border border-gray-200 dark:border-gray-700 rounded-lg max-w-[600px] mx-auto shadow-sm overflow-hidden">
+
+                <!-- 이메일 헤더 -->
+                <div class="bg-gradient-to-r from-indigo-600 to-purple-600 px-8 py-6 text-center">
+                  <div class="w-10 h-10 bg-white/20 rounded-lg flex items-center justify-center mx-auto mb-3">
+                    <svg class="w-6 h-6 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"/></svg>
+                  </div>
+                  <h2 class="text-white text-lg font-bold">IT솔루션</h2>
+                </div>
+
+                <!-- Template 1: 시안 확인 요청 -->
+                <div x-show="selectedIdx === 0" class="px-8 py-6 text-sm text-gray-700 dark:text-gray-300 leading-relaxed">
+                  <p>안녕하세요, <strong>박상무</strong>님.</p>
+                  <p class="mt-3">IT솔루션의 <strong>김매니저</strong>입니다.</p>
+                  <p class="mt-3"><strong>홈페이지 리뉴얼</strong> 프로젝트의 시안이 완성되어 확인을 요청드립니다.</p>
+
+                  <div class="my-6 bg-gray-50 dark:bg-gray-800 rounded-lg p-4 border-l-4 border-indigo-500">
+                    <p class="font-semibold text-gray-800 dark:text-gray-200 mb-2">요청 정보</p>
+                    <div class="space-y-1 text-gray-600 dark:text-gray-400">
+                      <p>• 프로젝트: <strong class="text-gray-800 dark:text-gray-200">홈페이지 리뉴얼</strong></p>
+                      <p>• 요청 내용: <strong class="text-gray-800 dark:text-gray-200">메인 페이지 시안 v3 — 히어로 섹션 및 네비게이션 디자인 변경</strong></p>
+                      <p>• 응답 기한: <strong class="text-gray-800 dark:text-gray-200">2026년 3월 10일</strong></p>
+                    </div>
+                  </div>
+
+                  <p>아래 버튼을 클릭하여 시안을 확인하고 피드백을 남겨주세요.</p>
+
+                  <div class="text-center my-6">
+                    <a href="#" class="inline-block px-8 py-3 bg-indigo-600 text-white font-semibold rounded-lg hover:bg-indigo-700 transition-colors" style="text-decoration: none;">
+                      시안 확인하기 →
+                    </a>
+                  </div>
+
+                  <hr class="my-6 border-gray-200 dark:border-gray-700">
+                  <p class="text-xs text-gray-400 dark:text-gray-500">본 메일은 IT솔루션의 프로젝트 관리 시스템에서 자동 발송되었습니다.<br>문의사항이 있으시면 김매니저 (pm@company.com)에게 연락해주세요.</p>
+                </div>
+
+                <!-- Template 2: 리마인더 -->
+                <div x-show="selectedIdx === 1" class="px-8 py-6 text-sm text-gray-700 dark:text-gray-300 leading-relaxed">
+                  <p>안녕하세요, <strong>박상무</strong>님.</p>
+                  <p class="mt-3">IT솔루션의 <strong>김매니저</strong>입니다.</p>
+                  <p class="mt-3"><strong>2026년 3월 5일</strong>에 요청드린 <strong>홈페이지 리뉴얼</strong> 시안에 대한 피드백을 기다리고 있습니다.</p>
+                  <p class="mt-2">원활한 프로젝트 진행을 위해 확인 부탁드립니다.</p>
+
+                  <div class="my-6 bg-amber-50 dark:bg-amber-900/20 rounded-lg p-4 border-l-4 border-amber-500">
+                    <p class="font-semibold text-gray-800 dark:text-gray-200 mb-2">요청 정보</p>
+                    <div class="space-y-1 text-gray-600 dark:text-gray-400">
+                      <p>• 프로젝트: <strong class="text-gray-800 dark:text-gray-200">홈페이지 리뉴얼</strong></p>
+                      <p>• 최초 요청일: <strong class="text-gray-800 dark:text-gray-200">2026년 3월 5일</strong></p>
+                      <p>• 경과일: <strong class="text-red-600 dark:text-red-400">3일</strong></p>
+                    </div>
+                  </div>
+
+                  <div class="text-center my-6">
+                    <a href="#" class="inline-block px-8 py-3 bg-indigo-600 text-white font-semibold rounded-lg hover:bg-indigo-700 transition-colors" style="text-decoration: none;">
+                      시안 확인하기 →
+                    </a>
+                  </div>
+
+                  <hr class="my-6 border-gray-200 dark:border-gray-700">
+                  <p class="text-xs text-gray-400 dark:text-gray-500">본 메일은 자동 발송되었습니다.<br>이미 피드백을 제출하셨다면 본 메일을 무시해주세요.</p>
+                </div>
+
+                <!-- Template 3: 수신 확인 -->
+                <div x-show="selectedIdx === 2" class="px-8 py-6 text-sm text-gray-700 dark:text-gray-300 leading-relaxed">
+                  <p>안녕하세요, <strong>박상무</strong>님.</p>
+                  <p class="mt-3"><strong>홈페이지 리뉴얼</strong>에 대한 피드백이 정상적으로 접수되었습니다.</p>
+                  <p class="mt-2">담당자가 확인 후 진행하겠습니다.</p>
+
+                  <div class="my-6 bg-green-50 dark:bg-green-900/20 rounded-lg p-4 border-l-4 border-green-500">
+                    <p class="font-semibold text-gray-800 dark:text-gray-200 mb-2">접수 내용</p>
+                    <div class="space-y-1 text-gray-600 dark:text-gray-400">
+                      <p>• 프로젝트: <strong class="text-gray-800 dark:text-gray-200">홈페이지 리뉴얼</strong></p>
+                      <p>• 피드백 유형: <span class="inline-flex items-center px-2 py-0.5 text-xs font-medium bg-green-100 dark:bg-green-800/40 text-green-700 dark:text-green-300 rounded-full">승인</span></p>
+                      <p>• 접수 시각: <strong class="text-gray-800 dark:text-gray-200">2026년 3월 8일 11:45</strong></p>
+                    </div>
+                  </div>
+
+                  <p>추가 문의사항이 있으시면 김매니저 (pm@company.com)에게 연락해주세요.</p>
+                  <p class="mt-4">감사합니다.<br><strong>IT솔루션</strong> 드림</p>
+
+                  <hr class="my-6 border-gray-200 dark:border-gray-700">
+                  <p class="text-xs text-gray-400 dark:text-gray-500">본 메일은 IT솔루션의 프로젝트 관리 시스템에서 자동 발송되었습니다.</p>
+                </div>
+
+                <!-- 이메일 푸터 -->
+                <div class="bg-gray-50 dark:bg-gray-800 px-8 py-4 text-center border-t border-gray-200 dark:border-gray-700">
+                  <p class="text-[11px] text-gray-400 dark:text-gray-500">
+                    IT솔루션 | 서울특별시 강남구 테헤란로 123<br>
+                    이 메일은 발신 전용입니다.
+                  </p>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          <!-- 모바일/데스크톱 미리보기 토글 -->
+          <div class="bg-white dark:bg-gray-800 rounded-xl border border-gray-200 dark:border-gray-700 mt-4 p-4">
+            <div class="flex items-center justify-between">
+              <h3 class="text-sm font-semibold">반응형 테스트</h3>
+              <div class="flex items-center gap-1 bg-gray-100 dark:bg-gray-700 rounded-lg p-0.5">
+                <button @click="previewMode = 'desktop'" class="px-3 py-1 text-xs rounded-md transition-colors" :class="previewMode === 'desktop' ? 'bg-white dark:bg-gray-600 shadow-sm font-medium' : 'text-gray-500 dark:text-gray-400'">
+                  데스크톱
+                </button>
+                <button @click="previewMode = 'mobile'" class="px-3 py-1 text-xs rounded-md transition-colors" :class="previewMode === 'mobile' ? 'bg-white dark:bg-gray-600 shadow-sm font-medium' : 'text-gray-500 dark:text-gray-400'">
+                  모바일
+                </button>
+              </div>
+            </div>
+            <div class="mt-3 flex justify-center">
+              <div class="bg-gray-50 dark:bg-gray-900 rounded-lg border border-gray-200 dark:border-gray-700 p-4 transition-all duration-300" :style="previewMode === 'mobile' ? 'width: 320px' : 'width: 100%'">
+                <div class="flex items-center gap-2 mb-3" x-show="previewMode === 'mobile'">
+                  <div class="flex gap-1">
+                    <div class="w-2 h-2 bg-gray-300 dark:bg-gray-600 rounded-full"></div>
+                    <div class="w-2 h-2 bg-gray-300 dark:bg-gray-600 rounded-full"></div>
+                    <div class="w-2 h-2 bg-gray-300 dark:bg-gray-600 rounded-full"></div>
+                  </div>
+                  <div class="flex-1 bg-gray-200 dark:bg-gray-700 rounded-full px-3 py-0.5 text-[10px] text-gray-400 text-center">mail.example.com</div>
+                </div>
+                <div class="bg-white dark:bg-gray-800 rounded border border-gray-200 dark:border-gray-700 p-3 text-xs text-gray-500 dark:text-gray-400 text-center">
+                  <p class="text-[10px]" x-text="previewMode === 'mobile' ? '모바일(320px)에서의 이메일 렌더링 미리보기' : '데스크톱(600px)에서의 이메일 렌더링 미리보기'"></p>
+                  <p class="text-[10px] text-gray-400 dark:text-gray-500 mt-1">실제 이메일 클라이언트에서의 렌더링 결과는 다를 수 있습니다</p>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+    </main>
+
+    <!-- 모바일 하단 탭 바 -->
+    <nav class="lg:hidden fixed bottom-0 left-0 right-0 bg-white dark:bg-gray-800 border-t border-gray-200 dark:border-gray-700 z-30">
+      <div class="flex justify-around py-2">
+        <a href="dashboard.html" class="flex flex-col items-center gap-1 px-3 py-1 text-gray-400 dark:text-gray-500">
+          <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 12l2-2m0 0l7-7 7 7M5 10v10a1 1 0 001 1h3m10-11l2 2m-2-2v10a1 1 0 01-1 1h-3m-6 0a1 1 0 001-1v-4a1 1 0 011-1h2a1 1 0 011 1v4a1 1 0 001 1m-6 0h6"/></svg>
+          <span class="text-[10px]">홈</span>
+        </a>
+        <a href="projects.html" class="flex flex-col items-center gap-1 px-3 py-1 text-gray-400 dark:text-gray-500">
+          <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 7v10a2 2 0 002 2h14a2 2 0 002-2V9a2 2 0 00-2-2h-6l-2-2H5a2 2 0 00-2 2z"/></svg>
+          <span class="text-[10px]">프로젝트</span>
+        </a>
+        <a href="feedback-dashboard.html" class="flex flex-col items-center gap-1 px-3 py-1 text-indigo-600 dark:text-indigo-400">
+          <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 10h.01M12 10h.01M16 10h.01M9 16H5a2 2 0 01-2-2V6a2 2 0 012-2h14a2 2 0 012 2v8a2 2 0 01-2 2h-5l-5 5v-5z"/></svg>
+          <span class="text-[10px] font-medium">피드백</span>
+        </a>
+        <a href="notifications.html" class="flex flex-col items-center gap-1 px-3 py-1 text-gray-400 dark:text-gray-500">
+          <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 17h5l-1.405-1.405A2.032 2.032 0 0118 14.158V11a6.002 6.002 0 00-4-5.659V5a2 2 0 10-4 0v.341C7.67 6.165 6 8.388 6 11v3.159c0 .538-.214 1.055-.595 1.436L4 17h5m6 0v1a3 3 0 11-6 0v-1m6 0H9"/></svg>
+          <span class="text-[10px]">알림</span>
+        </a>
+        <a href="settings.html" class="flex flex-col items-center gap-1 px-3 py-1 text-gray-400 dark:text-gray-500">
+          <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10.325 4.317c.426-1.756 2.924-1.756 3.35 0a1.724 1.724 0 002.573 1.066c1.543-.94 3.31.826 2.37 2.37a1.724 1.724 0 001.066 2.573c1.756.426 1.756 2.924 0 3.35a1.724 1.724 0 00-1.066 2.573c.94 1.543-.826 3.31-2.37 2.37a1.724 1.724 0 00-2.573 1.066c-.426 1.756-2.924 1.756-3.35 0a1.724 1.724 0 00-2.573-1.066c-1.543.94-3.31-.826-2.37-2.37a1.724 1.724 0 00-1.066-2.573c-1.756-.426-1.756-2.924 0-3.35a1.724 1.724 0 001.066-2.573c-.94-1.543.826-3.31 2.37-2.37.996.608 2.296.07 2.572-1.065z"/><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z"/></svg>
+          <span class="text-[10px]">설정</span>
+        </a>
+      </div>
+    </nav>
+  </div>
+</div>
+
+<script>
+function appLayout() {
+  return {
+    mobileMenuOpen: false,
+    darkMode: false,
+    init() {
+      if (window.matchMedia('(prefers-color-scheme: dark)').matches) {
+        this.darkMode = true;
+        document.documentElement.classList.add('dark');
+      }
+    }
+  }
+}
+
+function emailTemplates() {
+  return {
+    selectedIdx: 0,
+    previewMode: 'desktop',
+
+    templates: [
+      {
+        id: 1,
+        name: '시안 확인 요청',
+        desc: '고객에게 시안 확인 요청',
+        subject: '[IT솔루션] 홈페이지 리뉴얼 시안이 완성되었습니다 — 확인 부탁드립니다',
+        badge: '자동 발송',
+        badgeClass: 'bg-blue-100 dark:bg-blue-900/30 text-blue-700 dark:text-blue-300',
+        iconBg: 'bg-blue-100 dark:bg-blue-900/30',
+        iconColor: 'text-blue-600 dark:text-blue-400',
+        iconPath: 'M3 8l7.89 5.26a2 2 0 002.22 0L21 8M5 19h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z'
+      },
+      {
+        id: 2,
+        name: '리마인더',
+        desc: '미응답 시 자동 리마인드',
+        subject: '[리마인드] 홈페이지 리뉴얼 시안 확인을 기다리고 있습니다',
+        badge: '자동 (3영업일)',
+        badgeClass: 'bg-amber-100 dark:bg-amber-900/30 text-amber-700 dark:text-amber-300',
+        iconBg: 'bg-amber-100 dark:bg-amber-900/30',
+        iconColor: 'text-amber-600 dark:text-amber-400',
+        iconPath: 'M15 17h5l-1.405-1.405A2.032 2.032 0 0118 14.158V11a6.002 6.002 0 00-4-5.659V5a2 2 0 10-4 0v.341C7.67 6.165 6 8.388 6 11v3.159c0 .538-.214 1.055-.595 1.436L4 17h5m6 0v1a3 3 0 11-6 0v-1m6 0H9'
+      },
+      {
+        id: 3,
+        name: '수신 확인',
+        desc: '피드백 접수 완료 안내',
+        subject: '[IT솔루션] 피드백이 접수되었습니다 — 홈페이지 리뉴얼',
+        badge: '자동 발송',
+        badgeClass: 'bg-green-100 dark:bg-green-900/30 text-green-700 dark:text-green-300',
+        iconBg: 'bg-green-100 dark:bg-green-900/30',
+        iconColor: 'text-green-600 dark:text-green-400',
+        iconPath: 'M5 13l4 4L19 7'
+      }
+    ],
+
+    variables: [
+      { name: '{회사명}', desc: '서비스 운영 회사명' },
+      { name: '{PM명}', desc: '피드백 요청자 이름' },
+      { name: '{PM_이메일}', desc: '요청자 이메일' },
+      { name: '{고객_담당자명}', desc: '발주처 담당자' },
+      { name: '{프로젝트명}', desc: '프로젝트명' },
+      { name: '{요청_내용}', desc: 'PM이 작성한 설명' },
+      { name: '{마감일}', desc: '응답 기한' },
+      { name: '{포털_링크}', desc: '피드백 포털 URL' },
+      { name: '{경과일수}', desc: '요청일로부터 경과일' }
+    ],
+
+    get selectedTemplate() {
+      return this.templates[this.selectedIdx];
+    }
+  }
+}
+</script>
+</body>
+</html>

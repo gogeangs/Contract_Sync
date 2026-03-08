@@ -1,0 +1,557 @@
+<!DOCTYPE html>
+<html lang="ko" class="">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Contract Sync v2 - Figma 시안 탭</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <script defer src="https://cdn.jsdelivr.net/npm/alpinejs@3.x.x/dist/cdn.min.js"></script>
+  <script>
+    tailwind.config = { darkMode: 'class' }
+  </script>
+  <style>
+    [x-cloak] { display: none !important; }
+    @keyframes shimmer { 0% { background-position: -200% 0; } 100% { background-position: 200% 0; } }
+    .skeleton { background: linear-gradient(90deg, #e5e7eb 25%, #f3f4f6 50%, #e5e7eb 75%); background-size: 200% 100%; animation: shimmer 1.5s infinite; border-radius: 4px; }
+    html.dark .skeleton { background: linear-gradient(90deg, #374151 25%, #4b5563 50%, #374151 75%); background-size: 200% 100%; }
+    @keyframes fadeIn { from { opacity: 0; transform: translateY(8px); } to { opacity: 1; transform: translateY(0); } }
+    .fade-in { animation: fadeIn 0.3s ease-out; }
+  </style>
+</head>
+<body class="bg-gray-50 dark:bg-gray-900 text-gray-800 dark:text-gray-100 transition-colors duration-300">
+
+<div x-data="appLayout()" class="flex h-screen overflow-hidden">
+
+  <!-- 좌측 사이드바 (데스크톱) -->
+  <aside class="hidden lg:flex lg:flex-col w-64 bg-white dark:bg-gray-800 border-r border-gray-200 dark:border-gray-700 fixed inset-y-0 left-0 z-30">
+    <div class="flex items-center gap-3 px-6 py-5 border-b border-gray-200 dark:border-gray-700">
+      <div class="w-8 h-8 bg-indigo-600 rounded-lg flex items-center justify-center">
+        <svg class="w-5 h-5 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"/></svg>
+      </div>
+      <span class="text-lg font-bold text-gray-800 dark:text-white">Contract Sync</span>
+    </div>
+    <div class="px-4 py-3">
+      <div class="relative" x-data="{ open: false }">
+        <button @click="open = !open" class="w-full flex items-center justify-between px-3 py-2 text-sm bg-gray-50 dark:bg-gray-700 rounded-lg hover:bg-gray-100 dark:hover:bg-gray-600 transition-colors">
+          <div class="flex items-center gap-2">
+            <svg class="w-4 h-4 text-gray-500 dark:text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17 20h5v-2a3 3 0 00-5.356-1.857M17 20H7m10 0v-2c0-.656-.126-1.283-.356-1.857M7 20H2v-2a3 3 0 015.356-1.857M7 20v-2c0-.656.126-1.283.356-1.857m0 0a5.002 5.002 0 019.288 0M15 7a3 3 0 11-6 0 3 3 0 016 0z"/></svg>
+            <span class="text-gray-700 dark:text-gray-200">디자인팀</span>
+          </div>
+          <svg class="w-4 h-4 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7"/></svg>
+        </button>
+      </div>
+    </div>
+    <nav class="flex-1 px-3 py-2 space-y-1 overflow-y-auto">
+      <a href="dashboard.html" class="flex items-center gap-3 px-3 py-2.5 rounded-lg text-gray-600 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700 text-sm transition-colors">
+        <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 12l2-2m0 0l7-7 7 7M5 10v10a1 1 0 001 1h3m10-11l2 2m-2-2v10a1 1 0 01-1 1h-3m-6 0a1 1 0 001-1v-4a1 1 0 011-1h2a1 1 0 011 1v4a1 1 0 001 1m-6 0h6"/></svg>
+        <span>대시보드</span>
+      </a>
+      <a href="clients.html" class="flex items-center gap-3 px-3 py-2.5 rounded-lg text-gray-600 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700 text-sm transition-colors">
+        <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 21V5a2 2 0 00-2-2H7a2 2 0 00-2 2v16m14 0h2m-2 0h-5m-9 0H3m2 0h5M9 7h1m-1 4h1m4-4h1m-1 4h1m-5 10v-5a1 1 0 011-1h2a1 1 0 011 1v5m-4 0h4"/></svg>
+        <span>발주처</span>
+      </a>
+      <a href="projects.html" class="flex items-center gap-3 px-3 py-2.5 rounded-lg bg-indigo-50 dark:bg-indigo-900/30 text-indigo-600 dark:text-indigo-400 font-medium text-sm">
+        <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 7v10a2 2 0 002 2h14a2 2 0 002-2V9a2 2 0 00-2-2h-6l-2-2H5a2 2 0 00-2 2z"/></svg>
+        <span>프로젝트</span>
+      </a>
+      <a href="tasks.html" class="flex items-center gap-3 px-3 py-2.5 rounded-lg text-gray-600 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700 text-sm transition-colors">
+        <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2m-6 9l2 2 4-4"/></svg>
+        <span>업무</span>
+      </a>
+      <a href="report-hub.html" class="flex items-center gap-3 px-3 py-2.5 rounded-lg text-gray-600 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700 text-sm transition-colors">
+        <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 17v-2m3 2v-4m3 4v-6m2 10H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"/></svg>
+        <span>보고서</span>
+      </a>
+      <a href="payments.html" class="flex items-center gap-3 px-3 py-2.5 rounded-lg text-gray-600 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700 text-sm transition-colors">
+        <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8c-1.657 0-3 .895-3 2s1.343 2 3 2 3 .895 3 2-1.343 2-3 2m0-8c1.11 0 2.08.402 2.599 1M12 8V7m0 1v8m0 0v1m0-1c-1.11 0-2.08-.402-2.599-1M21 12a9 9 0 11-18 0 9 9 0 0118 0z"/></svg>
+        <span>수금</span>
+      </a>
+      <a href="feedback.html" class="flex items-center gap-3 px-3 py-2.5 rounded-lg text-gray-600 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700 text-sm transition-colors">
+        <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 10h.01M12 10h.01M16 10h.01M9 16H5a2 2 0 01-2-2V6a2 2 0 012-2h14a2 2 0 012 2v8a2 2 0 01-2 2h-5l-5 5v-5z"/></svg>
+        <span>피드백</span>
+      </a>
+      <a href="notifications.html" class="flex items-center gap-3 px-3 py-2.5 rounded-lg text-gray-600 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700 text-sm transition-colors">
+        <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 17h5l-1.405-1.405A2.032 2.032 0 0118 14.158V11a6.002 6.002 0 00-4-5.659V5a2 2 0 10-4 0v.341C7.67 6.165 6 8.388 6 11v3.159c0 .538-.214 1.055-.595 1.436L4 17h5m6 0v1a3 3 0 11-6 0v-1m6 0H9"/></svg>
+        <span>알림</span>
+      </a>
+      <a href="settings.html" class="flex items-center gap-3 px-3 py-2.5 rounded-lg text-gray-600 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700 text-sm transition-colors">
+        <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10.325 4.317c.426-1.756 2.924-1.756 3.35 0a1.724 1.724 0 002.573 1.066c1.543-.94 3.31.826 2.37 2.37a1.724 1.724 0 001.066 2.573c1.756.426 1.756 2.924 0 3.35a1.724 1.724 0 00-1.066 2.573c.94 1.543-.826 3.31-2.37 2.37a1.724 1.724 0 00-2.573 1.066c-.426 1.756-2.924 1.756-3.35 0a1.724 1.724 0 00-2.573-1.066c-1.543.94-3.31-.826-2.37-2.37a1.724 1.724 0 00-1.066-2.573c-1.756-.426-1.756-2.924 0-3.35a1.724 1.724 0 001.066-2.573c-.94-1.543.826-3.31 2.37-2.37.996.608 2.296.07 2.572-1.065z"/><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z"/></svg>
+        <span>설정</span>
+      </a>
+    </nav>
+    <!-- 사용자 프로필 -->
+    <div class="px-4 py-3 border-t border-gray-200 dark:border-gray-700">
+      <div class="flex items-center gap-3">
+        <div class="w-8 h-8 bg-indigo-100 dark:bg-indigo-900 rounded-full flex items-center justify-center">
+          <span class="text-sm font-medium text-indigo-600 dark:text-indigo-400">김</span>
+        </div>
+        <div class="flex-1 min-w-0">
+          <p class="text-sm font-medium truncate">김디자이너</p>
+          <p class="text-xs text-gray-500 dark:text-gray-400 truncate">designer@company.com</p>
+        </div>
+        <button @click="darkMode = !darkMode; $el.closest('html')?.classList.toggle('dark')" class="p-1.5 rounded-lg hover:bg-gray-100 dark:hover:bg-gray-700">
+          <svg x-show="!darkMode" class="w-4 h-4 text-gray-500" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M20.354 15.354A9 9 0 018.646 3.646 9.003 9.003 0 0012 21a9.003 9.003 0 008.354-5.646z"/></svg>
+          <svg x-show="darkMode" x-cloak class="w-4 h-4 text-yellow-400" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 3v1m0 16v1m9-9h-1M4 12H3m15.364 6.364l-.707-.707M6.343 6.343l-.707-.707m12.728 0l-.707.707M6.343 17.657l-.707.707M16 12a4 4 0 11-8 0 4 4 0 018 0z"/></svg>
+        </button>
+      </div>
+    </div>
+  </aside>
+
+  <!-- 모바일 오버레이 -->
+  <div x-show="mobileMenuOpen" x-cloak @click="mobileMenuOpen = false" class="fixed inset-0 bg-black/50 z-40 lg:hidden" x-transition:enter="transition-opacity ease-out duration-300" x-transition:enter-start="opacity-0" x-transition:enter-end="opacity-100" x-transition:leave="transition-opacity ease-in duration-200" x-transition:leave-start="opacity-100" x-transition:leave-end="opacity-0"></div>
+
+  <!-- 메인 콘텐츠 영역 -->
+  <div class="flex-1 flex flex-col lg:ml-64 min-h-screen">
+    <!-- 상단 헤더 -->
+    <header class="sticky top-0 z-20 bg-white dark:bg-gray-800 border-b border-gray-200 dark:border-gray-700">
+      <div class="flex items-center justify-between px-4 lg:px-6 py-3">
+        <div class="flex items-center gap-3">
+          <button @click="mobileMenuOpen = true" class="lg:hidden p-2 rounded-lg hover:bg-gray-100 dark:hover:bg-gray-700">
+            <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 6h16M4 12h16M4 18h16"/></svg>
+          </button>
+          <div>
+            <div class="flex items-center gap-2 text-sm text-gray-500 dark:text-gray-400">
+              <a href="projects.html" class="hover:text-indigo-600 dark:hover:text-indigo-400">프로젝트</a>
+              <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7"/></svg>
+              <span>홈페이지 리뉴얼</span>
+              <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7"/></svg>
+              <span class="text-gray-800 dark:text-gray-200 font-medium">Figma 시안</span>
+            </div>
+            <h1 class="text-lg font-bold mt-0.5">Figma 시안 관리</h1>
+          </div>
+        </div>
+        <div class="flex items-center gap-2">
+          <button class="p-2 rounded-lg hover:bg-gray-100 dark:hover:bg-gray-700 relative">
+            <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 17h5l-1.405-1.405A2.032 2.032 0 0118 14.158V11a6.002 6.002 0 00-4-5.659V5a2 2 0 10-4 0v.341C7.67 6.165 6 8.388 6 11v3.159c0 .538-.214 1.055-.595 1.436L4 17h5m6 0v1a3 3 0 11-6 0v-1m6 0H9"/></svg>
+            <span class="absolute -top-0.5 -right-0.5 w-4 h-4 bg-red-500 rounded-full text-[10px] text-white flex items-center justify-center font-bold">2</span>
+          </button>
+        </div>
+      </div>
+      <!-- 프로젝트 상세 탭 바 -->
+      <div class="px-4 lg:px-6 border-t border-gray-100 dark:border-gray-700">
+        <nav class="flex gap-1 -mb-px overflow-x-auto">
+          <a href="project-detail.html" class="px-4 py-3 text-sm text-gray-500 dark:text-gray-400 hover:text-gray-700 dark:hover:text-gray-300 border-b-2 border-transparent whitespace-nowrap">개요</a>
+          <a href="tasks.html" class="px-4 py-3 text-sm text-gray-500 dark:text-gray-400 hover:text-gray-700 dark:hover:text-gray-300 border-b-2 border-transparent whitespace-nowrap">업무</a>
+          <a href="document-detail.html" class="px-4 py-3 text-sm text-gray-500 dark:text-gray-400 hover:text-gray-700 dark:hover:text-gray-300 border-b-2 border-transparent whitespace-nowrap">문서</a>
+          <a href="#" class="px-4 py-3 text-sm text-gray-500 dark:text-gray-400 hover:text-gray-700 dark:hover:text-gray-300 border-b-2 border-transparent whitespace-nowrap">댓글</a>
+          <a href="#" class="px-4 py-3 text-sm font-medium text-indigo-600 dark:text-indigo-400 border-b-2 border-indigo-600 dark:border-indigo-400 whitespace-nowrap">Figma 시안</a>
+          <a href="feedback-request-ui.html" class="px-4 py-3 text-sm text-gray-500 dark:text-gray-400 hover:text-gray-700 dark:hover:text-gray-300 border-b-2 border-transparent whitespace-nowrap">피드백</a>
+        </nav>
+      </div>
+    </header>
+
+    <!-- 메인 콘텐츠 -->
+    <main class="flex-1 p-4 lg:p-6" x-data="figmaTabPage()">
+
+      <!-- 상단 액션 바 -->
+      <div class="flex items-center justify-between mb-6">
+        <div class="flex items-center gap-3">
+          <div class="flex items-center gap-2 px-3 py-1.5 bg-purple-100 dark:bg-purple-900/30 text-purple-700 dark:text-purple-300 rounded-full text-sm">
+            <svg class="w-4 h-4" viewBox="0 0 24 24" fill="currentColor"><path d="M5.5 3.21V20.8c0 .45.54.67.85.35l4.86-4.86a.5.5 0 0 1 .35-.15h6.87a.5.5 0 0 0 .35-.85L6.35 2.85a.5.5 0 0 0-.85.36z"/></svg>
+            <span>연결된 파일 <strong x-text="files.length"></strong>개</span>
+          </div>
+          <span class="text-sm text-gray-500 dark:text-gray-400" x-show="lastChecked">
+            마지막 확인: <span x-text="lastChecked"></span>
+          </span>
+        </div>
+        <div class="flex items-center gap-2">
+          <button @click="refreshAll()" class="px-3 py-2 text-sm text-gray-600 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700 rounded-lg transition-colors flex items-center gap-1.5">
+            <svg class="w-4 h-4" :class="{ 'animate-spin': isRefreshing }" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15"/></svg>
+            새로고침
+          </button>
+          <button @click="showConnectModal = true" class="px-4 py-2 bg-indigo-600 hover:bg-indigo-700 text-white text-sm rounded-lg transition-colors flex items-center gap-1.5">
+            <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4"/></svg>
+            Figma 파일 연결
+          </button>
+        </div>
+      </div>
+
+      <div class="grid grid-cols-1 xl:grid-cols-3 gap-6">
+        <!-- 좌측: 연결된 Figma 파일 목록 -->
+        <div class="xl:col-span-1">
+          <div class="bg-white dark:bg-gray-800 rounded-xl border border-gray-200 dark:border-gray-700">
+            <div class="px-4 py-3 border-b border-gray-200 dark:border-gray-700">
+              <h3 class="text-sm font-semibold">연결된 파일</h3>
+            </div>
+            <div class="divide-y divide-gray-100 dark:divide-gray-700">
+              <template x-for="(file, idx) in files" :key="file.id">
+                <button @click="selectFile(idx)" class="w-full text-left px-4 py-3 hover:bg-gray-50 dark:hover:bg-gray-700/50 transition-colors" :class="{ 'bg-indigo-50 dark:bg-indigo-900/20 border-l-2 border-indigo-500': selectedFileIdx === idx }">
+                  <div class="flex items-start gap-3">
+                    <!-- 썸네일 -->
+                    <div class="w-16 h-12 bg-gray-100 dark:bg-gray-700 rounded-lg flex-shrink-0 overflow-hidden flex items-center justify-center">
+                      <div class="w-full h-full bg-gradient-to-br from-purple-100 to-pink-100 dark:from-purple-900/40 dark:to-pink-900/40 flex items-center justify-center">
+                        <svg class="w-6 h-6 text-purple-400" viewBox="0 0 24 24" fill="currentColor"><path d="M5.5 3.21V20.8c0 .45.54.67.85.35l4.86-4.86a.5.5 0 0 1 .35-.15h6.87a.5.5 0 0 0 .35-.85L6.35 2.85a.5.5 0 0 0-.85.36z"/></svg>
+                      </div>
+                    </div>
+                    <div class="flex-1 min-w-0">
+                      <p class="text-sm font-medium truncate" x-text="file.name"></p>
+                      <p class="text-xs text-gray-500 dark:text-gray-400 mt-0.5">
+                        <span x-text="file.pages"></span>개 페이지 · <span x-text="file.components"></span>개 컴포넌트
+                      </p>
+                      <div class="flex items-center gap-2 mt-1">
+                        <span class="text-xs text-gray-400 dark:text-gray-500" x-text="'수정: ' + file.lastModified"></span>
+                        <span x-show="file.hasUpdate" class="inline-flex items-center px-1.5 py-0.5 text-[10px] font-medium bg-orange-100 dark:bg-orange-900/30 text-orange-600 dark:text-orange-400 rounded-full">업데이트</span>
+                      </div>
+                    </div>
+                  </div>
+                </button>
+              </template>
+            </div>
+          </div>
+        </div>
+
+        <!-- 우측: 선택된 파일 상세 -->
+        <div class="xl:col-span-2">
+          <div class="bg-white dark:bg-gray-800 rounded-xl border border-gray-200 dark:border-gray-700">
+            <!-- 파일 정보 헤더 -->
+            <div class="px-5 py-4 border-b border-gray-200 dark:border-gray-700">
+              <div class="flex items-center justify-between">
+                <div>
+                  <h2 class="text-base font-bold" x-text="selectedFile?.name || '파일을 선택하세요'"></h2>
+                  <p class="text-sm text-gray-500 dark:text-gray-400 mt-0.5" x-show="selectedFile">
+                    최종 수정: <span x-text="selectedFile?.lastModified"></span> · 수정자: <span x-text="selectedFile?.lastEditor"></span>
+                  </p>
+                </div>
+                <div class="flex items-center gap-2" x-show="selectedFile">
+                  <a :href="selectedFile?.url || '#'" target="_blank" class="px-3 py-1.5 text-sm text-purple-600 dark:text-purple-400 hover:bg-purple-50 dark:hover:bg-purple-900/20 rounded-lg transition-colors flex items-center gap-1.5">
+                    <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10 6H6a2 2 0 00-2 2v10a2 2 0 002 2h10a2 2 0 002-2v-4M14 4h6m0 0v6m0-6L10 14"/></svg>
+                    Figma에서 열기
+                  </a>
+                  <button @click="showDeleteConfirm = true" class="p-1.5 text-gray-400 hover:text-red-500 dark:hover:text-red-400 rounded-lg hover:bg-gray-100 dark:hover:bg-gray-700 transition-colors">
+                    <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"/></svg>
+                  </button>
+                </div>
+              </div>
+            </div>
+
+            <!-- 페이지 탭 -->
+            <div class="px-5 border-b border-gray-100 dark:border-gray-700 overflow-x-auto" x-show="selectedFile">
+              <div class="flex gap-1">
+                <template x-for="(page, pIdx) in selectedFile?.pageList || []" :key="page">
+                  <button @click="selectedPageIdx = pIdx" class="px-3 py-2 text-sm whitespace-nowrap rounded-t-lg transition-colors" :class="selectedPageIdx === pIdx ? 'bg-gray-100 dark:bg-gray-700 text-gray-900 dark:text-white font-medium' : 'text-gray-500 dark:text-gray-400 hover:text-gray-700 dark:hover:text-gray-300'" x-text="page"></button>
+                </template>
+              </div>
+            </div>
+
+            <!-- 스크린샷 영역 -->
+            <div class="p-5" x-show="selectedFile">
+              <!-- 스크린샷 미리보기 -->
+              <div class="relative bg-gray-50 dark:bg-gray-900 rounded-xl border border-gray-200 dark:border-gray-700 overflow-hidden" style="min-height: 400px;">
+                <!-- 시뮬레이션된 스크린샷 -->
+                <div class="absolute inset-0 flex items-center justify-center">
+                  <div class="text-center">
+                    <!-- Figma 프레임 시뮬레이션 -->
+                    <div class="inline-block bg-white dark:bg-gray-800 rounded-2xl shadow-2xl p-8 max-w-md mx-auto">
+                      <div class="w-64 mx-auto space-y-4">
+                        <!-- 시뮬레이션된 UI 요소들 -->
+                        <div class="h-8 bg-gradient-to-r from-indigo-500 to-purple-500 rounded-lg"></div>
+                        <div class="flex gap-3">
+                          <div class="w-12 h-12 bg-gray-200 dark:bg-gray-600 rounded-lg"></div>
+                          <div class="flex-1 space-y-2">
+                            <div class="h-3 bg-gray-200 dark:bg-gray-600 rounded w-3/4"></div>
+                            <div class="h-3 bg-gray-100 dark:bg-gray-700 rounded w-1/2"></div>
+                          </div>
+                        </div>
+                        <div class="space-y-2">
+                          <div class="h-3 bg-gray-100 dark:bg-gray-700 rounded"></div>
+                          <div class="h-3 bg-gray-100 dark:bg-gray-700 rounded w-5/6"></div>
+                          <div class="h-3 bg-gray-100 dark:bg-gray-700 rounded w-4/6"></div>
+                        </div>
+                        <div class="flex gap-2">
+                          <div class="h-8 flex-1 bg-indigo-100 dark:bg-indigo-900/30 rounded-lg"></div>
+                          <div class="h-8 flex-1 bg-gray-100 dark:bg-gray-700 rounded-lg"></div>
+                        </div>
+                      </div>
+                    </div>
+                    <p class="text-sm text-gray-400 dark:text-gray-500 mt-4">
+                      <span x-text="selectedFile?.pageList?.[selectedPageIdx] || ''"></span> 페이지 스크린샷
+                    </p>
+                  </div>
+                </div>
+                <!-- 줌/패닝 컨트롤 -->
+                <div class="absolute bottom-4 right-4 flex items-center gap-1 bg-white dark:bg-gray-800 rounded-lg shadow-lg border border-gray-200 dark:border-gray-700 p-1">
+                  <button class="p-1.5 hover:bg-gray-100 dark:hover:bg-gray-700 rounded text-gray-600 dark:text-gray-300 text-sm">−</button>
+                  <span class="px-2 text-xs text-gray-500 dark:text-gray-400 min-w-[40px] text-center">100%</span>
+                  <button class="p-1.5 hover:bg-gray-100 dark:hover:bg-gray-700 rounded text-gray-600 dark:text-gray-300 text-sm">+</button>
+                  <div class="w-px h-4 bg-gray-200 dark:bg-gray-600 mx-1"></div>
+                  <button class="p-1.5 hover:bg-gray-100 dark:hover:bg-gray-700 rounded text-gray-600 dark:text-gray-300">
+                    <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 8V4m0 0h4M4 4l5 5m11-1V4m0 0h-4m4 0l-5 5M4 16v4m0 0h4m-4 0l5-5m11 5l-5-5m5 5v-4m0 4h-4"/></svg>
+                  </button>
+                </div>
+              </div>
+
+              <!-- 파일 메타데이터 -->
+              <div class="grid grid-cols-2 sm:grid-cols-4 gap-4 mt-4">
+                <div class="bg-gray-50 dark:bg-gray-900 rounded-lg p-3 text-center">
+                  <p class="text-lg font-bold text-purple-600 dark:text-purple-400" x-text="selectedFile?.pages || 0"></p>
+                  <p class="text-xs text-gray-500 dark:text-gray-400">페이지</p>
+                </div>
+                <div class="bg-gray-50 dark:bg-gray-900 rounded-lg p-3 text-center">
+                  <p class="text-lg font-bold text-blue-600 dark:text-blue-400" x-text="selectedFile?.components || 0"></p>
+                  <p class="text-xs text-gray-500 dark:text-gray-400">컴포넌트</p>
+                </div>
+                <div class="bg-gray-50 dark:bg-gray-900 rounded-lg p-3 text-center">
+                  <p class="text-lg font-bold text-green-600 dark:text-green-400" x-text="selectedFile?.versions || 0"></p>
+                  <p class="text-xs text-gray-500 dark:text-gray-400">버전</p>
+                </div>
+                <div class="bg-gray-50 dark:bg-gray-900 rounded-lg p-3 text-center">
+                  <p class="text-lg font-bold text-orange-600 dark:text-orange-400" x-text="selectedFile?.collaborators || 0"></p>
+                  <p class="text-xs text-gray-500 dark:text-gray-400">협업자</p>
+                </div>
+              </div>
+            </div>
+
+            <!-- 빈 상태 -->
+            <div class="p-12 text-center" x-show="!selectedFile">
+              <svg class="w-16 h-16 text-gray-300 dark:text-gray-600 mx-auto" viewBox="0 0 24 24" fill="currentColor"><path d="M5.5 3.21V20.8c0 .45.54.67.85.35l4.86-4.86a.5.5 0 0 1 .35-.15h6.87a.5.5 0 0 0 .35-.85L6.35 2.85a.5.5 0 0 0-.85.36z"/></svg>
+              <p class="text-gray-500 dark:text-gray-400 mt-4">좌측에서 파일을 선택하거나<br>새 Figma 파일을 연결하세요</p>
+              <button @click="showConnectModal = true" class="mt-4 px-4 py-2 bg-indigo-600 hover:bg-indigo-700 text-white text-sm rounded-lg transition-colors inline-flex items-center gap-1.5">
+                <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4"/></svg>
+                Figma 파일 연결
+              </button>
+            </div>
+          </div>
+
+          <!-- 변경 이력 -->
+          <div class="bg-white dark:bg-gray-800 rounded-xl border border-gray-200 dark:border-gray-700 mt-4" x-show="selectedFile">
+            <div class="px-5 py-3 border-b border-gray-200 dark:border-gray-700 flex items-center justify-between">
+              <h3 class="text-sm font-semibold">변경 이력</h3>
+              <span class="text-xs text-gray-400 dark:text-gray-500">최근 5건</span>
+            </div>
+            <div class="divide-y divide-gray-100 dark:divide-gray-700">
+              <template x-for="log in changeLog" :key="log.id">
+                <div class="px-5 py-3 flex items-center gap-3">
+                  <div class="w-8 h-8 rounded-full flex items-center justify-center text-xs font-medium flex-shrink-0" :class="log.color">
+                    <span x-text="log.avatar"></span>
+                  </div>
+                  <div class="flex-1 min-w-0">
+                    <p class="text-sm"><span class="font-medium" x-text="log.user"></span> · <span class="text-gray-500 dark:text-gray-400" x-text="log.action"></span></p>
+                    <p class="text-xs text-gray-400 dark:text-gray-500 mt-0.5" x-text="log.time"></p>
+                  </div>
+                  <span class="text-xs px-2 py-0.5 rounded-full" :class="log.typeBadge" x-text="log.type"></span>
+                </div>
+              </template>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Figma 파일 연결 모달 -->
+      <div x-show="showConnectModal" x-cloak class="fixed inset-0 z-50 flex items-center justify-center p-4" x-transition>
+        <div class="absolute inset-0 bg-black/50" @click="showConnectModal = false"></div>
+        <div class="relative bg-white dark:bg-gray-800 rounded-2xl shadow-2xl w-full max-w-md p-6 fade-in">
+          <div class="flex items-center justify-between mb-5">
+            <h3 class="text-lg font-bold">Figma 파일 연결</h3>
+            <button @click="showConnectModal = false" class="p-1 hover:bg-gray-100 dark:hover:bg-gray-700 rounded-lg">
+              <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"/></svg>
+            </button>
+          </div>
+
+          <div class="space-y-4">
+            <!-- URL 입력 -->
+            <div>
+              <label class="block text-sm font-medium mb-1.5">Figma 파일 URL</label>
+              <input type="url" x-model="connectUrl" placeholder="https://www.figma.com/design/..." class="w-full px-3 py-2.5 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-sm focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 outline-none transition-colors">
+              <p class="text-xs text-gray-400 dark:text-gray-500 mt-1">figma.com/design/으로 시작하는 URL을 입력하세요</p>
+            </div>
+
+            <!-- URL 유효성 표시 -->
+            <div x-show="connectUrl.length > 10" class="flex items-center gap-2 p-3 rounded-lg text-sm" :class="isValidUrl ? 'bg-green-50 dark:bg-green-900/20 text-green-700 dark:text-green-300' : 'bg-red-50 dark:bg-red-900/20 text-red-700 dark:text-red-300'">
+              <svg x-show="isValidUrl" class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7"/></svg>
+              <svg x-show="!isValidUrl" class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"/></svg>
+              <span x-text="isValidUrl ? '유효한 Figma URL입니다' : '올바른 Figma URL 형식이 아닙니다'"></span>
+            </div>
+
+            <!-- 별칭 입력 -->
+            <div>
+              <label class="block text-sm font-medium mb-1.5">표시 이름 (선택)</label>
+              <input type="text" x-model="connectAlias" placeholder="예: 메인 시안 v2" class="w-full px-3 py-2.5 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-sm focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 outline-none transition-colors">
+            </div>
+          </div>
+
+          <div class="flex justify-end gap-2 mt-6">
+            <button @click="showConnectModal = false" class="px-4 py-2 text-sm text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700 rounded-lg transition-colors">취소</button>
+            <button @click="connectFile()" :disabled="!isValidUrl" class="px-4 py-2 text-sm bg-indigo-600 hover:bg-indigo-700 disabled:bg-gray-300 disabled:dark:bg-gray-600 text-white rounded-lg transition-colors flex items-center gap-1.5">
+              <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13.828 10.172a4 4 0 00-5.656 0l-4 4a4 4 0 105.656 5.656l1.102-1.101m-.758-4.899a4 4 0 005.656 0l4-4a4 4 0 00-5.656-5.656l-1.1 1.1"/></svg>
+              연결하기
+            </button>
+          </div>
+        </div>
+      </div>
+
+      <!-- 삭제 확인 모달 -->
+      <div x-show="showDeleteConfirm" x-cloak class="fixed inset-0 z-50 flex items-center justify-center p-4" x-transition>
+        <div class="absolute inset-0 bg-black/50" @click="showDeleteConfirm = false"></div>
+        <div class="relative bg-white dark:bg-gray-800 rounded-2xl shadow-2xl w-full max-w-sm p-6">
+          <div class="text-center">
+            <div class="w-12 h-12 bg-red-100 dark:bg-red-900/30 rounded-full flex items-center justify-center mx-auto mb-4">
+              <svg class="w-6 h-6 text-red-600 dark:text-red-400" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-2.5L13.732 4c-.77-.833-1.964-.833-2.732 0L4.082 16.5c-.77.833.192 2.5 1.732 2.5z"/></svg>
+            </div>
+            <h3 class="text-lg font-bold mb-2">파일 연결 해제</h3>
+            <p class="text-sm text-gray-500 dark:text-gray-400">"<span x-text="selectedFile?.name"></span>" 연결을 해제하시겠습니까?<br>Figma 원본 파일에는 영향이 없습니다.</p>
+          </div>
+          <div class="flex gap-2 mt-6">
+            <button @click="showDeleteConfirm = false" class="flex-1 px-4 py-2 text-sm text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700 rounded-lg transition-colors">취소</button>
+            <button @click="removeFile(); showDeleteConfirm = false" class="flex-1 px-4 py-2 text-sm bg-red-600 hover:bg-red-700 text-white rounded-lg transition-colors">연결 해제</button>
+          </div>
+        </div>
+      </div>
+
+    </main>
+
+    <!-- 모바일 하단 탭 바 -->
+    <nav class="lg:hidden fixed bottom-0 left-0 right-0 bg-white dark:bg-gray-800 border-t border-gray-200 dark:border-gray-700 z-30">
+      <div class="flex justify-around py-2">
+        <a href="dashboard.html" class="flex flex-col items-center gap-1 px-3 py-1 text-gray-400 dark:text-gray-500">
+          <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 12l2-2m0 0l7-7 7 7M5 10v10a1 1 0 001 1h3m10-11l2 2m-2-2v10a1 1 0 01-1 1h-3m-6 0a1 1 0 001-1v-4a1 1 0 011-1h2a1 1 0 011 1v4a1 1 0 001 1m-6 0h6"/></svg>
+          <span class="text-[10px]">홈</span>
+        </a>
+        <a href="projects.html" class="flex flex-col items-center gap-1 px-3 py-1 text-indigo-600 dark:text-indigo-400">
+          <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 7v10a2 2 0 002 2h14a2 2 0 002-2V9a2 2 0 00-2-2h-6l-2-2H5a2 2 0 00-2 2z"/></svg>
+          <span class="text-[10px] font-medium">프로젝트</span>
+        </a>
+        <a href="tasks.html" class="flex flex-col items-center gap-1 px-3 py-1 text-gray-400 dark:text-gray-500">
+          <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2m-6 9l2 2 4-4"/></svg>
+          <span class="text-[10px]">업무</span>
+        </a>
+        <a href="notifications.html" class="flex flex-col items-center gap-1 px-3 py-1 text-gray-400 dark:text-gray-500">
+          <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 17h5l-1.405-1.405A2.032 2.032 0 0118 14.158V11a6.002 6.002 0 00-4-5.659V5a2 2 0 10-4 0v.341C7.67 6.165 6 8.388 6 11v3.159c0 .538-.214 1.055-.595 1.436L4 17h5m6 0v1a3 3 0 11-6 0v-1m6 0H9"/></svg>
+          <span class="text-[10px]">알림</span>
+        </a>
+        <a href="settings.html" class="flex flex-col items-center gap-1 px-3 py-1 text-gray-400 dark:text-gray-500">
+          <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10.325 4.317c.426-1.756 2.924-1.756 3.35 0a1.724 1.724 0 002.573 1.066c1.543-.94 3.31.826 2.37 2.37a1.724 1.724 0 001.066 2.573c1.756.426 1.756 2.924 0 3.35a1.724 1.724 0 00-1.066 2.573c.94 1.543-.826 3.31-2.37 2.37a1.724 1.724 0 00-2.573 1.066c-.426 1.756-2.924 1.756-3.35 0a1.724 1.724 0 00-2.573-1.066c-1.543.94-3.31-.826-2.37-2.37a1.724 1.724 0 00-1.066-2.573c-1.756-.426-1.756-2.924 0-3.35a1.724 1.724 0 001.066-2.573c-.94-1.543.826-3.31 2.37-2.37.996.608 2.296.07 2.572-1.065z"/><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z"/></svg>
+          <span class="text-[10px]">설정</span>
+        </a>
+      </div>
+    </nav>
+  </div>
+</div>
+
+<script>
+function appLayout() {
+  return {
+    mobileMenuOpen: false,
+    darkMode: false,
+    init() {
+      if (window.matchMedia('(prefers-color-scheme: dark)').matches) {
+        this.darkMode = true;
+        document.documentElement.classList.add('dark');
+      }
+    }
+  }
+}
+
+function figmaTabPage() {
+  return {
+    selectedFileIdx: 0,
+    selectedPageIdx: 0,
+    showConnectModal: false,
+    showDeleteConfirm: false,
+    isRefreshing: false,
+    connectUrl: '',
+    connectAlias: '',
+    lastChecked: '10분 전',
+
+    files: [
+      {
+        id: 1,
+        name: '홈페이지 리뉴얼 - 메인 시안',
+        url: '#',
+        pages: 8,
+        components: 42,
+        versions: 12,
+        collaborators: 3,
+        lastModified: '2026-03-07 16:30',
+        lastEditor: '이디자이너',
+        hasUpdate: true,
+        pageList: ['커버', '메인 페이지', '서비스 소개', '포트폴리오', '문의하기', '모바일 - 메인', '모바일 - 서비스', '모바일 - 포트폴리오']
+      },
+      {
+        id: 2,
+        name: '홈페이지 리뉴얼 - 서브 페이지',
+        url: '#',
+        pages: 5,
+        components: 28,
+        versions: 7,
+        collaborators: 2,
+        lastModified: '2026-03-06 11:20',
+        lastEditor: '박디자이너',
+        hasUpdate: false,
+        pageList: ['회사 소개', '팀 소개', '블로그 목록', '블로그 상세', '채용']
+      },
+      {
+        id: 3,
+        name: '모바일 앱 프로토타입',
+        url: '#',
+        pages: 12,
+        components: 56,
+        versions: 19,
+        collaborators: 4,
+        lastModified: '2026-03-08 09:15',
+        lastEditor: '김디자이너',
+        hasUpdate: false,
+        pageList: ['스플래시', '로그인', '회원가입', '홈', '검색', '상세', '장바구니', '결제', '주문 완료', '마이페이지', '설정', '알림']
+      }
+    ],
+
+    changeLog: [
+      { id: 1, user: '김디자이너', avatar: '김', action: '모바일 앱 프로토타입 페이지 추가', time: '오늘 09:15', type: '편집', color: 'bg-blue-100 dark:bg-blue-900/30 text-blue-600 dark:text-blue-400', typeBadge: 'bg-blue-100 dark:bg-blue-900/30 text-blue-600 dark:text-blue-400' },
+      { id: 2, user: '이디자이너', avatar: '이', action: '메인 시안 히어로 섹션 수정', time: '어제 16:30', type: '수정', color: 'bg-purple-100 dark:bg-purple-900/30 text-purple-600 dark:text-purple-400', typeBadge: 'bg-orange-100 dark:bg-orange-900/30 text-orange-600 dark:text-orange-400' },
+      { id: 3, user: '박디자이너', avatar: '박', action: '서브 페이지 블로그 디자인 완성', time: '3월 6일 11:20', type: '완성', color: 'bg-green-100 dark:bg-green-900/30 text-green-600 dark:text-green-400', typeBadge: 'bg-green-100 dark:bg-green-900/30 text-green-600 dark:text-green-400' },
+      { id: 4, user: '이디자이너', avatar: '이', action: '메인 시안 네비게이션 컴포넌트 추가', time: '3월 5일 14:00', type: '추가', color: 'bg-purple-100 dark:bg-purple-900/30 text-purple-600 dark:text-purple-400', typeBadge: 'bg-indigo-100 dark:bg-indigo-900/30 text-indigo-600 dark:text-indigo-400' },
+      { id: 5, user: '김디자이너', avatar: '김', action: 'Figma 파일 최초 연결', time: '3월 3일 10:00', type: '연결', color: 'bg-blue-100 dark:bg-blue-900/30 text-blue-600 dark:text-blue-400', typeBadge: 'bg-gray-100 dark:bg-gray-700 text-gray-600 dark:text-gray-400' }
+    ],
+
+    get selectedFile() {
+      return this.files[this.selectedFileIdx] || null;
+    },
+
+    get isValidUrl() {
+      return /^https:\/\/(www\.)?figma\.com\/design\//.test(this.connectUrl);
+    },
+
+    selectFile(idx) {
+      this.selectedFileIdx = idx;
+      this.selectedPageIdx = 0;
+    },
+
+    connectFile() {
+      if (!this.isValidUrl) return;
+      this.files.push({
+        id: Date.now(),
+        name: this.connectAlias || '새 Figma 파일',
+        url: this.connectUrl,
+        pages: 0,
+        components: 0,
+        versions: 1,
+        collaborators: 1,
+        lastModified: '방금 전',
+        lastEditor: '김디자이너',
+        hasUpdate: false,
+        pageList: ['Page 1']
+      });
+      this.connectUrl = '';
+      this.connectAlias = '';
+      this.showConnectModal = false;
+      this.selectedFileIdx = this.files.length - 1;
+      this.selectedPageIdx = 0;
+    },
+
+    removeFile() {
+      this.files.splice(this.selectedFileIdx, 1);
+      this.selectedFileIdx = Math.max(0, this.selectedFileIdx - 1);
+      this.selectedPageIdx = 0;
+    },
+
+    refreshAll() {
+      this.isRefreshing = true;
+      setTimeout(() => {
+        this.isRefreshing = false;
+        this.lastChecked = '방금 전';
+      }, 1500);
+    }
+  }
+}
+</script>
+</body>
+</html>
