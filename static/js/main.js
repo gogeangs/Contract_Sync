@@ -165,6 +165,24 @@ window.CS = {
         if (!total || total === 0) return 0;
         return Math.round((completed / total) * 100);
     },
+
+    // CSV 내보내기 유틸 (#17)
+    downloadCsv(prefix, header, rows) {
+        const escape = v => { const s = String(v ?? ''); return s.includes(',') || s.includes('"') || s.includes('\n') ? `"${s.replace(/"/g, '""')}"` : s; };
+        const csv = '\uFEFF' + [header.map(escape).join(','), ...rows.map(r => r.map(escape).join(','))].join('\r\n');
+        const blob = new Blob([csv], { type: 'text/csv;charset=utf-8;' });
+        const url = URL.createObjectURL(blob);
+        const a = document.createElement('a');
+        const d = new Date(); const ds = `${d.getFullYear()}${String(d.getMonth()+1).padStart(2,'0')}${String(d.getDate()).padStart(2,'0')}`;
+        a.href = url; a.download = `${prefix}_${ds}.csv`; a.click();
+        URL.revokeObjectURL(url);
+    },
+    /** DOMPurify sanitize wrapper (#21) */
+    sanitize(html) {
+        if (!html) return '';
+        if (typeof DOMPurify !== 'undefined') return DOMPurify.sanitize(html, { USE_PROFILES: { html: true } });
+        return html;
+    },
 };
 
 // ============ API 헬퍼 ============
@@ -257,10 +275,27 @@ function appShell() {
         // 프로필 드롭다운
         profileDropdown: false,
 
+        // SSE (#4)
+        _sseSource: null,
+
+        // 글로벌 검색 (#11)
+        showSearchPalette: false,
+        searchQuery: '', searchResults: { projects: [], tasks: [], clients: [] },
+        searchLoading: false, _searchTimer: null,
+        recentSearches: JSON.parse(localStorage.getItem('cs_recent_searches') || '[]'),
+        searchSelectedIdx: -1,
+
+        // 모바일 더보기 (#12)
+        moreMenuOpen: false,
+
+        // 팀 생성 모달 (#13)
+        showTeamCreateModal: false, teamCreateForm: { name: '', description: '' }, teamCreating: false,
+
         async init() {
             this.initDarkMode();
             await this.checkAuth();
             this.initRouter();
+            this._initGlobalSearch();
         },
 
         // ---- 라우터 ----
@@ -308,6 +343,12 @@ function appShell() {
                 this.currentPage = 'templates'; this.pageParams = {};
             } else if ((m = path.match(/^\/portal\/([a-zA-Z0-9_-]+)$/))) {
                 this.currentPage = 'portal'; this.pageParams = { token: m[1] };
+            } else if (path === '/activity') {
+                this.currentPage = 'activity'; this.pageParams = {};
+            } else if (path === '/notifications') {
+                this.currentPage = 'notifications'; this.pageParams = {};
+            } else if (path === '/team-settings') {
+                this.currentPage = 'teamSettings'; this.pageParams = {};
             } else if (path === '/settings') {
                 this.currentPage = 'settings'; this.pageParams = {};
             } else {
@@ -357,6 +398,7 @@ function appShell() {
                     if (!this._notifInterval) {
                         this._notifInterval = setInterval(() => { if (!document.hidden) this.loadUnreadCount(); }, 30000);
                     }
+                    this._connectSSE();
                 }
             } catch { /* ignore */ }
             finally { this.loading = false; }
@@ -424,6 +466,7 @@ function appShell() {
                 await fetch('/api/v1/auth/logout', { method: 'POST' });
                 this.user = null; this.teams = []; this.notifications = []; this.unreadCount = 0;
                 if (this._notifInterval) { clearInterval(this._notifInterval); this._notifInterval = null; }
+                this._disconnectSSE();
                 this.navigate('/dashboard');
             } catch { window.toast.error('로그아웃 실패'); }
         },
@@ -458,7 +501,14 @@ function appShell() {
         },
         get filteredNotifications() {
             if (this.notifFilter === 'all') return this.notifications;
-            return this.notifications.filter(n => n.type === this.notifFilter);
+            const typeMap = {
+                'comment': ['comment', 'reply'],
+                'mention': ['mention'],
+                'task': ['status_change', 'assign', 'deadline', 'task'],
+                'team': ['team', 'team_invite', 'team_role'],
+            };
+            const types = typeMap[this.notifFilter] || [this.notifFilter];
+            return this.notifications.filter(n => types.includes(n.type));
         },
 
         // ---- 팀 ----
@@ -467,6 +517,142 @@ function appShell() {
             this.teamDropdown = false;
             window._selectedTeamId = this.selectedTeamId;
             window.dispatchEvent(new CustomEvent('team-switched', { detail: this.selectedTeamId }));
+        },
+
+        // ---- SSE 실시간 알림 (#4) ----
+        _connectSSE() {
+            if (this._sseSource) return;
+            try {
+                this._sseSource = new EventSource('/sse/notifications');
+                this._sseSource.addEventListener('notification', (e) => {
+                    try {
+                        const data = JSON.parse(e.data);
+                        this.unreadCount++;
+                        this.notifications.unshift(data);
+                        window.toast.info(data.title || '새 알림이 있습니다');
+                    } catch {}
+                });
+                this._sseSource.addEventListener('connected', () => {});
+                this._sseSource.addEventListener('heartbeat', () => {});
+                this._sseSource.onerror = () => {};
+            } catch {}
+        },
+        _disconnectSSE() {
+            if (this._sseSource) { this._sseSource.close(); this._sseSource = null; }
+        },
+
+        // ---- 알림 삭제 (#3) ----
+        async deleteNotif(id) {
+            try {
+                await fetch(`/api/v1/notifications/${id}`, { method: 'DELETE' });
+                const n = this.notifications.find(x => x.id === id);
+                if (n && !n.is_read) this.unreadCount = Math.max(0, this.unreadCount - 1);
+                this.notifications = this.notifications.filter(x => x.id !== id);
+            } catch {}
+        },
+
+        notifLink(n) {
+            if (!n.link) return;
+            try {
+                const link = typeof n.link === 'string' ? JSON.parse(n.link) : n.link;
+                if (link.project_id) {
+                    this.markNotifRead(n.id);
+                    this.showNotifPanel = false;
+                    this.navigate(`/projects/${link.project_id}`);
+                }
+            } catch {}
+        },
+
+        // ---- 글로벌 검색 / Ctrl+K (#11) ----
+        _initGlobalSearch() {
+            document.addEventListener('keydown', (e) => {
+                if ((e.ctrlKey || e.metaKey) && e.key === 'k') {
+                    e.preventDefault();
+                    this.showSearchPalette = !this.showSearchPalette;
+                    if (this.showSearchPalette) {
+                        this.searchQuery = '';
+                        this.searchResults = { projects: [], tasks: [], clients: [] };
+                        this.searchSelectedIdx = -1;
+                        this.$nextTick(() => { document.getElementById('globalSearchInput')?.focus(); });
+                    }
+                }
+                if (e.key === 'Escape' && this.showSearchPalette) {
+                    this.showSearchPalette = false;
+                }
+            });
+        },
+
+        onSearchInput() {
+            clearTimeout(this._searchTimer);
+            if (!this.searchQuery.trim()) {
+                this.searchResults = { projects: [], tasks: [], clients: [] };
+                return;
+            }
+            this._searchTimer = setTimeout(() => this._doSearch(), 300);
+        },
+
+        async _doSearch() {
+            const q = this.searchQuery.trim();
+            if (!q) return;
+            this.searchLoading = true;
+            try {
+                const [pData, tData, cData] = await Promise.all([
+                    api.get(`/projects?search=${encodeURIComponent(q)}&size=5`).catch(() => ({})),
+                    api.get(`/tasks?search=${encodeURIComponent(q)}&size=5`).catch(() => ({})),
+                    api.get(`/clients?search=${encodeURIComponent(q)}&size=5`).catch(() => ({})),
+                ]);
+                this.searchResults = {
+                    projects: pData?.projects || [],
+                    tasks: tData?.tasks || [],
+                    clients: cData?.clients || [],
+                };
+                this.searchSelectedIdx = -1;
+                // 저장 최근 검색
+                const recent = this.recentSearches.filter(s => s !== q);
+                recent.unshift(q);
+                this.recentSearches = recent.slice(0, 5);
+                localStorage.setItem('cs_recent_searches', JSON.stringify(this.recentSearches));
+            } catch {}
+            finally { this.searchLoading = false; }
+        },
+
+        get searchAllItems() {
+            const items = [];
+            for (const p of this.searchResults.projects) items.push({ type: 'project', id: p.id, name: p.project_name, sub: p.status });
+            for (const t of this.searchResults.tasks) items.push({ type: 'task', id: t.id, name: t.task_name, sub: t.status, projectId: t.project_id });
+            for (const c of this.searchResults.clients) items.push({ type: 'client', id: c.id, name: c.name, sub: c.category });
+            return items;
+        },
+
+        searchNavigate(item) {
+            this.showSearchPalette = false;
+            if (item.type === 'project') this.navigate(`/projects/${item.id}`);
+            else if (item.type === 'task') this.navigate('/tasks');
+            else if (item.type === 'client') this.navigate(`/clients/${item.id}`);
+        },
+
+        searchKeyNav(e) {
+            const items = this.searchAllItems;
+            if (!items.length) return;
+            if (e.key === 'ArrowDown') { e.preventDefault(); this.searchSelectedIdx = Math.min(this.searchSelectedIdx + 1, items.length - 1); }
+            else if (e.key === 'ArrowUp') { e.preventDefault(); this.searchSelectedIdx = Math.max(this.searchSelectedIdx - 1, 0); }
+            else if (e.key === 'Enter' && this.searchSelectedIdx >= 0) { e.preventDefault(); this.searchNavigate(items[this.searchSelectedIdx]); }
+        },
+
+        // ---- 팀 생성 (#13) ----
+        async createTeam() {
+            if (!this.teamCreateForm.name.trim()) { window.toast.warning('팀 이름을 입력해주세요.'); return; }
+            this.teamCreating = true;
+            try {
+                const team = await api.post('/teams', this.teamCreateForm);
+                window.toast.success('팀이 생성되었습니다.');
+                this.showTeamCreateModal = false;
+                this.teamCreateForm = { name: '', description: '' };
+                // 팀 목록 새로고침
+                await this.checkAuth();
+                this.switchTeam(team.id);
+            } catch (e) { window.toast.error(e.message); }
+            finally { this.teamCreating = false; }
         },
     };
 }
@@ -481,6 +667,13 @@ function dashboardPage() {
         stats: { projects: 0, pendingTasks: 0, inProgressTasks: 0, completedTasks: 0 },
         recentTasks: [],
         recentProjects: [],
+        // Sprint 1 #2: 대시보드 고도화
+        revenue: { months: [], amounts: [] },
+        workload: [],
+        insights: [],
+        insightsLoading: false,
+        revenueLoading: true,
+        workloadLoading: true,
 
         async init() {
             await this.load();
@@ -490,6 +683,8 @@ function dashboardPage() {
         async load() {
             if (!document.cookie.includes('session_token')) { this.loading = false; return; }
             this.loading = true;
+            this.revenueLoading = true;
+            this.workloadLoading = true;
             try {
                 const [pData, tData, pending, inProg, done] = await Promise.all([
                     api.get('/projects?page=1&size=5'),
@@ -504,8 +699,59 @@ function dashboardPage() {
                 this.stats.pendingTasks = pending?.total || 0;
                 this.stats.inProgressTasks = inProg?.total || 0;
                 this.stats.completedTasks = done?.total || 0;
-            } catch (e) { window.toast.error('대시보드 로드 실패'); }
+            } catch {}
             finally { this.loading = false; }
+
+            // 매출 + 워크로드 병렬 로드
+            Promise.all([
+                api.get('/dashboard/revenue').then(d => { this.revenue = d || { months: [], amounts: [] }; }).catch(() => {}),
+                api.get('/dashboard/workload').then(d => { this.workload = d || []; }).catch(() => {}),
+            ]).finally(() => { this.revenueLoading = false; this.workloadLoading = false; });
+        },
+
+        async loadInsights() {
+            this.insightsLoading = true;
+            try {
+                this.insights = await api.get('/dashboard/ai-insights') || [];
+            } catch { this.insights = []; }
+            finally { this.insightsLoading = false; }
+        },
+
+        // 매출 차트 헬퍼
+        get revenueMax() {
+            return Math.max(...(this.revenue.amounts || [0]), 1);
+        },
+        barHeight(amount) {
+            return Math.max((amount / this.revenueMax) * 100, 2);
+        },
+        formatAmount(n) {
+            if (n >= 10000) return (n / 10000).toFixed(0) + '만';
+            if (n >= 1000) return (n / 1000).toFixed(0) + '천';
+            return n.toLocaleString();
+        },
+
+        // 워크로드 헬퍼
+        workloadPercent(item) {
+            if (!item.task_count) return 0;
+            return Math.round((item.completed_count / item.task_count) * 100);
+        },
+        workloadColor(item) {
+            const pct = this.workloadPercent(item);
+            if (pct >= 80) return 'bg-green-500';
+            if (pct >= 50) return 'bg-blue-500';
+            return 'bg-orange-500';
+        },
+
+        // 인사이트 헬퍼
+        insightIcon(type) {
+            if (type === 'warning') return 'M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z';
+            if (type === 'suggestion') return 'M9.663 17h4.673M12 3v1m6.364 1.636l-.707.707M21 12h-1M4 12H3m3.343-5.657l-.707-.707m2.828 9.9a5 5 0 117.072 0l-.548.547A3.374 3.374 0 0014 18.469V19a2 2 0 11-4 0v-.531c0-.895-.356-1.754-.988-2.386l-.548-.547z';
+            return 'M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z';
+        },
+        insightColor(type) {
+            if (type === 'warning') return 'text-orange-500 bg-orange-100 dark:bg-orange-900/30';
+            if (type === 'suggestion') return 'text-green-500 bg-green-100 dark:bg-green-900/30';
+            return 'text-blue-500 bg-blue-100 dark:bg-blue-900/30';
         },
     };
 }
@@ -587,6 +833,12 @@ function clientListPage() {
         get totalPages() { return Math.ceil(this.total / this.size) || 1; },
 
         goPage(p) { if (p >= 1 && p <= this.totalPages) { this.page = p; this.loadClients(); } },
+
+        exportCsv() {
+            const header = ['발주처명','담당자','연락처','이메일'];
+            const rows = this.clients.map(c => [c.name, c.contact_name || '', c.contact_phone || '', c.contact_email || '']);
+            window.CS.downloadCsv('clients', header, rows);
+        },
     };
 }
 
@@ -710,6 +962,12 @@ function projectListPage() {
 
         get totalPages() { return Math.ceil(this.total / this.size) || 1; },
         goPage(p) { if (p >= 1 && p <= this.totalPages) { this.page = p; this.loadProjects(); } },
+
+        exportCsv() {
+            const header = ['프로젝트명','발주처','상태','시작일','마감일','계약금액'];
+            const rows = this.projects.map(p => [p.project_name, p.client_name || '', CS.statusLabel[p.status] || p.status, p.start_date || '', p.end_date || '', p.contract_amount || '']);
+            window.CS.downloadCsv('projects', header, rows);
+        },
     };
 }
 
@@ -857,6 +1115,115 @@ function projectDetailPage() {
             } catch (e) { window.toast.error(e.message); }
         },
 
+        // 댓글 (#6, #7)
+        commentList: [], commentContent: '', replyTo: null, replyContent: '', commentLoading: false,
+        mentionSearch: '', mentionResults: [], showMentionDropdown: false, mentionIdx: -1,
+        _commentObserver: null,
+
+        async loadComments(taskId) {
+            this.commentLoading = true;
+            try {
+                let url = `/${this.project.id}/comments`;
+                if (taskId) url += `?task_id=${taskId}`;
+                this.commentList = await api.get(url) || [];
+            } catch { this.commentList = []; }
+            finally { this.commentLoading = false; }
+        },
+
+        async submitComment(taskId) {
+            if (!this.commentContent.trim()) return;
+            try {
+                await api.post(`/${this.project.id}/comments`, {
+                    content: this.commentContent.trim(),
+                    task_id: taskId || null,
+                });
+                this.commentContent = '';
+                await this.loadComments(taskId);
+                window.toast.success('댓글이 등록되었습니다.');
+            } catch (e) { window.toast.error(e.message); }
+        },
+
+        startReply(comment) {
+            this.replyTo = comment.id;
+            this.replyContent = '';
+        },
+
+        cancelReply() {
+            this.replyTo = null;
+            this.replyContent = '';
+        },
+
+        async submitReply(taskId) {
+            if (!this.replyContent.trim()) return;
+            try {
+                await api.post(`/${this.project.id}/comments`, {
+                    content: this.replyContent.trim(),
+                    task_id: taskId || null,
+                    parent_id: this.replyTo,
+                });
+                this.replyTo = null;
+                this.replyContent = '';
+                await this.loadComments(taskId);
+            } catch (e) { window.toast.error(e.message); }
+        },
+
+        async deleteComment(commentId, taskId) {
+            if (!await window.confirmDialog('댓글을 삭제하시겠습니까?', { title: '댓글 삭제', confirmText: '삭제', danger: true })) return;
+            try {
+                await api.del(`/${this.project.id}/comments/${commentId}`);
+                await this.loadComments(taskId);
+            } catch (e) { window.toast.error(e.message); }
+        },
+
+        async markCommentRead(commentId) {
+            try {
+                await api.post(`/${this.project.id}/comments/${commentId}/read`, {});
+            } catch {}
+        },
+
+        // @멘션 (#8)
+        onCommentInput(e, field) {
+            const val = this[field];
+            const cursor = e.target.selectionStart;
+            const before = val.substring(0, cursor);
+            const atMatch = before.match(/@([^\s@]*)$/);
+            if (atMatch && this.project?.team_id) {
+                this.mentionSearch = atMatch[1].toLowerCase();
+                this._loadMentionCandidates();
+                this.showMentionDropdown = true;
+            } else {
+                this.showMentionDropdown = false;
+            }
+        },
+
+        async _loadMentionCandidates() {
+            if (!this._teamMembers) {
+                try {
+                    const team = await api.get(`/teams/${this.project.team_id}`);
+                    this._teamMembers = team?.members || [];
+                } catch { this._teamMembers = []; }
+            }
+            this.mentionResults = this._teamMembers.filter(m =>
+                (m.name || '').toLowerCase().includes(this.mentionSearch) ||
+                (m.email || '').toLowerCase().includes(this.mentionSearch)
+            ).slice(0, 5);
+            this.mentionIdx = -1;
+        },
+
+        insertMention(member, field, inputEl) {
+            const val = this[field];
+            const cursor = inputEl.selectionStart;
+            const before = val.substring(0, cursor);
+            const after = val.substring(cursor);
+            const newBefore = before.replace(/@([^\s@]*)$/, `@[${member.name || member.email}](${member.email}) `);
+            this[field] = newBefore + after;
+            this.showMentionDropdown = false;
+            this.$nextTick(() => {
+                inputEl.focus();
+                inputEl.selectionStart = inputEl.selectionEnd = newBefore.length;
+            });
+        },
+
         // 포털 토큰 관리
         async openPortalModal() {
             this.showPortalModal = true;
@@ -911,6 +1278,10 @@ function taskListPage() {
         showCreateModal: false, saving: false,
         showDetailModal: false, selectedTask: null,
         form: { task_name: '', project_id: '', phase: '', priority: '보통', due_date: '', start_date: '', assignee_id: '', is_client_facing: false, description: '' },
+
+        // 일괄 작업 (#19)
+        selectedTaskIds: [],
+        bulkAction: '', bulkValue: '',
 
         kanbanColumns: [
             { status: 'pending', label: '대기', dotColor: 'bg-gray-400' },
@@ -1072,6 +1443,43 @@ function taskListPage() {
 
         get totalPages() { return Math.ceil(this.total / this.size) || 1; },
         goPage(p) { if (p >= 1 && p <= this.totalPages) { this.page = p; this.loadTasks(); } },
+
+        // 일괄 작업 (#19)
+        toggleTaskSelection(taskId) {
+            const idx = this.selectedTaskIds.indexOf(taskId);
+            if (idx >= 0) this.selectedTaskIds.splice(idx, 1);
+            else this.selectedTaskIds.push(taskId);
+        },
+        get allSelected() { return this.tasks.length > 0 && this.selectedTaskIds.length === this.tasks.length; },
+        toggleSelectAll() {
+            if (this.allSelected) this.selectedTaskIds = [];
+            else this.selectedTaskIds = this.tasks.map(t => t.id);
+        },
+        async bulkStatusChange(status) {
+            try {
+                await api.patch('/tasks/bulk', { task_ids: this.selectedTaskIds, action: 'status_change', value: status });
+                window.toast.success(`${this.selectedTaskIds.length}건 상태 변경 완료`);
+                this.selectedTaskIds = [];
+                await this.loadTasks();
+            } catch (e) { window.toast.error(e.message); }
+        },
+        async bulkDelete() {
+            if (!await window.confirmDialog(`${this.selectedTaskIds.length}건의 업무를 삭제하시겠습니까?`, { title: '일괄 삭제', confirmText: '삭제', danger: true })) return;
+            try {
+                await api.patch('/tasks/bulk', { task_ids: this.selectedTaskIds, action: 'delete' });
+                window.toast.success(`${this.selectedTaskIds.length}건 삭제 완료`);
+                this.selectedTaskIds = [];
+                await this.loadTasks();
+            } catch (e) { window.toast.error(e.message); }
+        },
+
+        // CSV 내보내기 (#17)
+        exportCsv() {
+            const header = ['업무명','프로젝트','담당자','상태','마감일','우선순위'];
+            const statusMap = { pending: '대기', in_progress: '진행중', completed: '완료', feedback_pending: '피드백 대기', confirmed: '확인', revision_requested: '수정 요청' };
+            const rows = this.tasks.map(t => [t.task_name, t.project_name || '', t.assignee_name || '', statusMap[t.status] || t.status, t.due_date || '', t.priority]);
+            window.CS.downloadCsv('tasks', header, rows);
+        },
     };
 }
 
@@ -1353,6 +1761,7 @@ function completionReportPage() {
         report: null, reportHistory: [],
         showReportModal: false, showPreviewModal: false,
         sending: false, aiDrafting: false,
+        _quill: null,
 
         form: {
             recipient_email: '', cc_emails: [], subject: '', body_html: '',
@@ -1386,6 +1795,27 @@ function completionReportPage() {
                 if (!this.form.subject) this.form.subject = `[완료 보고] ${this.task.task_name}`;
             }
             this.showReportModal = true;
+            this.$nextTick(() => this._initQuill());
+        },
+
+        _initQuill() {
+            if (this._quill) { this._quill.root.innerHTML = this.form.body_html || ''; return; }
+            const el = this.$refs.quillEditor;
+            if (!el || typeof Quill === 'undefined') return;
+            this._quill = new Quill(el, {
+                theme: 'snow',
+                placeholder: '보고 내용을 작성하세요...',
+                modules: {
+                    toolbar: [
+                        ['bold', 'italic', 'underline'],
+                        [{ list: 'ordered' }, { list: 'bullet' }],
+                        ['link', 'image'],
+                        ['clean'],
+                    ],
+                },
+            });
+            if (this.form.body_html) this._quill.root.innerHTML = this.form.body_html;
+            this._quill.on('text-change', () => { this.form.body_html = this._quill.root.innerHTML; });
         },
 
         addCcEmail() {
@@ -1404,7 +1834,10 @@ function completionReportPage() {
             try {
                 const res = await api.post(`/tasks/${this.task.id}/ai-draft-report`);
                 if (res.subject) this.form.subject = res.subject;
-                if (res.body_html) this.form.body_html = res.body_html;
+                if (res.body_html) {
+                    this.form.body_html = res.body_html;
+                    if (this._quill) this._quill.root.innerHTML = res.body_html;
+                }
                 window.toast.success('AI 초안이 생성되었습니다.');
             } catch (e) { window.toast.error(e.message || 'AI 초안 생성 실패'); }
             finally { this.aiDrafting = false; }
@@ -2064,60 +2497,406 @@ function clientPortalPage() {
     };
 }
 
+// (settingsPage 이동됨 — Sprint 5 #15 확장 버전으로 교체)
+
 // ============================================================
-// [Phase 6] 설정 페이지 (캘린더 연동)
+//  활동 로그 페이지 — Sprint 1 #1
+// ============================================================
+
+function activityPage() {
+    return {
+        items: [], total: 0, page: 1, size: 30,
+        loading: true, hasMore: false,
+        filterProject: '', filterTeam: '',
+        filterAction: '',
+        projects: [], teams: [],
+
+        async init() {
+            await Promise.all([this.load(), this.loadFilters()]);
+        },
+
+        async load() {
+            this.loading = true;
+            try {
+                let url = `/activity?page=${this.page}&size=${this.size}`;
+                if (this.filterProject) url += `&project_id=${this.filterProject}`;
+                if (this.filterTeam) url += `&team_id=${this.filterTeam}`;
+                const data = await api.get(url);
+                const newItems = data?.items || [];
+                if (this.page === 1) {
+                    this.items = newItems;
+                } else {
+                    this.items = [...this.items, ...newItems];
+                }
+                this.total = data?.total || 0;
+                this.hasMore = this.items.length < this.total;
+            } catch (e) { window.toast.error('활동 로그를 불러올 수 없습니다.'); }
+            finally { this.loading = false; }
+        },
+
+        async loadMore() {
+            this.page++;
+            await this.load();
+        },
+
+        async applyFilter() {
+            this.page = 1;
+            await this.load();
+        },
+
+        resetFilter() {
+            this.filterProject = '';
+            this.filterTeam = '';
+            this.filterAction = '';
+            this.page = 1;
+            this.load();
+        },
+
+        async loadFilters() {
+            try {
+                const [pData, tData] = await Promise.all([
+                    api.get('/projects?page=1&size=100'),
+                    api.get('/teams').catch(() => ({ teams: [] })),
+                ]);
+                this.projects = pData?.projects || [];
+                this.teams = tData?.teams || tData || [];
+            } catch {}
+        },
+
+        get filteredItems() {
+            if (!this.filterAction) return this.items;
+            return this.items.filter(i => i.action === this.filterAction);
+        },
+
+        get groupedByDate() {
+            const groups = [];
+            let currentLabel = null;
+            const today = new Date(); today.setHours(0,0,0,0);
+            const yesterday = new Date(today); yesterday.setDate(yesterday.getDate() - 1);
+
+            for (const item of this.filteredItems) {
+                const d = new Date(item.created_at);
+                const day = new Date(d); day.setHours(0,0,0,0);
+                let label;
+                if (day.getTime() === today.getTime()) label = '오늘';
+                else if (day.getTime() === yesterday.getTime()) label = '어제';
+                else {
+                    const dow = ['일','월','화','수','목','금','토'][day.getDay()];
+                    label = `${day.getMonth()+1}월 ${day.getDate()}일 (${dow})`;
+                }
+                if (label !== currentLabel) {
+                    groups.push({ label, items: [] });
+                    currentLabel = label;
+                }
+                groups[groups.length - 1].items.push(item);
+            }
+            return groups;
+        },
+
+        formatTime(iso) {
+            const d = new Date(iso);
+            const today = new Date(); today.setHours(0,0,0,0);
+            const day = new Date(d); day.setHours(0,0,0,0);
+            const hh = String(d.getHours()).padStart(2,'0');
+            const mm = String(d.getMinutes()).padStart(2,'0');
+            if (day.getTime() === today.getTime()) return `${hh}:${mm}`;
+            return `${d.getMonth()+1}월 ${d.getDate()}일 ${hh}:${mm}`;
+        },
+
+        actionMessage(item) {
+            const map = {
+                'create:project': `'${item.target_name}' 프로젝트를 생성했습니다`,
+                'create:task': `'${item.target_name}' 업무를 생성했습니다`,
+                'update:project': `'${item.target_name}' 프로젝트를 수정했습니다`,
+                'update:task': `'${item.target_name}' 업무를 수정했습니다`,
+                'status_change:task': `'${item.target_name}' 업무 상태를 변경했습니다`,
+                'comment:task': `'${item.target_name}' 업무에 댓글을 남겼습니다`,
+                'comment:project': `'${item.target_name}' 프로젝트에 댓글을 남겼습니다`,
+                'assign:task': `'${item.target_name}' 업무를 할당했습니다`,
+                'delete:task': `'${item.target_name}' 업무를 삭제했습니다`,
+                'delete:project': `'${item.target_name}' 프로젝트를 삭제했습니다`,
+                'create:client': `'${item.target_name}' 발주처를 등록했습니다`,
+                'update:client': `'${item.target_name}' 발주처를 수정했습니다`,
+                'invite:member': `'${item.target_name}'님을 팀에 초대했습니다`,
+                'remove:member': `'${item.target_name}'님을 팀에서 제거했습니다`,
+            };
+            return map[`${item.action}:${item.target_type}`] || `'${item.target_name}'에 대해 ${item.action} 작업을 수행했습니다`;
+        },
+
+        actionIcon(action) {
+            const icons = {
+                create: 'M12 4v16m8-8H4',
+                update: 'M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z',
+                status_change: 'M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z',
+                comment: 'M8 12h.01M12 12h.01M16 12h.01M21 12c0 4.418-4.03 8-9 8a9.863 9.863 0 01-4.255-.949L3 20l1.395-3.72C3.512 15.042 3 13.574 3 12c0-4.418 4.03-8 9-8s9 3.582 9 8z',
+                assign: 'M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z',
+                delete: 'M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16',
+                invite: 'M18 9v3m0 0v3m0-3h3m-3 0h-3m-2-5a4 4 0 11-8 0 4 4 0 018 0zM3 20a6 6 0 0112 0v1H3v-1z',
+                remove: 'M13 7a4 4 0 11-8 0 4 4 0 018 0zM9 14a6 6 0 00-6 6v1h12v-1a6 6 0 00-6-6zM21 12h-6',
+            };
+            return icons[action] || icons.update;
+        },
+
+        actionColor(action) {
+            const colors = {
+                create: 'bg-green-100 dark:bg-green-900/30 text-green-600 dark:text-green-400',
+                update: 'bg-blue-100 dark:bg-blue-900/30 text-blue-600 dark:text-blue-400',
+                status_change: 'bg-indigo-100 dark:bg-indigo-900/30 text-indigo-600 dark:text-indigo-400',
+                comment: 'bg-yellow-100 dark:bg-yellow-900/30 text-yellow-600 dark:text-yellow-400',
+                assign: 'bg-purple-100 dark:bg-purple-900/30 text-purple-600 dark:text-purple-400',
+                delete: 'bg-red-100 dark:bg-red-900/30 text-red-600 dark:text-red-400',
+                invite: 'bg-teal-100 dark:bg-teal-900/30 text-teal-600 dark:text-teal-400',
+                remove: 'bg-orange-100 dark:bg-orange-900/30 text-orange-600 dark:text-orange-400',
+            };
+            return colors[action] || colors.update;
+        },
+
+        userInitial(name) {
+            return (name || '?').charAt(0).toUpperCase();
+        },
+    };
+}
+
+// ============================================================
+//  전체 알림 페이지 — Sprint 2 #3
+// ============================================================
+
+function notificationsPage() {
+    return {
+        items: [], total: 0, page: 1, size: 20,
+        loading: true, filter: 'all', unreadOnly: false,
+
+        async init() { await this.load(); },
+
+        async load() {
+            this.loading = true;
+            try {
+                let url = `/notifications?page=${this.page}&size=${this.size}`;
+                if (this.unreadOnly) url += '&unread_only=true';
+                const data = await api.get(url);
+                this.items = data?.items || [];
+                this.total = data?.total || this.items.length;
+            } catch { this.items = []; }
+            finally { this.loading = false; }
+        },
+
+        get filteredItems() {
+            if (this.filter === 'all') return this.items;
+            const typeMap = { comment: ['comment','reply'], mention: ['mention'], task: ['status_change','assign','deadline','task'], team: ['team','team_invite','team_role'] };
+            const types = typeMap[this.filter] || [];
+            return this.items.filter(n => types.includes(n.type));
+        },
+
+        async markRead(n) {
+            if (n.is_read) return;
+            try { await api.patch(`/notifications/${n.id}/read`); n.is_read = true; } catch {}
+        },
+
+        async markAllRead() {
+            try { await api.patch('/notifications/read-all'); this.items.forEach(n => n.is_read = true); } catch {}
+        },
+
+        async deleteNotif(id) {
+            try { await api.del(`/notifications/${id}`); this.items = this.items.filter(n => n.id !== id); } catch {}
+        },
+
+        goLink(n) {
+            this.markRead(n);
+            try {
+                const link = typeof n.link === 'string' ? JSON.parse(n.link) : n.link;
+                if (link?.project_id) window.location.hash = `#/projects/${link.project_id}`;
+            } catch {}
+        },
+
+        setFilter(f) { this.filter = f; },
+        toggleUnread() { this.unreadOnly = !this.unreadOnly; this.page = 1; this.load(); },
+
+        get totalPages() { return Math.ceil(this.total / this.size) || 1; },
+        goPage(p) { if (p >= 1 && p <= this.totalPages) { this.page = p; this.load(); } },
+    };
+}
+
+// ============================================================
+//  팀 설정 페이지 — Sprint 5 #13
+// ============================================================
+
+function teamSettingsPage() {
+    return {
+        team: null, members: [], loading: true,
+        editName: '', editDesc: '', saving: false,
+        showInviteModal: false, inviteEmail: '', inviting: false,
+        showDeleteModal: false, deleteConfirmName: '',
+
+        async init() {
+            const teamId = window._selectedTeamId;
+            if (!teamId) { window.toast.warning('팀을 먼저 선택해주세요.'); window.location.hash = '#/dashboard'; return; }
+            await this.load(teamId);
+        },
+
+        async load(teamId) {
+            this.loading = true;
+            try {
+                const data = await api.get(`/teams/${teamId}`);
+                this.team = data;
+                this.members = data?.members || [];
+                this.editName = data?.name || '';
+                this.editDesc = data?.description || '';
+            } catch (e) { window.toast.error('팀 정보를 불러올 수 없습니다.'); }
+            finally { this.loading = false; }
+        },
+
+        async saveName() {
+            this.saving = true;
+            try {
+                await api.patch(`/teams/${this.team.id}`, { name: this.editName });
+                this.team.name = this.editName;
+                window.toast.success('팀 이름이 변경되었습니다.');
+            } catch (e) { window.toast.error(e.message); }
+            finally { this.saving = false; }
+        },
+
+        async saveDesc() {
+            this.saving = true;
+            try {
+                await api.patch(`/teams/${this.team.id}`, { description: this.editDesc });
+                this.team.description = this.editDesc;
+                window.toast.success('팀 설명이 변경되었습니다.');
+            } catch (e) { window.toast.error(e.message); }
+            finally { this.saving = false; }
+        },
+
+        async inviteMember() {
+            if (!this.inviteEmail.trim()) return;
+            this.inviting = true;
+            try {
+                await api.post(`/teams/${this.team.id}/members`, { email: this.inviteEmail.trim() });
+                window.toast.success('멤버가 초대되었습니다.');
+                this.inviteEmail = '';
+                this.showInviteModal = false;
+                await this.load(this.team.id);
+            } catch (e) { window.toast.error(e.message); }
+            finally { this.inviting = false; }
+        },
+
+        async changeRole(member, newRole) {
+            try {
+                await api.patch(`/teams/${this.team.id}/members/${member.user_id}/role`, { role: newRole });
+                member.role = newRole;
+                window.toast.success('역할이 변경되었습니다.');
+            } catch (e) { window.toast.error(e.message); }
+        },
+
+        async removeMember(member) {
+            if (!await window.confirmDialog(`${member.name || member.email}님을 팀에서 제거하시겠습니까?`, { title: '멤버 제거', confirmText: '제거', danger: true })) return;
+            try {
+                await api.del(`/teams/${this.team.id}/members/${member.user_id}`);
+                this.members = this.members.filter(m => m.user_id !== member.user_id);
+                window.toast.success('멤버가 제거되었습니다.');
+            } catch (e) { window.toast.error(e.message); }
+        },
+
+        async deleteTeam() {
+            if (this.deleteConfirmName !== this.team.name) { window.toast.warning('팀 이름이 일치하지 않습니다.'); return; }
+            try {
+                await api.del(`/teams/${this.team.id}`);
+                window.toast.success('팀이 삭제되었습니다.');
+                this.showDeleteModal = false;
+                window.location.hash = '#/dashboard';
+            } catch (e) { window.toast.error(e.message); }
+        },
+
+        roleLabel(r) { return { owner: '소유자', admin: '관리자', member: '멤버', viewer: '뷰어' }[r] || r; },
+        roleBadge(r) { return { owner: 'bg-yellow-100 text-yellow-800', admin: 'bg-blue-100 text-blue-700', member: 'bg-gray-100 text-gray-600', viewer: 'bg-green-100 text-green-700' }[r] || 'bg-gray-100 text-gray-600'; },
+    };
+}
+
+// ============================================================
+//  설정 페이지 확장 — Sprint 5 #15
 // ============================================================
 
 function settingsPage() {
     return {
-        loading: true, calendarSyncs: [], connecting: false, syncing: {},
+        activeSettingsTab: 'profile',
+        // 프로필
+        profileName: '', profileSaving: false,
+        // 보안
+        currentPassword: '', newPassword: '', newPasswordConfirm: '', passwordSaving: false, passwordError: '',
+        // 알림 설정 (localStorage)
+        notifSettings: JSON.parse(localStorage.getItem('cs_notif_settings') || '{"comment":true,"mention":true,"status_change":true,"deadline":true,"weekly_report":true}'),
+        // 캘린더
+        calendarSyncs: [], loading: true, connecting: false, syncing: {},
 
-        async init() { await this.loadCalendarStatus(); },
+        async init() {
+            try {
+                const me = await api.get('/auth/me');
+                this.profileName = me?.user?.name || '';
+            } catch {}
+            await this.loadCalendarSyncs();
+        },
 
-        async loadCalendarStatus() {
+        // 프로필
+        async saveProfile() {
+            this.profileSaving = true;
+            try {
+                await api.patch('/auth/profile', { name: this.profileName });
+                window.toast.success('프로필이 저장되었습니다.');
+            } catch (e) { window.toast.error(e.message); }
+            finally { this.profileSaving = false; }
+        },
+
+        // 비밀번호 변경
+        async changePassword() {
+            this.passwordError = '';
+            if (!this.currentPassword || !this.newPassword || !this.newPasswordConfirm) { this.passwordError = '모든 필드를 입력해주세요.'; return; }
+            if (this.newPassword !== this.newPasswordConfirm) { this.passwordError = '새 비밀번호가 일치하지 않습니다.'; return; }
+            if (this.newPassword.length < 8) { this.passwordError = '비밀번호는 8자 이상이어야 합니다.'; return; }
+            this.passwordSaving = true;
+            try {
+                await api.patch('/auth/password', { current_password: this.currentPassword, new_password: this.newPassword, new_password_confirm: this.newPasswordConfirm });
+                window.toast.success('비밀번호가 변경되었습니다.');
+                this.currentPassword = ''; this.newPassword = ''; this.newPasswordConfirm = '';
+            } catch (e) { this.passwordError = e.message; }
+            finally { this.passwordSaving = false; }
+        },
+
+        // 알림 설정
+        toggleNotifSetting(key) {
+            this.notifSettings[key] = !this.notifSettings[key];
+            localStorage.setItem('cs_notif_settings', JSON.stringify(this.notifSettings));
+        },
+
+        // 캘린더 (기존 코드 유지)
+        async loadCalendarSyncs() {
             this.loading = true;
-            try { this.calendarSyncs = await api.get('/calendar/status') || []; }
-            catch { this.calendarSyncs = []; }
+            try { this.calendarSyncs = await api.get('/calendar-sync') || []; } catch { this.calendarSyncs = []; }
             finally { this.loading = false; }
         },
-
         async connectGoogle() {
-            const clientId = window._googleClientId || '';
-            if (!clientId) { window.toast.error('Google OAuth 설정이 필요합니다. 관리자에게 문의하세요.'); return; }
-            const redirectUri = window.location.origin + '/api/v1/auth/google/callback';
-            const scope = 'https://www.googleapis.com/auth/calendar';
-            const url = `https://accounts.google.com/o/oauth2/v2/auth?client_id=${encodeURIComponent(clientId)}&redirect_uri=${encodeURIComponent(redirectUri)}&response_type=code&scope=${encodeURIComponent(scope)}&access_type=offline&prompt=consent&state=calendar_connect`;
-            const popup = window.open(url, 'google_calendar_auth', 'width=500,height=600');
-            window._calendarAuthCallback = async (code) => {
-                this.connecting = true;
-                try {
-                    await api.post('/calendar/connect', { provider: 'google', auth_code: code });
-                    window.toast.success('Google Calendar 연동이 완료되었습니다.');
-                    await this.loadCalendarStatus();
-                } catch (e) { window.toast.error(e.message); }
-                finally { this.connecting = false; }
-            };
+            this.connecting = true;
+            try {
+                const data = await api.post('/calendar-sync/google', {});
+                if (data?.auth_url) window.location.href = data.auth_url;
+                else { await this.loadCalendarSyncs(); window.toast.success('Google Calendar 연동 완료'); }
+            } catch (e) { window.toast.error(e.message); }
+            finally { this.connecting = false; }
         },
-
         async disconnectCalendar(syncId) {
             if (!await window.confirmDialog('캘린더 연동을 해제하시겠습니까?', { title: '연동 해제', confirmText: '해제', danger: true })) return;
             try {
-                await api.del(`/calendar/${syncId}`);
-                window.toast.success('캘린더 연동이 해제되었습니다.');
-                await this.loadCalendarStatus();
+                await api.del(`/calendar-sync/${syncId}`);
+                this.calendarSyncs = this.calendarSyncs.filter(s => s.id !== syncId);
+                window.toast.success('연동이 해제되었습니다.');
             } catch (e) { window.toast.error(e.message); }
         },
-
         async syncCalendar(syncId) {
             this.syncing[syncId] = true;
             try {
-                const res = await api.post(`/calendar/${syncId}/sync`);
-                window.toast.success(`${res.synced_count}건의 업무가 동기화되었습니다.`);
-                await this.loadCalendarStatus();
+                await api.post(`/calendar-sync/${syncId}/sync`, {});
+                window.toast.success('동기화가 완료되었습니다.');
+                await this.loadCalendarSyncs();
             } catch (e) { window.toast.error(e.message); }
             finally { this.syncing[syncId] = false; }
         },
-
         getProviderLabel(p) { return { google: 'Google Calendar', outlook: 'Outlook' }[p] || p; },
     };
 }

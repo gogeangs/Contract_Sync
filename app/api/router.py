@@ -8,6 +8,7 @@ from app.api.endpoints import (
     templates,  # Phase 5
     portal, calendar,  # Phase 6
     dashboard,  # Phase 7
+    sse,  # 2차 개발
 )
 
 api_router = APIRouter()
@@ -47,3 +48,6 @@ api_router.include_router(calendar.router, prefix="/calendar", tags=["캘린더 
 
 # Phase 7 — 대시보드
 api_router.include_router(dashboard.router, prefix="/dashboard", tags=["대시보드"])
+
+# 2차 개발 — SSE 실시간 알림
+api_router.include_router(sse.router, tags=["실시간 알림"])

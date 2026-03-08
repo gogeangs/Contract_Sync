@@ -115,3 +115,28 @@ async def scheduler_loop():
             await generate_recurring_tasks()
         except Exception as e:
             logger.error(f"스케줄러 실행 오류: {e}")
+
+
+async def weekly_report_loop():
+    """매주 월요일 09:00 KST에 주간 리포트 생성 (#10)"""
+    from app.services.weekly_report import generate_weekly_reports
+
+    while True:
+        now_kst = datetime.now(KST)
+
+        # 다음 월요일 09:00 KST 계산
+        days_until_monday = (7 - now_kst.weekday()) % 7
+        if days_until_monday == 0 and now_kst.hour >= 9:
+            days_until_monday = 7
+        next_monday_9am = (now_kst + timedelta(days=days_until_monday)).replace(
+            hour=9, minute=0, second=0, microsecond=0,
+        )
+        wait_seconds = (next_monday_9am - now_kst).total_seconds()
+        logger.info(f"주간 리포트 스케줄러: 다음 실행까지 {wait_seconds:.0f}초 대기 (KST {next_monday_9am.strftime('%Y-%m-%d %H:%M')})")
+
+        await asyncio.sleep(wait_seconds)
+
+        try:
+            await generate_weekly_reports()
+        except Exception as e:
+            logger.error(f"주간 리포트 생성 오류: {e}")

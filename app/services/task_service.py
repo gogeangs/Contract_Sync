@@ -49,6 +49,62 @@ async def _notify_assignee(
         ))
 
 
+async def _notify_status_change(
+    db: AsyncSession, task: Task, sender: User,
+    old_status: str, new_status: str,
+):
+    """업무 상태 변경 시 프로젝트 관리자 + 팀원에게 자동 알림 (#5)"""
+    import json
+    if not task.project_id:
+        return
+
+    project = (await db.execute(
+        select(Project).where(Project.id == task.project_id)
+    )).scalar_one_or_none()
+    if not project:
+        return
+
+    link = json.dumps({"task_id": task.id, "project_id": task.project_id})
+    sender_name = sender.name or sender.email
+
+    # 알림 메시지 결정
+    status_labels = {
+        "in_progress": "작업을 시작했습니다",
+        "completed": "을 완료했습니다",
+        "pending": "을 보류 처리했습니다",
+    }
+    label = status_labels.get(new_status)
+    if not label:
+        return  # 그 외 상태 변경은 알림 미생성
+
+    title = f"{sender_name}님이 '{task.task_name}' {label}"
+
+    # 수신 대상 수집 (본인 제외)
+    recipients = set()
+
+    # 1) 프로젝트 관리자 (생성자)
+    if project.user_id and project.user_id != sender.id:
+        recipients.add(project.user_id)
+
+    # 2) 완료 시 같은 팀 멤버에게도 알림
+    if new_status == "completed" and project.team_id:
+        team_members = await db.execute(
+            select(TeamMember.user_id).where(TeamMember.team_id == project.team_id)
+        )
+        for (uid,) in team_members:
+            if uid != sender.id:
+                recipients.add(uid)
+
+    # 기존 _notify_assignee가 담당자에게 이미 알림을 보내므로, 중복 제외
+    if task.assignee_id and task.assignee_id != sender.id:
+        recipients.discard(task.assignee_id)
+
+    for uid in recipients:
+        db.add(Notification(
+            user_id=uid, type="status_change", title=title, link=link,
+        ))
+
+
 async def _resolve_assignee(db: AsyncSession, assignee_id: int | None, team_id: int | None):
     """담당자 유효성 검증 + 이름 조회"""
     if not assignee_id:
@@ -278,6 +334,7 @@ async def update_status(db: AsyncSession, user: User, task_id: int, new_status: 
         db, task, user, "status_change",
         f"업무 '{task.task_name}' 상태: {old_status} → {new_status}",
     )
+    await _notify_status_change(db, task, user, old_status, new_status)
     await db.commit()
     await db.refresh(task)
     return task
@@ -305,9 +362,22 @@ async def update_assignee(db: AsyncSession, user: User, task_id: int, assignee_i
         import json
         db.add(Notification(
             user_id=aid, type="assign",
-            title=f"{user.name or user.email}님이 '{task.task_name}' 업무를 배정했습니다",
+            title=f"{user.name or user.email}님이 '{task.task_name}' 업무를 할당했습니다",
             link=json.dumps({"task_id": task.id, "project_id": task.project_id}),
         ))
+
+    # 프로젝트 관리자에게도 담당자 변경 알림
+    if task.project_id:
+        import json
+        project = (await db.execute(
+            select(Project).where(Project.id == task.project_id)
+        )).scalar_one_or_none()
+        if project and project.user_id and project.user_id != user.id and project.user_id != aid:
+            db.add(Notification(
+                user_id=project.user_id, type="assign",
+                title=f"{user.name or user.email}님이 '{task.task_name}' 업무를 할당했습니다",
+                link=json.dumps({"task_id": task.id, "project_id": task.project_id}),
+            ))
 
     await db.commit()
     await db.refresh(task)
@@ -368,6 +438,58 @@ async def reorder(db: AsyncSession, user: User, task_orders: list[dict]):
 
     await db.commit()
     return True
+
+
+# ── 일괄 작업 (#19) ──
+
+async def bulk_action(
+    db: AsyncSession, user: User,
+    task_ids: list[int], action: str, value,
+) -> int:
+    """업무 일괄 작업 — status_change / assign / delete"""
+    team_ids = await get_user_team_ids(db, user.id)
+    count = 0
+
+    for tid in task_ids:
+        task = await get_accessible(db, Task, tid, user.id, team_ids)
+        if not task:
+            continue
+
+        try:
+            if action == "status_change":
+                await check_team_permission(db, task.team_id, user.id, "task.update")
+                allowed = VALID_STATUS_TRANSITIONS.get(task.status, set())
+                if value not in allowed:
+                    continue
+                old_status = task.status
+                task.status = value
+                if value == "completed":
+                    task.completed_at = utc_now()
+                elif old_status == "completed":
+                    task.completed_at = None
+                await _notify_status_change(db, task, user, old_status, value)
+                count += 1
+
+            elif action == "assign":
+                await check_team_permission(db, task.team_id, user.id, "task.assign")
+                aid = int(value) if value else None
+                _, _ = await _resolve_assignee(db, aid, task.team_id)
+                task.assignee_id = aid
+                count += 1
+
+            elif action == "delete":
+                await check_team_permission(db, task.team_id, user.id, "task.delete")
+                att_dir = ATTACHMENTS_DIR / str(tid)
+                if att_dir.exists():
+                    import shutil
+                    shutil.rmtree(att_dir, ignore_errors=True)
+                await db.delete(task)
+                count += 1
+        except HTTPException:
+            continue  # 권한 없는 건은 건너뜀
+
+    await db.commit()
+    return count
 
 
 # ── 산출물(첨부파일) ──

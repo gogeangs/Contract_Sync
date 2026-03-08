@@ -551,6 +551,7 @@ class Comment(Base):
     project_id = Column(Integer, ForeignKey("projects.id", ondelete="CASCADE"), nullable=False)
     task_id = Column(Integer, ForeignKey("tasks.id", ondelete="SET NULL"), nullable=True)
     document_id = Column(Integer, ForeignKey("documents.id", ondelete="SET NULL"), nullable=True)
+    parent_id = Column(Integer, ForeignKey("comments.id", ondelete="CASCADE"), nullable=True)
     user_id = Column(Integer, ForeignKey("users.id", ondelete="CASCADE"), nullable=False)
     content = Column(Text, nullable=False)
     created_at = Column(DateTime, default=utc_now)
@@ -560,6 +561,21 @@ class Comment(Base):
     project = relationship("Project", back_populates="comments")
     task = relationship("Task", back_populates="comments")
     document = relationship("Document", backref="comments")
+    parent = relationship("Comment", remote_side="Comment.id", backref="replies")
+
+
+class CommentRead(Base):
+    """댓글 읽음 추적 (#7)"""
+    __tablename__ = "comment_reads"
+    __table_args__ = (
+        UniqueConstraint("comment_id", "user_id", name="uq_comment_read"),
+        Index("ix_comment_reads_comment", "comment_id"),
+    )
+
+    id = Column(Integer, primary_key=True, index=True)
+    comment_id = Column(Integer, ForeignKey("comments.id", ondelete="CASCADE"), nullable=False)
+    user_id = Column(Integer, ForeignKey("users.id", ondelete="CASCADE"), nullable=False)
+    read_at = Column(DateTime, default=utc_now)
 
 
 # ══════════════════════════════════════════════════════════
@@ -708,6 +724,8 @@ async def init_db():
             # comments 확장
             ("comments", "project_id", "INTEGER"),
             ("comments", "document_id", "INTEGER"),
+            # comments — 2차 개발 (#6 스레드)
+            ("comments", "parent_id", "INTEGER REFERENCES comments(id) ON DELETE CASCADE"),
             # activity_logs 확장
             ("activity_logs", "project_id", "INTEGER"),
             ("activity_logs", "client_id", "INTEGER"),
@@ -832,6 +850,8 @@ async def init_db():
             "CREATE INDEX IF NOT EXISTS ix_completion_report_task ON completion_reports (task_id)",
             "CREATE INDEX IF NOT EXISTS ix_completion_report_token ON completion_reports (feedback_token)",
             "CREATE INDEX IF NOT EXISTS ix_portal_token ON portal_tokens (token)",
+            "CREATE INDEX IF NOT EXISTS ix_comment_parent ON comments (parent_id)",
+            "CREATE INDEX IF NOT EXISTS ix_comment_reads_comment ON comment_reads (comment_id)",
         ]
         for idx_sql in new_indexes:
             try:

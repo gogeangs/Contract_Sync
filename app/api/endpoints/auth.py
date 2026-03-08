@@ -408,6 +408,49 @@ async def update_profile(
     return {"message": "이름이 변경되었습니다.", "name": user.name}
 
 
+class PasswordChangeRequest(BaseModel):
+    current_password: str
+    new_password: str
+    new_password_confirm: str
+
+
+@router.patch("/password")
+@limiter.limit("5/minute")
+async def change_password(
+    data: PasswordChangeRequest,
+    request: Request,
+    db: AsyncSession = Depends(get_db),
+):
+    """비밀번호 변경 (#16)"""
+    user = await require_current_user(request, db)
+
+    # Google 전용 계정 체크
+    if not user.password_hash:
+        raise HTTPException(
+            status_code=400,
+            detail="Google 로그인 계정은 비밀번호를 설정할 수 없습니다",
+        )
+
+    # 현재 비밀번호 확인
+    if not verify_password(data.current_password, user.password_hash):
+        raise HTTPException(status_code=401, detail="현재 비밀번호가 올바르지 않습니다")
+
+    # 새 비밀번호 확인 일치
+    if data.new_password != data.new_password_confirm:
+        raise HTTPException(status_code=400, detail="새 비밀번호가 일치하지 않습니다")
+
+    # 복잡도 검증
+    if len(data.new_password) < 8:
+        raise HTTPException(status_code=400, detail="비밀번호는 8자 이상이어야 합니다")
+    if not re.search(r'[A-Za-z]', data.new_password) or not re.search(r'\d', data.new_password):
+        raise HTTPException(status_code=400, detail="비밀번호는 영문자와 숫자를 모두 포함해야 합니다")
+
+    user.password_hash = hash_password(data.new_password)
+    await db.commit()
+
+    return {"message": "비밀번호가 변경되었습니다."}
+
+
 @router.post("/logout")
 async def logout(request: Request, db: AsyncSession = Depends(get_db)):
     """로그아웃"""

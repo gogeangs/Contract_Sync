@@ -9,7 +9,23 @@
     <script src="/static/js/main.js"></script>
     <script defer src="https://cdn.jsdelivr.net/npm/alpinejs@3.x.x/dist/cdn.min.js"></script>
     <link rel="stylesheet" href="/static/css/styles.css">
-    <style>[x-cloak] { display: none !important; }</style>
+    <!-- Quill.js WYSIWYG (#20) -->
+    <link href="https://cdn.jsdelivr.net/npm/quill@2.0.3/dist/quill.snow.css" rel="stylesheet">
+    <script src="https://cdn.jsdelivr.net/npm/quill@2.0.3/dist/quill.js"></script>
+    <!-- DOMPurify (#21) -->
+    <script src="https://cdn.jsdelivr.net/npm/dompurify@3.2.4/dist/purify.min.js"></script>
+    <style>
+        [x-cloak] { display: none !important; }
+        .ql-editor { min-height: 200px; font-size: 14px; }
+        .ql-toolbar.ql-snow { border-radius: 8px 8px 0 0; border-color: #d1d5db; }
+        .ql-container.ql-snow { border-radius: 0 0 8px 8px; border-color: #d1d5db; }
+        .dark .ql-toolbar.ql-snow { border-color: #4b5563; background: #374151; }
+        .dark .ql-toolbar .ql-stroke { stroke: #d1d5db; }
+        .dark .ql-toolbar .ql-fill { fill: #d1d5db; }
+        .dark .ql-toolbar .ql-picker-label { color: #d1d5db; }
+        .dark .ql-container.ql-snow { border-color: #4b5563; background: #374151; color: #e5e7eb; }
+        .dark .ql-editor.ql-blank::before { color: #9ca3af; }
+    </style>
 </head>
 <body class="bg-gray-50 dark:bg-gray-900 text-gray-800 dark:text-gray-100 transition-colors duration-300">
 
@@ -55,8 +71,17 @@
             <div x-show="teamDropdown" @click.away="teamDropdown=false" x-cloak class="mt-1 bg-white dark:bg-gray-700 rounded-lg shadow-lg border border-gray-200 dark:border-gray-600 z-50 overflow-hidden">
                 <button @click="switchTeam(null)" class="w-full text-left px-4 py-2 text-sm hover:bg-gray-50 dark:hover:bg-gray-600 text-gray-700 dark:text-gray-200">개인</button>
                 <template x-for="tm in teams" :key="tm.id||tm.team_id">
-                    <button @click="switchTeam(tm.id||tm.team_id)" class="w-full text-left px-4 py-2 text-sm hover:bg-gray-50 dark:hover:bg-gray-600 text-gray-700 dark:text-gray-200" x-text="tm.name"></button>
+                    <div class="flex items-center">
+                        <button @click="switchTeam(tm.id||tm.team_id)" class="flex-1 text-left px-4 py-2 text-sm hover:bg-gray-50 dark:hover:bg-gray-600 text-gray-700 dark:text-gray-200" x-text="tm.name"></button>
+                        <a :href="'#/team-settings?id='+(tm.id||tm.team_id)" @click="teamDropdown=false" class="p-1.5 mr-1 text-gray-400 hover:text-indigo-600 rounded" title="팀 설정"><svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10.325 4.317c.426-1.756 2.924-1.756 3.35 0a1.724 1.724 0 002.573 1.066c1.543-.94 3.31.826 2.37 2.37a1.724 1.724 0 001.066 2.573c1.756.426 1.756 2.924 0 3.35a1.724 1.724 0 00-1.066 2.573c.94 1.543-.826 3.31-2.37 2.37a1.724 1.724 0 00-2.573 1.066c-.426 1.756-2.924 1.756-3.35 0a1.724 1.724 0 00-2.573-1.066c-1.543.94-3.31-.826-2.37-2.37a1.724 1.724 0 00-1.066-2.573c-1.756-.426-1.756-2.924 0-3.35a1.724 1.724 0 001.066-2.573c-.94-1.543.826-3.31 2.37-2.37.996.608 2.296.07 2.572-1.065z"/><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z"/></svg></a>
+                    </div>
                 </template>
+                <div class="border-t border-gray-100 dark:border-gray-600">
+                    <button @click="teamDropdown=false;showTeamCreateModal=true" class="w-full text-left px-4 py-2 text-sm text-indigo-600 dark:text-indigo-400 hover:bg-indigo-50 dark:hover:bg-gray-600 flex items-center gap-2">
+                        <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4"/></svg>
+                        새 팀 만들기
+                    </button>
+                </div>
             </div>
         </div>
         <nav class="flex-1 px-3 py-2 space-y-1 overflow-y-auto">
@@ -71,6 +96,9 @@
             </a>
             <a href="#/tasks" @click.prevent="navigate('/tasks')" class="flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm transition-colors" :class="currentPage==='tasks'?'bg-indigo-50 dark:bg-indigo-900/30 text-indigo-600 dark:text-indigo-400 font-medium':'text-gray-600 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700'">
                 <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2m-6 9l2 2 4-4"/></svg><span>업무</span>
+            </a>
+            <a href="#/activity" @click.prevent="navigate('/activity')" class="flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm transition-colors" :class="currentPage==='activity'?'bg-indigo-50 dark:bg-indigo-900/30 text-indigo-600 dark:text-indigo-400 font-medium':'text-gray-600 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700'">
+                <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z"/></svg><span>활동 로그</span>
             </a>
             <a href="#/reports" @click.prevent="navigate('/reports')" class="flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm transition-colors" :class="currentPage==='reports'||currentPage==='reportEditor'?'bg-indigo-50 dark:bg-indigo-900/30 text-indigo-600 dark:text-indigo-400 font-medium':'text-gray-600 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700'">
                 <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 17v-2m3 2v-4m3 4v-6m2 10H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"/></svg><span>보고서</span>
@@ -101,6 +129,10 @@
             <a href="#/clients" @click.prevent="navigate('/clients')" class="flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm" :class="currentPage==='clients'||currentPage==='clientDetail'?'bg-indigo-50 dark:bg-indigo-900/30 text-indigo-600 dark:text-indigo-400 font-medium':'text-gray-600 dark:text-gray-300'"><svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 21V5a2 2 0 00-2-2H7a2 2 0 00-2 2v16m14 0h2m-2 0h-5m-9 0H3m2 0h5M9 7h1m-1 4h1m4-4h1m-1 4h1m-5 10v-5a1 1 0 011-1h2a1 1 0 011 1v5m-4 0h4"/></svg><span>발주처</span></a>
             <a href="#/projects" @click.prevent="navigate('/projects')" class="flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm" :class="currentPage==='projects'||currentPage==='projectDetail'?'bg-indigo-50 dark:bg-indigo-900/30 text-indigo-600 dark:text-indigo-400 font-medium':'text-gray-600 dark:text-gray-300'"><svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 7v10a2 2 0 002 2h14a2 2 0 002-2V9a2 2 0 00-2-2h-6l-2-2H5a2 2 0 00-2 2z"/></svg><span>프로젝트</span></a>
             <a href="#/tasks" @click.prevent="navigate('/tasks')" class="flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm" :class="currentPage==='tasks'?'bg-indigo-50 dark:bg-indigo-900/30 text-indigo-600 dark:text-indigo-400 font-medium':'text-gray-600 dark:text-gray-300'"><svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2m-6 9l2 2 4-4"/></svg><span>업무</span></a>
+            <a href="#/activity" @click.prevent="navigate('/activity')" class="flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm" :class="currentPage==='activity'?'bg-indigo-50 dark:bg-indigo-900/30 text-indigo-600 dark:text-indigo-400 font-medium':'text-gray-600 dark:text-gray-300'"><svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z"/></svg><span>활동 로그</span></a>
+            <a href="#/reports" @click.prevent="navigate('/reports')" class="flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm" :class="currentPage==='reports'||currentPage==='reportEditor'?'bg-indigo-50 dark:bg-indigo-900/30 text-indigo-600 dark:text-indigo-400 font-medium':'text-gray-600 dark:text-gray-300'"><svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 17v-2m3 2v-4m3 4v-6m2 10H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"/></svg><span>보고서</span></a>
+            <a href="#/payments" @click.prevent="navigate('/payments')" class="flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm" :class="currentPage==='payments'?'bg-indigo-50 dark:bg-indigo-900/30 text-indigo-600 dark:text-indigo-400 font-medium':'text-gray-600 dark:text-gray-300'"><svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8c-1.657 0-3 .895-3 2s1.343 2 3 2 3 .895 3 2-1.343 2-3 2m0-8c1.11 0 2.08.402 2.599 1M12 8V7m0 1v8m0 0v1m0-1c-1.11 0-2.08-.402-2.599-1M21 12a9 9 0 11-18 0 9 9 0 0118 0z"/></svg><span>수금</span></a>
+            <a href="#/settings" @click.prevent="navigate('/settings')" class="flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm" :class="currentPage==='settings'?'bg-indigo-50 dark:bg-indigo-900/30 text-indigo-600 dark:text-indigo-400 font-medium':'text-gray-600 dark:text-gray-300'"><svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10.325 4.317c.426-1.756 2.924-1.756 3.35 0a1.724 1.724 0 002.573 1.066c1.543-.94 3.31.826 2.37 2.37a1.724 1.724 0 001.066 2.573c1.756.426 1.756 2.924 0 3.35a1.724 1.724 0 00-1.066 2.573c.94 1.543-.826 3.31-2.37 2.37a1.724 1.724 0 00-2.573 1.066c-.426 1.756-2.924 1.756-3.35 0a1.724 1.724 0 00-2.573-1.066c-1.543.94-3.31-.826-2.37-2.37a1.724 1.724 0 00-1.066-2.573c-1.756-.426-1.756-2.924 0-3.35a1.724 1.724 0 001.066-2.573c-.94-1.543.826-3.31 2.37-2.37.996.608 2.296.07 2.572-1.065z"/><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z"/></svg><span>설정</span></a>
         </nav>
     </aside>
 
@@ -110,7 +142,7 @@
         <header x-show="currentPage !== 'feedback' && currentPage !== 'portal'" class="bg-white dark:bg-gray-800 border-b border-gray-200 dark:border-gray-700 px-4 lg:px-6 py-3 flex items-center justify-between sticky top-0 z-20">
             <div class="flex items-center gap-3">
                 <button @click="sidebarOpen=!sidebarOpen" class="lg:hidden p-2 rounded-lg hover:bg-gray-100 dark:hover:bg-gray-700"><svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 6h16M4 12h16M4 18h16"/></svg></button>
-                <h1 class="text-lg font-semibold" x-text="{'dashboard':'대시보드','clients':'발주처','clientDetail':'발주처 상세','projects':'프로젝트','projectDetail':'프로젝트 상세','tasks':'업무','reports':'보고서','reportEditor':'보고서 편집','payments':'수금 관리','estimate':'AI 견적서','templates':'템플릿 관리','settings':'설정'}[currentPage]||'대시보드'"></h1>
+                <h1 class="text-lg font-semibold" x-text="{'dashboard':'대시보드','clients':'발주처','clientDetail':'발주처 상세','projects':'프로젝트','projectDetail':'프로젝트 상세','tasks':'업무','reports':'보고서','reportEditor':'보고서 편집','payments':'수금 관리','estimate':'AI 견적서','templates':'템플릿 관리','settings':'설정','activity':'활동 로그','notifications':'알림 센터','teamSettings':'팀 설정'}[currentPage]||'대시보드'"></h1>
             </div>
             <div class="flex items-center gap-2">
                 <template x-if="user">
@@ -120,14 +152,27 @@
                         </button>
                         <div x-show="showNotifPanel" @click.away="showNotifPanel=false" x-cloak class="absolute right-0 mt-2 w-80 bg-white dark:bg-gray-800 rounded-lg shadow-xl border border-gray-200 dark:border-gray-700 z-50">
                             <div class="flex items-center justify-between p-3 border-b border-gray-100 dark:border-gray-700"><span class="font-semibold text-sm">알림</span><button @click="markAllNotifRead()" class="text-xs text-indigo-600 hover:underline">모두 읽음</button></div>
+                            <!-- 타입 필터 탭 (#3) -->
+                            <div class="flex gap-1 px-3 py-2 border-b border-gray-100 dark:border-gray-700 overflow-x-auto">
+                                <template x-for="tab in [{k:'all',l:'전체'},{k:'comment',l:'댓글'},{k:'mention',l:'멘션'},{k:'task',l:'업무'},{k:'team',l:'팀'}]" :key="tab.k">
+                                    <button @click="notifFilter=tab.k" class="px-2 py-1 text-xs rounded-full whitespace-nowrap" :class="notifFilter===tab.k?'bg-indigo-100 text-indigo-700 dark:bg-indigo-900/30 dark:text-indigo-400':'text-gray-500 hover:bg-gray-100 dark:hover:bg-gray-700'" x-text="tab.l"></button>
+                                </template>
+                            </div>
                             <div class="max-h-64 overflow-y-auto">
-                                <template x-if="notifications.length===0"><p class="text-center text-sm text-gray-400 py-8">알림이 없습니다.</p></template>
+                                <template x-if="filteredNotifications.length===0"><p class="text-center text-sm text-gray-400 py-8">알림이 없습니다.</p></template>
                                 <template x-for="n in filteredNotifications" :key="n.id">
-                                    <div @click="markNotifRead(n.id)" class="px-3 py-2.5 border-b border-gray-50 dark:border-gray-700/50 hover:bg-gray-50 dark:hover:bg-gray-700/30 cursor-pointer" :class="!n.is_read?'bg-indigo-50/50 dark:bg-indigo-900/10':''">
-                                        <p class="text-sm" x-text="n.message"></p><p class="text-xs text-gray-400 mt-1" x-text="formatRelativeTime(n.created_at)"></p>
+                                    <div class="group relative px-3 py-2.5 border-b border-gray-50 dark:border-gray-700/50 hover:bg-gray-50 dark:hover:bg-gray-700/30 cursor-pointer flex items-start gap-2" :class="!n.is_read?'bg-indigo-50/50 dark:bg-indigo-900/10':''" @click="notifLink(n)">
+                                        <div x-show="!n.is_read" class="w-2 h-2 rounded-full bg-blue-500 mt-1.5 flex-shrink-0"></div>
+                                        <div class="flex-1 min-w-0">
+                                            <p class="text-sm font-medium" x-text="n.title || n.message"></p>
+                                            <p class="text-xs text-gray-500 truncate" x-text="n.message" x-show="n.title"></p>
+                                            <p class="text-xs text-gray-400 mt-0.5" x-text="formatRelativeTime(n.created_at)"></p>
+                                        </div>
+                                        <button @click.stop="deleteNotif(n.id)" class="hidden group-hover:block p-1 text-gray-400 hover:text-red-500"><svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"/></svg></button>
                                     </div>
                                 </template>
                             </div>
+                            <a href="#/notifications" @click="showNotifPanel=false" class="block text-center text-xs text-indigo-600 dark:text-indigo-400 py-2.5 hover:bg-gray-50 dark:hover:bg-gray-700/30 border-t border-gray-100 dark:border-gray-700">전체 알림 보기</a>
                         </div>
                     </div>
                 </template>
@@ -175,6 +220,94 @@
                         </tbody></table></div>
                         <template x-if="recentTasks.length===0&&!loading"><p class="text-center text-sm text-gray-400 py-8">업무가 없습니다.</p></template>
                     </div>
+
+                    <!-- ── 매출 추이 차트 (6개월) ── -->
+                    <div class="bg-white dark:bg-gray-800 rounded-lg shadow-sm border border-gray-100 dark:border-gray-700 mt-6 p-4 sm:p-6">
+                        <h2 class="text-base font-semibold mb-4">매출 추이 (최근 6개월)</h2>
+                        <template x-if="revenueLoading">
+                            <div class="h-48 flex items-center justify-center"><div class="animate-pulse text-sm text-gray-400">로딩 중...</div></div>
+                        </template>
+                        <template x-if="!revenueLoading && revenue.months.length === 0">
+                            <div class="h-48 flex items-center justify-center text-sm text-gray-400">매출 데이터가 없습니다.</div>
+                        </template>
+                        <template x-if="!revenueLoading && revenue.months.length > 0">
+                            <div>
+                                <div class="flex items-end justify-between gap-2 sm:gap-4" style="height: 200px;">
+                                    <template x-for="(month, idx) in revenue.months" :key="idx">
+                                        <div class="flex-1 flex flex-col items-center justify-end h-full">
+                                            <div class="text-xs text-gray-500 dark:text-gray-400 mb-1" x-text="formatAmount(revenue.amounts[idx])"></div>
+                                            <div class="w-full max-w-[48px] bg-indigo-500 dark:bg-indigo-400 rounded-t-md transition-all duration-500 hover:bg-indigo-600 dark:hover:bg-indigo-300" :style="`height: ${barHeight(revenue.amounts[idx])}%`" :title="revenue.amounts[idx].toLocaleString() + '원'"></div>
+                                            <div class="text-xs text-gray-500 dark:text-gray-400 mt-2" x-text="month"></div>
+                                        </div>
+                                    </template>
+                                </div>
+                            </div>
+                        </template>
+                    </div>
+
+                    <!-- ── 워크로드 + AI 인사이트 (2컬럼) ── -->
+                    <div class="grid grid-cols-1 lg:grid-cols-2 gap-6 mt-6">
+                        <!-- 팀 워크로드 -->
+                        <div class="bg-white dark:bg-gray-800 rounded-lg shadow-sm border border-gray-100 dark:border-gray-700 p-4 sm:p-6">
+                            <h2 class="text-base font-semibold mb-4">팀 워크로드</h2>
+                            <template x-if="workloadLoading">
+                                <div class="space-y-3">
+                                    <template x-for="i in 4" :key="i"><div class="animate-pulse"><div class="h-4 bg-gray-200 dark:bg-gray-700 rounded w-1/3 mb-2"></div><div class="h-3 bg-gray-200 dark:bg-gray-700 rounded w-full"></div></div></template>
+                                </div>
+                            </template>
+                            <template x-if="!workloadLoading && workload.length === 0">
+                                <div class="text-center py-8 text-sm text-gray-400">팀을 선택하면 워크로드를 확인할 수 있습니다.</div>
+                            </template>
+                            <template x-if="!workloadLoading && workload.length > 0">
+                                <div class="space-y-4">
+                                    <template x-for="w in workload" :key="w.user_id">
+                                        <div>
+                                            <div class="flex items-center justify-between mb-1.5">
+                                                <span class="text-sm font-medium text-gray-700 dark:text-gray-300" x-text="w.user_name"></span>
+                                                <span class="text-xs text-gray-500" x-text="`${w.completed_count}/${w.task_count}`"></span>
+                                            </div>
+                                            <div class="w-full h-2.5 bg-gray-100 dark:bg-gray-700 rounded-full overflow-hidden">
+                                                <div class="h-full rounded-full transition-all duration-500" :class="workloadColor(w)" :style="`width: ${workloadPercent(w)}%`"></div>
+                                            </div>
+                                        </div>
+                                    </template>
+                                </div>
+                            </template>
+                        </div>
+
+                        <!-- AI 인사이트 -->
+                        <div class="bg-white dark:bg-gray-800 rounded-lg shadow-sm border border-gray-100 dark:border-gray-700 p-4 sm:p-6">
+                            <div class="flex items-center justify-between mb-4">
+                                <h2 class="text-base font-semibold">AI 인사이트</h2>
+                                <button @click="loadInsights()" :disabled="insightsLoading" class="text-xs text-indigo-600 dark:text-indigo-400 hover:underline disabled:opacity-50" x-text="insightsLoading ? '분석 중...' : (insights.length > 0 ? '새로고침' : '분석하기')"></button>
+                            </div>
+                            <template x-if="insightsLoading">
+                                <div class="space-y-3">
+                                    <template x-for="i in 3" :key="i"><div class="animate-pulse flex gap-3"><div class="w-8 h-8 rounded bg-gray-200 dark:bg-gray-700"></div><div class="flex-1"><div class="h-4 bg-gray-200 dark:bg-gray-700 rounded w-3/4 mb-2"></div><div class="h-3 bg-gray-200 dark:bg-gray-700 rounded w-1/2"></div></div></div></template>
+                                </div>
+                            </template>
+                            <template x-if="!insightsLoading && insights.length === 0">
+                                <div class="text-center py-8 text-sm text-gray-400">
+                                    <svg class="w-10 h-10 mx-auto text-gray-300 dark:text-gray-600 mb-2" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M9.663 17h4.673M12 3v1m6.364 1.636l-.707.707M21 12h-1M4 12H3m3.343-5.657l-.707-.707m2.828 9.9a5 5 0 117.072 0l-.548.547A3.374 3.374 0 0014 18.469V19a2 2 0 11-4 0v-.531c0-.895-.356-1.754-.988-2.386l-.548-.547z"/></svg>
+                                    "분석하기" 버튼을 눌러 인사이트를 확인하세요.
+                                </div>
+                            </template>
+                            <template x-if="!insightsLoading && insights.length > 0">
+                                <div class="space-y-3">
+                                    <template x-for="(ins, idx) in insights" :key="idx">
+                                        <div class="flex items-start gap-3 p-3 rounded-lg bg-gray-50 dark:bg-gray-700/30">
+                                            <div class="w-8 h-8 rounded-lg flex items-center justify-center flex-shrink-0" :class="insightColor(ins.type)">
+                                                <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" :d="insightIcon(ins.type)"/></svg>
+                                            </div>
+                                            <div class="min-w-0">
+                                                <p class="text-sm text-gray-700 dark:text-gray-300" x-text="ins.message"></p>
+                                            </div>
+                                        </div>
+                                    </template>
+                                </div>
+                            </template>
+                        </div>
+                    </div>
                 </div>
             </template>
 
@@ -191,6 +324,7 @@
                                 <option value="">전체 업종</option>
                                 <option value="IT">IT</option><option value="제조">제조</option><option value="건설">건설</option><option value="디자인">디자인</option><option value="기타">기타</option>
                             </select>
+                            <button @click="exportCsv()" class="flex items-center gap-1.5 px-3 py-2 text-sm border border-gray-200 dark:border-gray-600 rounded-lg hover:bg-gray-50 dark:hover:bg-gray-700 text-gray-600 dark:text-gray-300" title="CSV 내보내기"><svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4"/></svg></button>
                             <button @click="openCreate()" class="flex items-center gap-2 px-4 py-2 bg-indigo-600 text-white text-sm rounded-lg hover:bg-indigo-700">
                                 <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4"/></svg><span>발주처 등록</span>
                             </button>
@@ -335,6 +469,7 @@
                             <select x-model="filterStatus" @change="page=1;loadProjects()" class="text-sm border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 px-3 py-2">
                                 <option value="">전체 상태</option><option value="planning">기획중</option><option value="active">진행중</option><option value="on_hold">보류</option><option value="completed">완료</option><option value="cancelled">취소</option>
                             </select>
+                            <button @click="exportCsv()" class="flex items-center gap-1.5 px-3 py-2 text-sm border border-gray-200 dark:border-gray-600 rounded-lg hover:bg-gray-50 dark:hover:bg-gray-700 text-gray-600 dark:text-gray-300" title="CSV 내보내기"><svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4"/></svg></button>
                             <button @click="openCreate()" class="flex items-center gap-2 px-4 py-2 bg-indigo-600 text-white text-sm rounded-lg hover:bg-indigo-700">
                                 <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4"/></svg><span>프로젝트 생성</span>
                             </button>
@@ -442,6 +577,7 @@
                             <div class="flex gap-1 mb-4 bg-gray-100 dark:bg-gray-700 rounded-lg p-1 w-fit">
                                 <button @click="activeTab='tasks'" :class="activeTab==='tasks'?'bg-white dark:bg-gray-600 shadow text-gray-800 dark:text-white':'text-gray-500 dark:text-gray-400'" class="px-4 py-1.5 text-sm font-medium rounded-md transition-all">업무 (<span x-text="tasks.length"></span>)</button>
                                 <button @click="activeTab='documents';loadDocuments()" :class="activeTab==='documents'?'bg-white dark:bg-gray-600 shadow text-gray-800 dark:text-white':'text-gray-500 dark:text-gray-400'" class="px-4 py-1.5 text-sm font-medium rounded-md transition-all">문서 (<span x-text="documents.length"></span>)</button>
+                                <button @click="activeTab='comments';loadComments()" :class="activeTab==='comments'?'bg-white dark:bg-gray-600 shadow text-gray-800 dark:text-white':'text-gray-500 dark:text-gray-400'" class="px-4 py-1.5 text-sm font-medium rounded-md transition-all">댓글 (<span x-text="commentList.length"></span>)</button>
                             </div>
                             <!-- 업무 목록 -->
                             <div x-show="activeTab==='tasks'" class="bg-white dark:bg-gray-800 rounded-lg shadow-sm border border-gray-100 dark:border-gray-700">
@@ -487,6 +623,66 @@
                                         </a>
                                     </template>
                                     <template x-if="documents.length===0"><p class="text-center text-sm text-gray-400 py-8">문서가 없습니다. 업로드 버튼을 눌러 문서를 추가하세요.</p></template>
+                                </div>
+                            </div>
+                            <!-- 댓글 (#6, #7) -->
+                            <div x-show="activeTab==='comments'" class="bg-white dark:bg-gray-800 rounded-lg shadow-sm border border-gray-100 dark:border-gray-700 p-4">
+                                <div x-show="commentLoading" class="text-center py-6"><div class="w-5 h-5 border-2 border-indigo-500 border-t-transparent rounded-full animate-spin mx-auto"></div></div>
+                                <!-- 댓글 입력 -->
+                                <div class="mb-4 relative">
+                                    <textarea x-model="commentContent" @input="onCommentInput($event, 'commentContent')" rows="2" class="w-full px-3 py-2 text-sm border border-gray-200 dark:border-gray-600 rounded-lg bg-gray-50 dark:bg-gray-700 resize-none" placeholder="댓글을 입력하세요... (@로 멘션)"></textarea>
+                                    <!-- 멘션 드롭다운 -->
+                                    <div x-show="showMentionDropdown && mentionResults.length > 0" class="absolute left-0 bottom-full mb-1 w-64 bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-lg shadow-lg z-[80] max-h-40 overflow-y-auto">
+                                        <template x-for="(m, i) in mentionResults" :key="m.email">
+                                            <button @click="insertMention(m, 'commentContent', $event.target.closest('div').previousElementSibling)" class="w-full text-left px-3 py-2 text-sm hover:bg-gray-100 dark:hover:bg-gray-700 flex items-center gap-2" :class="i===mentionIdx?'bg-gray-100 dark:bg-gray-700':''">
+                                                <div class="w-6 h-6 rounded-full bg-indigo-500 flex items-center justify-center text-white text-xs" x-text="(m.name||m.email).charAt(0).toUpperCase()"></div>
+                                                <span x-text="m.name||m.email" class="truncate"></span>
+                                                <span class="text-xs text-gray-400 truncate" x-text="m.email"></span>
+                                            </button>
+                                        </template>
+                                    </div>
+                                    <div class="flex justify-end mt-1"><button @click="submitComment()" :disabled="!commentContent.trim()" class="px-3 py-1.5 text-xs bg-indigo-600 text-white rounded-lg hover:bg-indigo-700 disabled:opacity-50">등록</button></div>
+                                </div>
+                                <!-- 댓글 목록 (스레드) -->
+                                <div class="space-y-3">
+                                    <template x-for="c in commentList" :key="c.id">
+                                        <div>
+                                            <!-- 원 댓글 -->
+                                            <div class="flex items-start gap-2">
+                                                <div class="w-8 h-8 rounded-full bg-indigo-500 flex items-center justify-center text-white text-xs flex-shrink-0" x-text="(c.user_name||'?').charAt(0).toUpperCase()"></div>
+                                                <div class="flex-1 min-w-0">
+                                                    <div class="flex items-center gap-2"><span class="text-sm font-medium" x-text="c.user_name"></span><span class="text-xs text-gray-400" x-text="CS.formatDate(c.created_at)"></span></div>
+                                                    <p class="text-sm text-gray-700 dark:text-gray-300 mt-0.5 whitespace-pre-wrap" x-text="c.content"></p>
+                                                    <div class="flex items-center gap-3 mt-1">
+                                                        <button @click="startReply(c)" class="text-xs text-indigo-600 hover:underline">답글</button>
+                                                        <span x-show="c.read_count > 0" class="text-xs text-gray-400" x-text="'읽음 '+c.read_count+'명'"></span>
+                                                        <button x-show="c.is_mine" @click="deleteComment(c.id)" class="text-xs text-red-500 hover:underline">삭제</button>
+                                                    </div>
+                                                </div>
+                                            </div>
+                                            <!-- 답글 목록 -->
+                                            <template x-if="c.replies && c.replies.length > 0">
+                                                <div class="ml-10 mt-2 pl-3 border-l-2 border-gray-200 dark:border-gray-600 space-y-2">
+                                                    <template x-for="r in c.replies" :key="r.id">
+                                                        <div class="flex items-start gap-2">
+                                                            <div class="w-6 h-6 rounded-full bg-gray-400 flex items-center justify-center text-white text-[10px] flex-shrink-0" x-text="(r.user_name||'?').charAt(0).toUpperCase()"></div>
+                                                            <div class="flex-1 min-w-0">
+                                                                <div class="flex items-center gap-2"><span class="text-xs font-medium" x-text="r.user_name"></span><span class="text-[10px] text-gray-400" x-text="CS.formatDate(r.created_at)"></span></div>
+                                                                <p class="text-xs text-gray-600 dark:text-gray-400 mt-0.5" x-text="r.content"></p>
+                                                                <span x-show="r.read_count > 0" class="text-[10px] text-gray-400" x-text="'읽음 '+r.read_count+'명'"></span>
+                                                            </div>
+                                                        </div>
+                                                    </template>
+                                                </div>
+                                            </template>
+                                            <!-- 답글 입력 -->
+                                            <div x-show="replyTo===c.id" class="ml-10 mt-2 pl-3 border-l-2 border-indigo-300">
+                                                <textarea x-model="replyContent" rows="1" class="w-full px-2 py-1.5 text-xs border border-gray-200 dark:border-gray-600 rounded bg-gray-50 dark:bg-gray-700 resize-none" placeholder="답글 입력..."></textarea>
+                                                <div class="flex gap-1 mt-1"><button @click="submitReply()" :disabled="!replyContent.trim()" class="px-2 py-1 text-[10px] bg-indigo-600 text-white rounded disabled:opacity-50">등록</button><button @click="cancelReply()" class="px-2 py-1 text-[10px] border rounded">취소</button></div>
+                                            </div>
+                                        </div>
+                                    </template>
+                                    <template x-if="!commentLoading && commentList.length===0"><p class="text-center text-sm text-gray-400 py-4">아직 댓글이 없습니다.</p></template>
                                 </div>
                             </div>
                         </div>
@@ -614,6 +810,7 @@
                                 <button @click="viewMode='list'" class="p-1.5 rounded-md transition-all" :class="viewMode==='list'?'bg-white dark:bg-gray-600 shadow-sm':''"><svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 6h16M4 10h16M4 14h16M4 18h16"/></svg></button>
                                 <button @click="viewMode='kanban'" class="p-1.5 rounded-md transition-all" :class="viewMode==='kanban'?'bg-white dark:bg-gray-600 shadow-sm':''"><svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 17V7m0 10a2 2 0 01-2 2H5a2 2 0 01-2-2V7a2 2 0 012-2h2a2 2 0 012 2m0 10a2 2 0 002 2h2a2 2 0 002-2M9 7a2 2 0 012-2h2a2 2 0 012 2m0 10V7m0 10a2 2 0 002 2h2a2 2 0 002-2V7a2 2 0 00-2-2h-2a2 2 0 00-2 2"/></svg></button>
                             </div>
+                            <button @click="exportCsv()" class="flex items-center gap-1.5 px-3 py-2 text-sm border border-gray-200 dark:border-gray-600 rounded-lg hover:bg-gray-50 dark:hover:bg-gray-700 text-gray-600 dark:text-gray-300" title="CSV 내보내기"><svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4"/></svg></button>
                             <button @click="openCreate()" class="flex items-center gap-2 px-4 py-2 bg-indigo-600 text-white text-sm rounded-lg hover:bg-indigo-700"><svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4"/></svg><span>업무 생성</span></button>
                         </div>
                     </div>
@@ -621,6 +818,7 @@
                     <div x-show="viewMode==='list'">
                         <div class="bg-white dark:bg-gray-800 rounded-lg shadow-sm border border-gray-100 dark:border-gray-700 overflow-hidden">
                             <div class="overflow-x-auto"><table class="w-full"><thead><tr class="border-b border-gray-100 dark:border-gray-700 bg-gray-50 dark:bg-gray-800">
+                                <th class="px-3 py-3 w-8"><input type="checkbox" @change="toggleSelectAll()" :checked="allSelected" class="rounded border-gray-300"></th>
                                 <th class="text-left px-4 py-3 text-xs font-semibold text-gray-500 uppercase">업무명</th>
                                 <th class="text-left px-4 py-3 text-xs font-semibold text-gray-500 uppercase hidden md:table-cell">프로젝트</th>
                                 <th class="text-left px-4 py-3 text-xs font-semibold text-gray-500 uppercase">우선순위</th>
@@ -630,6 +828,7 @@
                             </tr></thead><tbody>
                                 <template x-for="t in tasks" :key="t.id">
                                     <tr @click="openDetail(t)" class="border-b border-gray-50 dark:border-gray-700/50 hover:bg-gray-50 dark:hover:bg-gray-700/30 cursor-pointer">
+                                        <td class="px-3 py-3" @click.stop><input type="checkbox" :checked="selectedTaskIds.includes(t.id)" @change="toggleTaskSelection(t.id)" class="rounded border-gray-300"></td>
                                         <td class="px-4 py-3"><div class="flex items-center gap-2"><span class="text-xs text-gray-400" x-text="t.task_code||''"></span><span class="text-sm font-medium" x-text="t.task_name"></span></div></td>
                                         <td class="px-4 py-3 text-sm text-gray-500 hidden md:table-cell" x-text="t.project_name||'-'"></td>
                                         <td class="px-4 py-3"><span class="px-2 py-0.5 rounded text-xs font-medium" :class="CS.priorityClass[t.priority]||''" x-text="t.priority"></span></td>
@@ -726,6 +925,26 @@
                                 </div>
                             </template>
                         </div>
+                    </div>
+                    <!-- 일괄 작업 플로팅 바 -->
+                    <div x-show="selectedTaskIds.length > 0" x-transition class="fixed bottom-6 left-1/2 -translate-x-1/2 z-[70] bg-gray-900 dark:bg-gray-700 text-white rounded-xl shadow-2xl px-6 py-3 flex items-center gap-4">
+                        <span class="text-sm font-medium" x-text="selectedTaskIds.length + '건 선택됨'"></span>
+                        <div class="w-px h-6 bg-gray-600"></div>
+                        <select @change="if($event.target.value){bulkStatusChange($event.target.value);$event.target.value=''}" class="text-sm bg-gray-800 dark:bg-gray-600 border border-gray-600 dark:border-gray-500 rounded-lg px-3 py-1.5 text-white">
+                            <option value="">상태 변경</option>
+                            <option value="pending">대기</option>
+                            <option value="in_progress">진행중</option>
+                            <option value="completed">완료</option>
+                            <option value="feedback_pending">피드백 대기</option>
+                            <option value="confirmed">확인완료</option>
+                        </select>
+                        <button @click="bulkDelete()" class="flex items-center gap-1.5 px-3 py-1.5 text-sm bg-red-600 hover:bg-red-700 rounded-lg transition-colors">
+                            <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"/></svg>
+                            삭제
+                        </button>
+                        <button @click="selectedTaskIds=[]" class="p-1.5 hover:bg-gray-700 dark:hover:bg-gray-600 rounded-lg transition-colors" title="선택 해제">
+                            <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"/></svg>
+                        </button>
                     </div>
                 </div>
             </template>
@@ -1114,7 +1333,7 @@
                                         </div>
                                         <!-- 보고 본문 미리보기 -->
                                         <div class="bg-gray-50 dark:bg-gray-700/50 rounded-lg p-4">
-                                            <div class="text-sm text-gray-700 dark:text-gray-300 prose dark:prose-invert max-w-none" x-html="report.body_html||''"></div>
+                                            <div class="text-sm text-gray-700 dark:text-gray-300 prose dark:prose-invert max-w-none" x-html="CS.sanitize(report.body_html||'')"></div>
                                         </div>
                                         <!-- 피드백 토큰 -->
                                         <template x-if="report.feedback_token">
@@ -1178,7 +1397,7 @@
                                                     <span x-text="aiDrafting?'생성 중...':'AI 초안 생성'"></span>
                                                 </button>
                                             </div>
-                                            <textarea x-model="form.body_html" rows="10" placeholder="보고 내용을 작성하세요..." class="w-full px-3 py-2 text-sm border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 resize-y"></textarea>
+                                            <div x-ref="quillEditor" class="quill-wrapper"></div>
                                         </div>
                                         <!-- 발송 옵션 -->
                                         <div>
@@ -1237,7 +1456,7 @@
                                                 </div>
                                             </div>
                                             <!-- 본문 내용 -->
-                                            <div class="text-sm prose dark:prose-invert max-w-none" x-html="form.body_html||'<p class=&quot;text-gray-400&quot;>본문 내용이 없습니다.</p>'"></div>
+                                            <div class="text-sm prose dark:prose-invert max-w-none" x-html="CS.sanitize(form.body_html) || '<p class=&quot;text-gray-400&quot;>본문 내용이 없습니다.</p>'"></div>
                                             <!-- 피드백 버튼 -->
                                             <div class="border-t border-gray-200 dark:border-gray-700 pt-4 mt-4">
                                                 <p class="text-xs text-gray-500 mb-3 text-center">발주처 담당자가 아래 버튼으로 피드백을 제출합니다</p>
@@ -1482,7 +1701,7 @@
                                     <h3 class="text-sm font-medium text-gray-500 dark:text-gray-400">보고서 본문</h3>
                                 </div>
                                 <template x-if="!editing">
-                                    <div class="p-5 prose prose-sm dark:prose-invert max-w-none text-gray-700 dark:text-gray-300 leading-relaxed" x-html="report.content_html"></div>
+                                    <div class="p-5 prose prose-sm dark:prose-invert max-w-none text-gray-700 dark:text-gray-300 leading-relaxed" x-html="CS.sanitize(report.content_html)"></div>
                                 </template>
                                 <template x-if="editing">
                                     <div class="p-5">
@@ -2295,11 +2514,288 @@
                 </div>
             </template>
 
-            <!-- ======== 설정 페이지 (캘린더 연동) ======== -->
+            <!-- ======== 활동 로그 페이지 ======== -->
+            <template x-if="currentPage==='activity'">
+                <div x-data="activityPage()" x-init="init()">
+                    <!-- 헤더 -->
+                    <div class="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 mb-6">
+                        <h2 class="text-xl font-bold text-gray-800 dark:text-white">활동 로그</h2>
+                        <button @click="$refs.filterPanel.classList.toggle('hidden')" class="flex items-center gap-2 px-3 py-2 text-sm border border-gray-200 dark:border-gray-600 rounded-lg hover:bg-gray-50 dark:hover:bg-gray-700 text-gray-600 dark:text-gray-300">
+                            <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 4a1 1 0 011-1h16a1 1 0 011 1v2.586a1 1 0 01-.293.707l-6.414 6.414a1 1 0 00-.293.707V17l-4 4v-6.586a1 1 0 00-.293-.707L3.293 7.293A1 1 0 013 6.586V4z"/></svg>
+                            필터
+                        </button>
+                    </div>
+
+                    <!-- 필터 바 -->
+                    <div x-ref="filterPanel" class="hidden bg-white dark:bg-gray-800 rounded-lg shadow-sm border border-gray-100 dark:border-gray-700 p-4 mb-6">
+                        <div class="flex flex-wrap items-end gap-3">
+                            <div class="flex-1 min-w-[140px]">
+                                <label class="block text-xs font-medium text-gray-500 dark:text-gray-400 mb-1">프로젝트</label>
+                                <select x-model="filterProject" @change="applyFilter()" class="w-full text-sm border border-gray-200 dark:border-gray-600 rounded-lg bg-gray-50 dark:bg-gray-700 text-gray-700 dark:text-gray-200 px-3 py-2 focus:outline-none focus:ring-2 focus:ring-indigo-500 dark:focus:ring-indigo-400">
+                                    <option value="">전체</option>
+                                    <template x-for="p in projects" :key="p.id">
+                                        <option :value="p.id" x-text="p.project_name"></option>
+                                    </template>
+                                </select>
+                            </div>
+                            <div class="flex-1 min-w-[140px]">
+                                <label class="block text-xs font-medium text-gray-500 dark:text-gray-400 mb-1">팀</label>
+                                <select x-model="filterTeam" @change="applyFilter()" class="w-full text-sm border border-gray-200 dark:border-gray-600 rounded-lg bg-gray-50 dark:bg-gray-700 text-gray-700 dark:text-gray-200 px-3 py-2 focus:outline-none focus:ring-2 focus:ring-indigo-500 dark:focus:ring-indigo-400">
+                                    <option value="">전체</option>
+                                    <template x-for="t in teams" :key="t.id">
+                                        <option :value="t.id" x-text="t.name"></option>
+                                    </template>
+                                </select>
+                            </div>
+                            <div class="flex-1 min-w-[140px]">
+                                <label class="block text-xs font-medium text-gray-500 dark:text-gray-400 mb-1">활동 타입</label>
+                                <select x-model="filterAction" class="w-full text-sm border border-gray-200 dark:border-gray-600 rounded-lg bg-gray-50 dark:bg-gray-700 text-gray-700 dark:text-gray-200 px-3 py-2 focus:outline-none focus:ring-2 focus:ring-indigo-500 dark:focus:ring-indigo-400">
+                                    <option value="">전체</option>
+                                    <option value="create">생성</option>
+                                    <option value="update">수정</option>
+                                    <option value="status_change">상태 변경</option>
+                                    <option value="comment">댓글</option>
+                                    <option value="assign">할당</option>
+                                    <option value="delete">삭제</option>
+                                </select>
+                            </div>
+                            <button @click="resetFilter()" class="px-3 py-2 text-sm text-indigo-600 dark:text-indigo-400 hover:underline">초기화</button>
+                        </div>
+                    </div>
+
+                    <!-- 로딩 스켈레톤 -->
+                    <template x-if="loading && items.length === 0">
+                        <div class="space-y-4">
+                            <template x-for="i in 5" :key="i">
+                                <div class="bg-white dark:bg-gray-800 rounded-lg p-4 animate-pulse">
+                                    <div class="flex items-start gap-3">
+                                        <div class="w-9 h-9 rounded-full bg-gray-200 dark:bg-gray-700"></div>
+                                        <div class="flex-1">
+                                            <div class="h-4 bg-gray-200 dark:bg-gray-700 rounded w-3/4 mb-2"></div>
+                                            <div class="h-3 bg-gray-200 dark:bg-gray-700 rounded w-1/2"></div>
+                                        </div>
+                                    </div>
+                                </div>
+                            </template>
+                        </div>
+                    </template>
+
+                    <!-- 빈 상태 -->
+                    <template x-if="!loading && filteredItems.length === 0">
+                        <div class="bg-white dark:bg-gray-800 rounded-lg shadow-sm border border-gray-100 dark:border-gray-700 p-12 text-center">
+                            <svg class="w-16 h-16 mx-auto text-gray-300 dark:text-gray-600 mb-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z"/></svg>
+                            <p class="text-gray-500 dark:text-gray-400 mb-2" x-text="filterProject || filterTeam || filterAction ? '검색 결과가 없습니다.' : '아직 활동이 없습니다.'"></p>
+                            <p class="text-sm text-gray-400 dark:text-gray-500" x-show="!filterProject && !filterTeam && !filterAction">프로젝트나 업무를 생성해보세요.</p>
+                        </div>
+                    </template>
+
+                    <!-- 타임라인 -->
+                    <template x-if="!loading || items.length > 0">
+                        <div class="space-y-6">
+                            <template x-for="group in groupedByDate" :key="group.label">
+                                <div>
+                                    <!-- 날짜 구분선 -->
+                                    <div class="flex items-center gap-3 mb-3">
+                                        <span class="text-sm font-semibold text-gray-700 dark:text-gray-300 whitespace-nowrap" x-text="group.label"></span>
+                                        <div class="flex-1 h-px bg-gray-200 dark:bg-gray-700"></div>
+                                    </div>
+                                    <!-- 활동 목록 -->
+                                    <div class="space-y-2">
+                                        <template x-for="item in group.items" :key="item.id">
+                                            <div class="bg-white dark:bg-gray-800 rounded-lg border border-gray-100 dark:border-gray-700 p-4 hover:border-gray-200 dark:hover:border-gray-600 transition-colors">
+                                                <div class="flex items-start gap-3">
+                                                    <!-- 아이콘 -->
+                                                    <div class="w-9 h-9 rounded-full flex items-center justify-center flex-shrink-0" :class="actionColor(item.action)">
+                                                        <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" :d="actionIcon(item.action)"/></svg>
+                                                    </div>
+                                                    <!-- 내용 -->
+                                                    <div class="flex-1 min-w-0">
+                                                        <div class="flex items-center gap-2 mb-0.5">
+                                                            <span class="text-sm font-medium text-gray-800 dark:text-white" x-text="item.user_name || '알 수 없음'"></span>
+                                                            <span class="text-xs text-gray-400 dark:text-gray-500" x-text="formatTime(item.created_at)"></span>
+                                                        </div>
+                                                        <p class="text-sm text-gray-600 dark:text-gray-300" x-text="actionMessage(item)"></p>
+                                                        <p x-show="item.detail" class="text-xs text-gray-400 dark:text-gray-500 mt-1 truncate" x-text="item.detail"></p>
+                                                    </div>
+                                                </div>
+                                            </div>
+                                        </template>
+                                    </div>
+                                </div>
+                            </template>
+
+                            <!-- 더 보기 버튼 -->
+                            <div x-show="hasMore" class="text-center py-4">
+                                <button @click="loadMore()" :disabled="loading" class="px-6 py-2.5 text-sm font-medium text-indigo-600 dark:text-indigo-400 bg-indigo-50 dark:bg-indigo-900/20 rounded-lg hover:bg-indigo-100 dark:hover:bg-indigo-900/40 transition-colors disabled:opacity-50">
+                                    <span x-show="!loading">더 보기</span>
+                                    <span x-show="loading">로딩 중...</span>
+                                </button>
+                            </div>
+
+                            <!-- 전체 건수 표시 -->
+                            <div x-show="items.length > 0 && !hasMore" class="text-center py-2">
+                                <span class="text-xs text-gray-400 dark:text-gray-500" x-text="`전체 ${total}건의 활동`"></span>
+                            </div>
+                        </div>
+                    </template>
+                </div>
+            </template>
+
+            <!-- ======== 전체 알림 페이지 (#3) ======== -->
+            <template x-if="currentPage==='notifications'">
+                <div x-data="notificationsPage()" x-init="init()">
+                    <div class="flex items-center justify-between mb-6">
+                        <h2 class="text-xl font-bold text-gray-800 dark:text-white">알림 센터</h2>
+                        <div class="flex items-center gap-2">
+                            <button @click="toggleUnread()" class="text-xs px-3 py-1.5 rounded-lg border" :class="unreadOnly?'bg-indigo-50 border-indigo-200 text-indigo-600':'border-gray-200 dark:border-gray-600 text-gray-600 dark:text-gray-300'" x-text="unreadOnly?'읽지 않은 것만':'전체'"></button>
+                            <button @click="markAllRead()" class="text-xs text-indigo-600 hover:underline">모두 읽음</button>
+                        </div>
+                    </div>
+                    <div class="flex gap-2 mb-4">
+                        <template x-for="tab in [{k:'all',l:'전체'},{k:'comment',l:'댓글'},{k:'mention',l:'멘션'},{k:'task',l:'업무'},{k:'team',l:'팀'}]" :key="tab.k">
+                            <button @click="setFilter(tab.k)" class="px-3 py-1.5 text-sm rounded-lg" :class="filter===tab.k?'bg-indigo-100 text-indigo-700 dark:bg-indigo-900/30 dark:text-indigo-400':'text-gray-500 hover:bg-gray-100 dark:hover:bg-gray-700'" x-text="tab.l"></button>
+                        </template>
+                    </div>
+                    <div x-show="loading" class="text-center py-12"><div class="w-6 h-6 border-2 border-indigo-500 border-t-transparent rounded-full animate-spin mx-auto"></div></div>
+                    <div x-show="!loading && filteredItems.length===0" class="bg-white dark:bg-gray-800 rounded-lg p-12 text-center border border-gray-100 dark:border-gray-700"><p class="text-gray-400">알림이 없습니다.</p></div>
+                    <div x-show="!loading && filteredItems.length>0" class="space-y-2">
+                        <template x-for="n in filteredItems" :key="n.id">
+                            <div class="group bg-white dark:bg-gray-800 rounded-lg border border-gray-100 dark:border-gray-700 p-4 flex items-start gap-3 cursor-pointer hover:border-gray-200 dark:hover:border-gray-600" :class="!n.is_read?'border-l-4 border-l-blue-500':''" @click="goLink(n)">
+                                <div x-show="!n.is_read" class="w-2 h-2 rounded-full bg-blue-500 mt-2 flex-shrink-0"></div>
+                                <div class="flex-1 min-w-0">
+                                    <p class="text-sm font-medium" x-text="n.title || n.message"></p>
+                                    <p class="text-xs text-gray-500 truncate mt-0.5" x-text="n.message" x-show="n.title"></p>
+                                    <p class="text-xs text-gray-400 mt-1" x-text="formatRelativeTime(n.created_at)"></p>
+                                </div>
+                                <button @click.stop="deleteNotif(n.id)" class="hidden group-hover:block p-1 text-gray-400 hover:text-red-500"><svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"/></svg></button>
+                            </div>
+                        </template>
+                    </div>
+                    <div x-show="totalPages > 1" class="flex items-center justify-center gap-2 mt-6">
+                        <button @click="goPage(page-1)" :disabled="page<=1" class="px-3 py-1.5 text-sm border rounded-lg disabled:opacity-50">이전</button>
+                        <span class="text-sm text-gray-500" x-text="`${page} / ${totalPages}`"></span>
+                        <button @click="goPage(page+1)" :disabled="page>=totalPages" class="px-3 py-1.5 text-sm border rounded-lg disabled:opacity-50">다음</button>
+                    </div>
+                </div>
+            </template>
+
+            <!-- ======== 팀 설정 페이지 (#13) ======== -->
+            <template x-if="currentPage==='teamSettings'">
+                <div x-data="teamSettingsPage()" x-init="init()">
+                    <div x-show="loading" class="text-center py-12"><div class="w-6 h-6 border-2 border-indigo-500 border-t-transparent rounded-full animate-spin mx-auto"></div></div>
+                    <template x-if="!loading && team">
+                        <div class="space-y-6">
+                            <h2 class="text-xl font-bold" x-text="'팀 설정 — ' + team.name"></h2>
+                            <!-- 기본 정보 -->
+                            <div class="bg-white dark:bg-gray-800 rounded-lg border border-gray-100 dark:border-gray-700 p-5">
+                                <h3 class="text-base font-semibold mb-4">기본 정보</h3>
+                                <div class="space-y-3">
+                                    <div class="flex items-end gap-2"><div class="flex-1"><label class="block text-xs text-gray-500 mb-1">팀 이름</label><input x-model="editName" class="w-full px-3 py-2 text-sm border border-gray-200 dark:border-gray-600 rounded-lg bg-gray-50 dark:bg-gray-700"></div><button @click="saveName()" :disabled="saving" class="px-3 py-2 text-sm bg-indigo-600 text-white rounded-lg hover:bg-indigo-700 disabled:opacity-50">저장</button></div>
+                                    <div class="flex items-end gap-2"><div class="flex-1"><label class="block text-xs text-gray-500 mb-1">설명</label><input x-model="editDesc" class="w-full px-3 py-2 text-sm border border-gray-200 dark:border-gray-600 rounded-lg bg-gray-50 dark:bg-gray-700"></div><button @click="saveDesc()" :disabled="saving" class="px-3 py-2 text-sm bg-indigo-600 text-white rounded-lg hover:bg-indigo-700 disabled:opacity-50">저장</button></div>
+                                </div>
+                            </div>
+                            <!-- 멤버 관리 -->
+                            <div class="bg-white dark:bg-gray-800 rounded-lg border border-gray-100 dark:border-gray-700">
+                                <div class="flex items-center justify-between p-5 border-b border-gray-100 dark:border-gray-700">
+                                    <h3 class="text-base font-semibold">멤버 관리</h3>
+                                    <button @click="showInviteModal=true" class="px-3 py-1.5 text-sm bg-indigo-600 text-white rounded-lg hover:bg-indigo-700">멤버 초대</button>
+                                </div>
+                                <template x-for="m in members" :key="m.user_id">
+                                    <div class="flex items-center justify-between p-4 border-b border-gray-50 dark:border-gray-700/50 last:border-b-0">
+                                        <div class="flex items-center gap-3">
+                                            <div class="w-9 h-9 rounded-full bg-indigo-500 flex items-center justify-center text-white text-sm font-medium" x-text="(m.name||m.email||'?').charAt(0).toUpperCase()"></div>
+                                            <div><p class="text-sm font-medium" x-text="m.name||m.email"></p><p class="text-xs text-gray-400" x-text="m.email"></p></div>
+                                        </div>
+                                        <div class="flex items-center gap-2">
+                                            <span class="px-2 py-0.5 text-xs rounded-full" :class="roleBadge(m.role)" x-text="roleLabel(m.role)"></span>
+                                            <template x-if="m.role !== 'owner'">
+                                                <select @change="changeRole(m, $event.target.value)" class="text-xs border border-gray-200 dark:border-gray-600 rounded px-1 py-0.5 bg-white dark:bg-gray-700">
+                                                    <option value="admin" :selected="m.role==='admin'">관리자</option>
+                                                    <option value="member" :selected="m.role==='member'">멤버</option>
+                                                    <option value="viewer" :selected="m.role==='viewer'">뷰어</option>
+                                                </select>
+                                            </template>
+                                            <template x-if="m.role !== 'owner'">
+                                                <button @click="removeMember(m)" class="p-1 text-red-400 hover:text-red-600"><svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"/></svg></button>
+                                            </template>
+                                        </div>
+                                    </div>
+                                </template>
+                            </div>
+                            <!-- 위험 영역 -->
+                            <div class="bg-white dark:bg-gray-800 rounded-lg border border-red-200 dark:border-red-800 p-5">
+                                <h3 class="text-base font-semibold text-red-600 mb-2">위험 영역</h3>
+                                <p class="text-sm text-gray-500 mb-3">이 작업은 되돌릴 수 없습니다.</p>
+                                <button @click="showDeleteModal=true" class="px-4 py-2 text-sm bg-red-600 text-white rounded-lg hover:bg-red-700">팀 삭제</button>
+                            </div>
+                            <!-- 초대 모달 -->
+                            <div x-show="showInviteModal" x-cloak class="fixed inset-0 z-[70] flex items-center justify-center bg-black bg-opacity-50" @click.self="showInviteModal=false">
+                                <div class="bg-white dark:bg-gray-800 rounded-xl shadow-2xl w-full max-w-sm mx-4 p-6" @click.stop>
+                                    <h3 class="text-lg font-semibold mb-4">멤버 초대</h3>
+                                    <label class="block text-sm mb-1">이메일 주소</label>
+                                    <input x-model="inviteEmail" @keydown.enter="inviteMember()" class="w-full px-3 py-2 text-sm border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 mb-4" placeholder="user@example.com">
+                                    <div class="flex justify-end gap-2"><button @click="showInviteModal=false" class="px-4 py-2 text-sm border rounded-lg">취소</button><button @click="inviteMember()" :disabled="inviting" class="px-4 py-2 text-sm bg-indigo-600 text-white rounded-lg hover:bg-indigo-700 disabled:opacity-50" x-text="inviting?'초대 중...':'초대하기'"></button></div>
+                                </div>
+                            </div>
+                            <!-- 삭제 모달 -->
+                            <div x-show="showDeleteModal" x-cloak class="fixed inset-0 z-[70] flex items-center justify-center bg-black bg-opacity-50" @click.self="showDeleteModal=false">
+                                <div class="bg-white dark:bg-gray-800 rounded-xl shadow-2xl w-full max-w-sm mx-4 p-6" @click.stop>
+                                    <h3 class="text-lg font-semibold text-red-600 mb-2">팀 삭제</h3>
+                                    <p class="text-sm text-gray-600 dark:text-gray-300 mb-4">삭제를 확인하려면 팀 이름(<strong x-text="team.name"></strong>)을 입력하세요.</p>
+                                    <input x-model="deleteConfirmName" class="w-full px-3 py-2 text-sm border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 mb-4">
+                                    <div class="flex justify-end gap-2"><button @click="showDeleteModal=false" class="px-4 py-2 text-sm border rounded-lg">취소</button><button @click="deleteTeam()" :disabled="deleteConfirmName!==team.name" class="px-4 py-2 text-sm bg-red-600 text-white rounded-lg hover:bg-red-700 disabled:opacity-50">삭제</button></div>
+                                </div>
+                            </div>
+                        </div>
+                    </template>
+                </div>
+            </template>
+
+            <!-- ======== 설정 페이지 확장 (#15) ======== -->
             <template x-if="currentPage==='settings'">
                 <div x-data="settingsPage()" x-init="init()">
-                    <!-- 캘린더 연동 -->
-                    <div class="bg-white dark:bg-gray-800 rounded-lg shadow-sm border border-gray-100 dark:border-gray-700 mb-6">
+                    <!-- 탭 -->
+                    <div class="flex gap-1 mb-6 overflow-x-auto">
+                        <template x-for="tab in [{k:'profile',l:'프로필'},{k:'security',l:'보안'},{k:'notif',l:'알림'},{k:'calendar',l:'연동'}]" :key="tab.k">
+                            <button @click="activeSettingsTab=tab.k" class="px-4 py-2 text-sm rounded-lg whitespace-nowrap" :class="activeSettingsTab===tab.k?'bg-indigo-100 text-indigo-700 dark:bg-indigo-900/30 dark:text-indigo-400 font-medium':'text-gray-500 hover:bg-gray-100 dark:hover:bg-gray-700'" x-text="tab.l"></button>
+                        </template>
+                    </div>
+
+                    <!-- 프로필 탭 -->
+                    <div x-show="activeSettingsTab==='profile'" class="bg-white dark:bg-gray-800 rounded-lg border border-gray-100 dark:border-gray-700 p-5">
+                        <h3 class="text-base font-semibold mb-4">프로필 정보</h3>
+                        <div class="space-y-3 max-w-md">
+                            <div><label class="block text-xs text-gray-500 mb-1">이름</label><div class="flex gap-2"><input x-model="profileName" class="flex-1 px-3 py-2 text-sm border border-gray-200 dark:border-gray-600 rounded-lg bg-gray-50 dark:bg-gray-700"><button @click="saveProfile()" :disabled="profileSaving" class="px-4 py-2 text-sm bg-indigo-600 text-white rounded-lg hover:bg-indigo-700 disabled:opacity-50" x-text="profileSaving?'저장 중...':'저장'"></button></div></div>
+                        </div>
+                    </div>
+
+                    <!-- 보안 탭 -->
+                    <div x-show="activeSettingsTab==='security'" class="bg-white dark:bg-gray-800 rounded-lg border border-gray-100 dark:border-gray-700 p-5">
+                        <h3 class="text-base font-semibold mb-4">비밀번호 변경</h3>
+                        <div x-show="passwordError" class="mb-3 p-3 bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-800 rounded-lg text-sm text-red-600" x-text="passwordError"></div>
+                        <div class="space-y-3 max-w-md">
+                            <div><label class="block text-xs text-gray-500 mb-1">현재 비밀번호</label><input type="password" x-model="currentPassword" class="w-full px-3 py-2 text-sm border border-gray-200 dark:border-gray-600 rounded-lg bg-gray-50 dark:bg-gray-700"></div>
+                            <div><label class="block text-xs text-gray-500 mb-1">새 비밀번호</label><input type="password" x-model="newPassword" class="w-full px-3 py-2 text-sm border border-gray-200 dark:border-gray-600 rounded-lg bg-gray-50 dark:bg-gray-700" placeholder="8자 이상, 영문+숫자"></div>
+                            <div><label class="block text-xs text-gray-500 mb-1">새 비밀번호 확인</label><input type="password" x-model="newPasswordConfirm" class="w-full px-3 py-2 text-sm border border-gray-200 dark:border-gray-600 rounded-lg bg-gray-50 dark:bg-gray-700"></div>
+                            <button @click="changePassword()" :disabled="passwordSaving" class="px-4 py-2 text-sm bg-indigo-600 text-white rounded-lg hover:bg-indigo-700 disabled:opacity-50" x-text="passwordSaving?'변경 중...':'비밀번호 변경'"></button>
+                        </div>
+                    </div>
+
+                    <!-- 알림 설정 탭 -->
+                    <div x-show="activeSettingsTab==='notif'" class="bg-white dark:bg-gray-800 rounded-lg border border-gray-100 dark:border-gray-700 p-5">
+                        <h3 class="text-base font-semibold mb-4">알림 설정</h3>
+                        <div class="space-y-3 max-w-md">
+                            <template x-for="item in [{k:'comment',l:'댓글 알림'},{k:'mention',l:'멘션 알림'},{k:'status_change',l:'업무 상태 알림'},{k:'deadline',l:'마감 알림'},{k:'weekly_report',l:'주간 리포트'}]" :key="item.k">
+                                <div class="flex items-center justify-between py-2">
+                                    <span class="text-sm" x-text="item.l"></span>
+                                    <button @click="toggleNotifSetting(item.k)" class="relative w-10 h-5 rounded-full transition-colors" :class="notifSettings[item.k]?'bg-indigo-600':'bg-gray-300 dark:bg-gray-600'"><span class="absolute top-0.5 left-0.5 w-4 h-4 bg-white rounded-full transition-transform" :class="notifSettings[item.k]?'translate-x-5':''"></span></button>
+                                </div>
+                            </template>
+                        </div>
+                    </div>
+
+                    <!-- 캘린더 연동 탭 -->
+                    <div x-show="activeSettingsTab==='calendar'" class="bg-white dark:bg-gray-800 rounded-lg border border-gray-100 dark:border-gray-700">
                         <div class="flex items-center justify-between p-5 border-b border-gray-100 dark:border-gray-700">
                             <div><h3 class="text-base font-semibold">캘린더 연동</h3><p class="text-sm text-gray-500 dark:text-gray-400 mt-0.5">업무 일정을 캘린더와 자동 동기화합니다.</p></div>
                             <button @click="connectGoogle()" :disabled="connecting" class="flex items-center gap-2 px-4 py-2 bg-white dark:bg-gray-700 border border-gray-300 dark:border-gray-600 text-sm rounded-lg hover:bg-gray-50 dark:hover:bg-gray-600 disabled:opacity-50">
@@ -2307,12 +2803,10 @@
                                 <span x-text="connecting?'연동 중...':'Google Calendar 연동'"></span>
                             </button>
                         </div>
-                        <!-- 연동 목록 -->
                         <div x-show="loading" class="p-8 text-center"><div class="w-6 h-6 border-2 border-indigo-500 border-t-transparent rounded-full animate-spin mx-auto"></div></div>
                         <div x-show="!loading && calendarSyncs.length === 0" class="p-8 text-center">
                             <svg class="w-12 h-12 text-gray-300 dark:text-gray-600 mx-auto mb-3" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z"/></svg>
                             <p class="text-sm text-gray-500 dark:text-gray-400">연동된 캘린더가 없습니다.</p>
-                            <p class="text-xs text-gray-400 dark:text-gray-500 mt-1">Google Calendar를 연동하면 업무 일정이 자동으로 동기화됩니다.</p>
                         </div>
                         <template x-for="sync in calendarSyncs" :key="sync.id">
                             <div class="flex items-center justify-between p-4 border-b border-gray-50 dark:border-gray-700/50 last:border-b-0">
@@ -2327,9 +2821,7 @@
                                     </div>
                                 </div>
                                 <div class="flex items-center gap-2">
-                                    <button @click="syncCalendar(sync.id)" :disabled="syncing[sync.id]" class="px-3 py-1.5 text-xs bg-indigo-50 dark:bg-indigo-900/20 text-indigo-600 dark:text-indigo-400 rounded-lg hover:bg-indigo-100 dark:hover:bg-indigo-900/40 disabled:opacity-50">
-                                        <span x-text="syncing[sync.id]?'동기화 중...':'동기화'"></span>
-                                    </button>
+                                    <button @click="syncCalendar(sync.id)" :disabled="syncing[sync.id]" class="px-3 py-1.5 text-xs bg-indigo-50 dark:bg-indigo-900/20 text-indigo-600 dark:text-indigo-400 rounded-lg hover:bg-indigo-100 dark:hover:bg-indigo-900/40 disabled:opacity-50" x-text="syncing[sync.id]?'동기화 중...':'동기화'"></button>
                                     <button @click="disconnectCalendar(sync.id)" class="px-3 py-1.5 text-xs text-red-600 border border-red-200 dark:border-red-800 rounded-lg hover:bg-red-50 dark:hover:bg-red-900/20">해제</button>
                                 </div>
                             </div>
@@ -2546,7 +3038,7 @@
                                         </h2>
                                     </div>
                                     <div class="p-6">
-                                        <div class="prose prose-sm dark:prose-invert max-w-none text-gray-700 dark:text-gray-300 leading-relaxed" x-html="report.body_html"></div>
+                                        <div class="prose prose-sm dark:prose-invert max-w-none text-gray-700 dark:text-gray-300 leading-relaxed" x-html="CS.sanitize(report.body_html)"></div>
                                     </div>
                                 </div>
 
@@ -2729,22 +3221,102 @@
     </div>
 
 <!-- 모바일 하단 탭바 -->
-    <nav x-show="currentPage !== 'feedback'" class="fixed bottom-0 left-0 right-0 bg-white dark:bg-gray-800 border-t border-gray-200 dark:border-gray-700 lg:hidden z-30 px-2 pb-safe">
+    <nav x-show="currentPage !== 'feedback' && currentPage !== 'portal'" class="fixed bottom-0 left-0 right-0 bg-white dark:bg-gray-800 border-t border-gray-200 dark:border-gray-700 lg:hidden z-30 px-2 pb-safe">
         <div class="flex items-center justify-around py-1.5">
-            <a href="#/dashboard" @click.prevent="navigate('/dashboard')" class="flex flex-col items-center gap-0.5 px-3 py-1" :class="currentPage==='dashboard'?'text-indigo-600 dark:text-indigo-400':'text-gray-400'">
+            <a href="#/dashboard" @click.prevent="navigate('/dashboard')" class="flex flex-col items-center gap-0.5 px-2 py-1" :class="currentPage==='dashboard'?'text-indigo-600 dark:text-indigo-400':'text-gray-400'">
                 <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 12l2-2m0 0l7-7 7 7M5 10v10a1 1 0 001 1h3m10-11l2 2m-2-2v10a1 1 0 01-1 1h-3m-6 0a1 1 0 001-1v-4a1 1 0 011-1h2a1 1 0 011 1v4a1 1 0 001 1m-6 0h6"/></svg><span class="text-[10px]">홈</span>
             </a>
-            <a href="#/clients" @click.prevent="navigate('/clients')" class="flex flex-col items-center gap-0.5 px-3 py-1" :class="currentPage==='clients'||currentPage==='clientDetail'?'text-indigo-600 dark:text-indigo-400':'text-gray-400'">
-                <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 21V5a2 2 0 00-2-2H7a2 2 0 00-2 2v16m14 0h2m-2 0h-5m-9 0H3m2 0h5M9 7h1m-1 4h1m4-4h1m-1 4h1m-5 10v-5a1 1 0 011-1h2a1 1 0 011 1v5m-4 0h4"/></svg><span class="text-[10px]">발주처</span>
-            </a>
-            <a href="#/projects" @click.prevent="navigate('/projects')" class="flex flex-col items-center gap-0.5 px-3 py-1" :class="currentPage==='projects'||currentPage==='projectDetail'?'text-indigo-600 dark:text-indigo-400':'text-gray-400'">
+            <a href="#/projects" @click.prevent="navigate('/projects')" class="flex flex-col items-center gap-0.5 px-2 py-1" :class="currentPage==='projects'||currentPage==='projectDetail'?'text-indigo-600 dark:text-indigo-400':'text-gray-400'">
                 <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 7v10a2 2 0 002 2h14a2 2 0 002-2V9a2 2 0 00-2-2h-6l-2-2H5a2 2 0 00-2 2z"/></svg><span class="text-[10px]">프로젝트</span>
             </a>
-            <a href="#/tasks" @click.prevent="navigate('/tasks')" class="flex flex-col items-center gap-0.5 px-3 py-1" :class="currentPage==='tasks'?'text-indigo-600 dark:text-indigo-400':'text-gray-400'">
+            <a href="#/tasks" @click.prevent="navigate('/tasks')" class="flex flex-col items-center gap-0.5 px-2 py-1" :class="currentPage==='tasks'?'text-indigo-600 dark:text-indigo-400':'text-gray-400'">
                 <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2m-6 9l2 2 4-4"/></svg><span class="text-[10px]">업무</span>
             </a>
+            <a href="#/clients" @click.prevent="navigate('/clients')" class="flex flex-col items-center gap-0.5 px-2 py-1" :class="currentPage==='clients'||currentPage==='clientDetail'?'text-indigo-600 dark:text-indigo-400':'text-gray-400'">
+                <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 21V5a2 2 0 00-2-2H7a2 2 0 00-2 2v16m14 0h2m-2 0h-5m-9 0H3m2 0h5M9 7h1m-1 4h1m4-4h1m-1 4h1m-5 10v-5a1 1 0 011-1h2a1 1 0 011 1v5m-4 0h4"/></svg><span class="text-[10px]">발주처</span>
+            </a>
+            <!-- 더보기 (#12) -->
+            <div class="relative">
+                <button @click="moreMenuOpen=!moreMenuOpen" class="flex flex-col items-center gap-0.5 px-2 py-1" :class="moreMenuOpen?'text-indigo-600 dark:text-indigo-400':'text-gray-400'">
+                    <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 12h.01M12 12h.01M19 12h.01M6 12a1 1 0 11-2 0 1 1 0 012 0zm7 0a1 1 0 11-2 0 1 1 0 012 0zm7 0a1 1 0 11-2 0 1 1 0 012 0z"/></svg><span class="text-[10px]">더보기</span>
+                </button>
+                <div x-show="moreMenuOpen" @click.away="moreMenuOpen=false" x-cloak x-transition class="absolute bottom-full right-0 mb-2 w-44 bg-white dark:bg-gray-800 rounded-lg shadow-xl border border-gray-200 dark:border-gray-700 py-1">
+                    <a href="#/reports" @click.prevent="navigate('/reports');moreMenuOpen=false" class="flex items-center gap-3 px-4 py-2.5 text-sm" :class="currentPage==='reports'?'text-indigo-600':'text-gray-600 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-700'"><svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 17v-2m3 2v-4m3 4v-6m2 10H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"/></svg>보고서</a>
+                    <a href="#/payments" @click.prevent="navigate('/payments');moreMenuOpen=false" class="flex items-center gap-3 px-4 py-2.5 text-sm" :class="currentPage==='payments'?'text-indigo-600':'text-gray-600 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-700'"><svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8c-1.657 0-3 .895-3 2s1.343 2 3 2 3 .895 3 2-1.343 2-3 2m0-8V7m0 1v8m0 0v1"/></svg>수금</a>
+                    <a href="#/activity" @click.prevent="navigate('/activity');moreMenuOpen=false" class="flex items-center gap-3 px-4 py-2.5 text-sm" :class="currentPage==='activity'?'text-indigo-600':'text-gray-600 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-700'"><svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z"/></svg>활동 로그</a>
+                    <a href="#/settings" @click.prevent="navigate('/settings');moreMenuOpen=false" class="flex items-center gap-3 px-4 py-2.5 text-sm" :class="currentPage==='settings'?'text-indigo-600':'text-gray-600 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-700'"><svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10.325 4.317c.426-1.756 2.924-1.756 3.35 0a1.724 1.724 0 002.573 1.066c1.543-.94 3.31.826 2.37 2.37a1.724 1.724 0 001.066 2.573c1.756.426 1.756 2.924 0 3.35a1.724 1.724 0 00-1.066 2.573c.94 1.543-.826 3.31-2.37 2.37a1.724 1.724 0 00-2.573 1.066c-.426 1.756-2.924 1.756-3.35 0a1.724 1.724 0 00-2.573-1.066c-1.543.94-3.31-.826-2.37-2.37a1.724 1.724 0 00-1.066-2.573c-1.756-.426-1.756-2.924 0-3.35a1.724 1.724 0 001.066-2.573c-.94-1.543.826-3.31 2.37-2.37.996.608 2.296.07 2.572-1.065z"/></svg>설정</a>
+                </div>
+            </div>
         </div>
     </nav>
+
+<!-- 글로벌 검색 팔레트 (#11) -->
+    <div x-show="showSearchPalette" x-cloak class="fixed inset-0 z-[90] flex items-start justify-center pt-[15vh] bg-black bg-opacity-50" @click.self="showSearchPalette=false" @keydown.escape.window="showSearchPalette=false">
+        <div class="bg-white dark:bg-gray-800 rounded-xl shadow-2xl w-full max-w-lg mx-4" @click.stop>
+            <div class="flex items-center gap-3 px-4 py-3 border-b border-gray-200 dark:border-gray-700">
+                <svg class="w-5 h-5 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"/></svg>
+                <input id="globalSearchInput" type="text" x-model="searchQuery" @input="onSearchInput()" @keydown="searchKeyNav($event)" class="flex-1 bg-transparent text-sm outline-none text-gray-800 dark:text-white placeholder-gray-400" placeholder="프로젝트, 업무, 발주처 검색... (ESC 닫기)">
+                <span class="text-xs text-gray-400 border border-gray-200 dark:border-gray-600 rounded px-1.5 py-0.5">ESC</span>
+            </div>
+            <div class="max-h-80 overflow-y-auto p-2">
+                <!-- 최근 검색 -->
+                <template x-if="!searchQuery && recentSearches.length > 0">
+                    <div><p class="text-xs text-gray-400 px-2 py-1">최근 검색</p>
+                        <template x-for="(s, i) in recentSearches" :key="i">
+                            <button @click="searchQuery=s;onSearchInput()" class="w-full text-left px-3 py-2 text-sm text-gray-600 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700 rounded-lg" x-text="s"></button>
+                        </template>
+                    </div>
+                </template>
+                <!-- 로딩 -->
+                <div x-show="searchLoading" class="text-center py-6"><div class="w-5 h-5 border-2 border-indigo-500 border-t-transparent rounded-full animate-spin mx-auto"></div></div>
+                <!-- 결과 -->
+                <template x-if="searchQuery && !searchLoading">
+                    <div>
+                        <template x-if="searchResults.projects.length > 0">
+                            <div class="mb-2"><p class="text-xs text-gray-400 px-2 py-1">프로젝트</p>
+                                <template x-for="(p, i) in searchResults.projects" :key="'p'+p.id">
+                                    <button @click="searchNavigate({type:'project',id:p.id})" class="w-full flex items-center justify-between px-3 py-2 text-sm rounded-lg hover:bg-gray-100 dark:hover:bg-gray-700" :class="searchAllItems.findIndex(x=>x.type==='project'&&x.id===p.id)===searchSelectedIdx?'bg-indigo-50 dark:bg-indigo-900/20':''">
+                                        <span x-text="p.project_name"></span><span class="text-xs px-2 py-0.5 rounded-full" :class="CS.statusClass[p.status]||''" x-text="CS.statusLabel[p.status]||p.status"></span>
+                                    </button>
+                                </template>
+                            </div>
+                        </template>
+                        <template x-if="searchResults.tasks.length > 0">
+                            <div class="mb-2"><p class="text-xs text-gray-400 px-2 py-1">업무</p>
+                                <template x-for="t in searchResults.tasks" :key="'t'+t.id">
+                                    <button @click="searchNavigate({type:'task',id:t.id})" class="w-full flex items-center justify-between px-3 py-2 text-sm rounded-lg hover:bg-gray-100 dark:hover:bg-gray-700">
+                                        <span x-text="t.task_name"></span><span class="text-xs px-2 py-0.5 rounded-full" :class="CS.statusClass[t.status]||''" x-text="CS.statusLabel[t.status]||t.status"></span>
+                                    </button>
+                                </template>
+                            </div>
+                        </template>
+                        <template x-if="searchResults.clients.length > 0">
+                            <div class="mb-2"><p class="text-xs text-gray-400 px-2 py-1">발주처</p>
+                                <template x-for="c in searchResults.clients" :key="'c'+c.id">
+                                    <button @click="searchNavigate({type:'client',id:c.id})" class="w-full text-left px-3 py-2 text-sm rounded-lg hover:bg-gray-100 dark:hover:bg-gray-700" x-text="c.name"></button>
+                                </template>
+                            </div>
+                        </template>
+                        <template x-if="searchAllItems.length === 0">
+                            <p class="text-center text-sm text-gray-400 py-6">검색 결과가 없습니다.</p>
+                        </template>
+                    </div>
+                </template>
+            </div>
+        </div>
+    </div>
+
+<!-- 팀 생성 모달 (#13) -->
+    <div x-show="showTeamCreateModal" x-cloak class="fixed inset-0 z-[70] flex items-center justify-center bg-black bg-opacity-50" @click.self="showTeamCreateModal=false">
+        <div class="bg-white dark:bg-gray-800 rounded-xl shadow-2xl w-full max-w-sm mx-4 p-6" @click.stop>
+            <h3 class="text-lg font-semibold mb-4">새 팀 만들기</h3>
+            <div class="space-y-3">
+                <div><label class="block text-sm font-medium mb-1">팀 이름 *</label><input x-model="teamCreateForm.name" class="w-full px-3 py-2 text-sm border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700" placeholder="팀 이름을 입력하세요"></div>
+                <div><label class="block text-sm font-medium mb-1">설명 (선택)</label><input x-model="teamCreateForm.description" class="w-full px-3 py-2 text-sm border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700"></div>
+            </div>
+            <div class="flex justify-end gap-2 mt-5"><button @click="showTeamCreateModal=false" class="px-4 py-2 text-sm border rounded-lg">취소</button><button @click="createTeam()" :disabled="teamCreating" class="px-4 py-2 text-sm bg-indigo-600 text-white rounded-lg hover:bg-indigo-700 disabled:opacity-50" x-text="teamCreating?'생성 중...':'팀 만들기'"></button></div>
+        </div>
+    </div>
 
 <!-- 인증 모달 -->
     <div x-show="showModal" x-cloak class="fixed inset-0 z-[70] flex items-center justify-center bg-black bg-opacity-50" @click.self="closeModal()">
@@ -2759,6 +3331,12 @@
                         <div class="relative"><label class="block text-sm font-medium mb-1">비밀번호</label><input :type="showPassword?'text':'password'" x-model="password" @keydown.enter="login()" class="w-full px-3 py-2 pr-10 text-sm border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 focus:ring-2 focus:ring-indigo-500" placeholder="비밀번호를 입력하세요"><button @click="showPassword=!showPassword" type="button" class="absolute right-3 top-8 text-gray-400 hover:text-gray-600"><svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z"/><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z"/></svg></button></div>
                     </div>
                     <button @click="login()" :disabled="formLoading" class="w-full mt-5 px-4 py-2.5 bg-indigo-600 text-white text-sm font-medium rounded-lg hover:bg-indigo-700 disabled:opacity-50 transition-colors" x-text="formLoading?'로그인 중...':'로그인'"></button>
+                    <!-- Google 로그인 (#14) -->
+                    <div class="relative my-4"><div class="absolute inset-0 flex items-center"><div class="w-full border-t border-gray-200 dark:border-gray-600"></div></div><div class="relative flex justify-center text-xs text-gray-400"><span class="bg-white dark:bg-gray-800 px-3">또는</span></div></div>
+                    <button @click="window.location.href='/api/v1/auth/login/google'" class="w-full flex items-center justify-center gap-2 px-4 py-2.5 border border-gray-300 dark:border-gray-600 rounded-lg text-sm font-medium text-gray-700 dark:text-gray-200 hover:bg-gray-50 dark:hover:bg-gray-700 transition-colors">
+                        <svg class="w-4 h-4" viewBox="0 0 24 24"><path fill="#4285F4" d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92a5.06 5.06 0 01-2.2 3.32v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.1z"/><path fill="#34A853" d="M12 23c2.97 0 5.46-.98 7.28-2.66l-3.57-2.77c-.98.66-2.23 1.06-3.71 1.06-2.86 0-5.29-1.93-6.16-4.53H2.18v2.84C3.99 20.53 7.7 23 12 23z"/><path fill="#FBBC05" d="M5.84 14.09c-.22-.66-.35-1.36-.35-2.09s.13-1.43.35-2.09V7.07H2.18C1.43 8.55 1 10.22 1 12s.43 3.45 1.18 4.93l2.85-2.22.81-.62z"/><path fill="#EA4335" d="M12 5.38c1.62 0 3.06.56 4.21 1.64l3.15-3.15C17.45 2.09 14.97 1 12 1 7.7 1 3.99 3.47 2.18 7.07l3.66 2.84c.87-2.6 3.3-4.53 6.16-4.53z"/></svg>
+                        Google로 로그인
+                    </button>
                     <p class="text-center text-sm text-gray-500 mt-4">계정이 없으신가요? <button @click="modalMode='signup';formError=''" class="text-indigo-600 hover:underline font-medium">회원가입</button></p>
                 </div>
             </template>

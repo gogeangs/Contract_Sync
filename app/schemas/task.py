@@ -93,6 +93,13 @@ class TaskListResponse(BaseModel):
     total: int
 
 
+class TaskBulkRequest(BaseModel):
+    """일괄 작업 (#19)"""
+    task_ids: list[int] = Field(..., min_length=1, max_length=50, description="업무 ID 목록")
+    action: Literal["status_change", "assign", "delete"] = Field(..., description="액션")
+    value: Optional[str] = Field(None, description="액션별 값 (상태값 / user_id)")
+
+
 class TaskAttachmentResponse(BaseModel):
     """산출물 응답"""
     id: int

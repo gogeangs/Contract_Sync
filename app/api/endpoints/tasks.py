@@ -11,6 +11,7 @@ from app.limiter import limiter
 from app.schemas.task import (
     TaskCreate, TaskUpdate, TaskStatusUpdate, TaskAssigneeUpdate,
     TaskNoteUpdate, TaskMoveRequest, TaskReorderRequest,
+    TaskBulkRequest,
     TaskResponse, TaskListResponse, TaskAttachmentResponse,
 )
 from app.services import task_service
@@ -83,6 +84,27 @@ async def reorder_tasks(
         await db.rollback()
         logger.error(f"순서 변경 실패: {e}")
         raise HTTPException(status_code=500, detail="순서 변경에 실패했습니다")
+
+
+@router.patch("/bulk")
+@limiter.limit("10/minute")
+async def bulk_action(
+    data: TaskBulkRequest,
+    request: Request,
+    db: AsyncSession = Depends(get_db),
+):
+    """업무 일괄 작업 (#19)"""
+    user = await require_current_user(request, db)
+
+    try:
+        count = await task_service.bulk_action(db, user, data.task_ids, data.action, data.value)
+        return {"message": f"{count}건 처리되었습니다", "count": count}
+    except HTTPException:
+        raise
+    except Exception as e:
+        await db.rollback()
+        logger.error(f"일괄 작업 실패: {e}")
+        raise HTTPException(status_code=500, detail="일괄 작업에 실패했습니다")
 
 
 @router.get("/{task_id}", response_model=TaskResponse)
