@@ -1,0 +1,231 @@
+<!DOCTYPE html>
+<html lang="ko" class="">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Contract Sync v2 - 설정</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <script defer src="https://cdn.jsdelivr.net/npm/alpinejs@3.x.x/dist/cdn.min.js"></script>
+  <script>tailwind.config = { darkMode: 'class' }</script>
+  <style>[x-cloak] { display: none !important; }</style>
+</head>
+<body class="bg-gray-50 dark:bg-gray-900 text-gray-800 dark:text-gray-100 transition-colors duration-300">
+
+<div x-data="appLayout()" class="flex h-screen overflow-hidden">
+
+  <!-- 좌측 사이드바 -->
+  <aside class="hidden lg:flex lg:flex-col w-64 bg-white dark:bg-gray-800 border-r border-gray-200 dark:border-gray-700 fixed inset-y-0 left-0 z-30">
+    <div class="flex items-center gap-3 px-6 py-5 border-b border-gray-200 dark:border-gray-700">
+      <div class="w-8 h-8 bg-indigo-600 rounded-lg flex items-center justify-center"><svg class="w-5 h-5 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"/></svg></div>
+      <span class="text-lg font-bold text-gray-800 dark:text-white">Contract Sync</span>
+    </div>
+    <nav class="flex-1 px-3 py-4 space-y-1 overflow-y-auto">
+      <a href="dashboard.html" class="flex items-center gap-3 px-3 py-2.5 rounded-lg text-gray-600 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700 text-sm"><svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 12l2-2m0 0l7-7 7 7M5 10v10a1 1 0 001 1h3m10-11l2 2m-2-2v10a1 1 0 01-1 1h-3m-6 0a1 1 0 001-1v-4a1 1 0 011-1h2a1 1 0 011 1v4a1 1 0 001 1m-6 0h6"/></svg><span>대시보드</span></a>
+      <a href="clients.html" class="flex items-center gap-3 px-3 py-2.5 rounded-lg text-gray-600 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700 text-sm"><svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 21V5a2 2 0 00-2-2H7a2 2 0 00-2 2v16m14 0h2m-2 0h-5m-9 0H3m2 0h5M9 7h1m-1 4h1m4-4h1m-1 4h1m-5 10v-5a1 1 0 011-1h2a1 1 0 011 1v5m-4 0h4"/></svg><span>발주처</span></a>
+      <a href="tasks.html" class="flex items-center gap-3 px-3 py-2.5 rounded-lg text-gray-600 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700 text-sm"><svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2m-6 9l2 2 4-4"/></svg><span>업무</span></a>
+    </nav>
+    <div class="px-3 py-3 border-t border-gray-200 dark:border-gray-700">
+      <a href="settings.html" class="flex items-center gap-3 px-3 py-2.5 rounded-lg bg-indigo-50 dark:bg-indigo-900/30 text-indigo-600 dark:text-indigo-400 font-medium text-sm"><svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10.325 4.317c.426-1.756 2.924-1.756 3.35 0a1.724 1.724 0 002.573 1.066c1.543-.94 3.31.826 2.37 2.37a1.724 1.724 0 001.066 2.573c1.756.426 1.756 2.924 0 3.35a1.724 1.724 0 00-1.066 2.573c.94 1.543-.826 3.31-2.37 2.37a1.724 1.724 0 00-2.573 1.066c-.426 1.756-2.924 1.756-3.35 0a1.724 1.724 0 00-2.573-1.066c-1.543.94-3.31-.826-2.37-2.37a1.724 1.724 0 00-1.066-2.573c-1.756-.426-1.756-2.924 0-3.35a1.724 1.724 0 001.066-2.573c-.94-1.543.826-3.31 2.37-2.37.996.608 2.296.07 2.572-1.065z"/><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z"/></svg><span>설정</span></a>
+    </div>
+  </aside>
+
+  <div class="flex-1 flex flex-col lg:ml-64 overflow-hidden">
+    <header class="bg-white dark:bg-gray-800 border-b border-gray-200 dark:border-gray-700 px-4 lg:px-6 py-3 flex items-center justify-between sticky top-0 z-20">
+      <h1 class="text-lg font-semibold">설정</h1>
+      <div class="flex items-center gap-2">
+        <button @click="toggleDark()" class="p-2 rounded-lg hover:bg-gray-100 dark:hover:bg-gray-700"><svg x-show="!darkMode" class="w-5 h-5 text-gray-500" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M20.354 15.354A9 9 0 018.646 3.646 9.003 9.003 0 0012 21a9.003 9.003 0 008.354-5.646z"/></svg><svg x-show="darkMode" x-cloak class="w-5 h-5 text-yellow-400" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 3v1m0 16v1m9-9h-1M4 12H3m15.364 6.364l-.707-.707M6.343 6.343l-.707-.707m12.728 0l-.707.707M6.343 17.657l-.707.707M16 12a4 4 0 11-8 0 4 4 0 018 0z"/></svg></button>
+        <div class="flex items-center gap-2 pl-2 border-l border-gray-200 dark:border-gray-600"><div class="w-8 h-8 bg-indigo-500 rounded-full flex items-center justify-center text-white text-sm font-medium">홍</div><span class="text-sm text-gray-700 dark:text-gray-200 hidden sm:block">홍길동</span></div>
+      </div>
+    </header>
+
+    <main class="flex-1 overflow-y-auto p-4 lg:p-6" x-data="settingsPage()">
+      <div class="flex flex-col lg:flex-row gap-6 max-w-5xl">
+
+        <!-- 탭 네비게이션 -->
+        <div class="lg:w-48 flex-shrink-0">
+          <div class="flex lg:flex-col gap-1 overflow-x-auto lg:overflow-visible bg-white dark:bg-gray-800 rounded-lg p-1 lg:p-2 shadow-sm border border-gray-100 dark:border-gray-700">
+            <template x-for="t in tabs" :key="t.id">
+              <button @click="activeTab = t.id" :class="activeTab === t.id ? 'bg-indigo-50 dark:bg-indigo-900/30 text-indigo-600 dark:text-indigo-400 font-medium' : 'text-gray-600 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-700'" class="flex items-center gap-2 px-3 py-2 rounded-lg text-sm whitespace-nowrap transition-colors w-full text-left">
+                <span x-html="t.icon"></span>
+                <span x-text="t.label"></span>
+              </button>
+            </template>
+          </div>
+        </div>
+
+        <!-- 탭 콘텐츠 -->
+        <div class="flex-1 bg-white dark:bg-gray-800 rounded-lg shadow-sm border border-gray-100 dark:border-gray-700 p-6">
+
+          <!-- 프로필 탭 -->
+          <div x-show="activeTab === 'profile'">
+            <h2 class="text-lg font-semibold text-gray-800 dark:text-white mb-6">프로필 설정</h2>
+            <div class="flex items-center gap-4 mb-6">
+              <div class="w-16 h-16 bg-indigo-500 rounded-full flex items-center justify-center text-white text-xl font-bold">홍</div>
+              <button class="text-sm text-indigo-600 dark:text-indigo-400 hover:text-indigo-800 font-medium">사진 변경</button>
+            </div>
+            <div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
+              <div>
+                <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">이름</label>
+                <input type="text" value="홍길동" class="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-sm">
+              </div>
+              <div>
+                <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">이메일</label>
+                <div class="flex items-center gap-2">
+                  <input type="email" value="hong@company.com" readonly class="flex-1 px-3 py-2 border border-gray-200 dark:border-gray-600 rounded-lg bg-gray-50 dark:bg-gray-600 text-sm text-gray-500 dark:text-gray-400">
+                  <span class="text-xs px-2 py-1 bg-green-100 text-green-700 dark:bg-green-900/30 dark:text-green-400 rounded-full">인증됨</span>
+                </div>
+              </div>
+              <div>
+                <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">전화번호</label>
+                <input type="tel" value="010-1234-5678" class="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-sm">
+              </div>
+              <div>
+                <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">직책</label>
+                <input type="text" value="팀장" class="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-sm">
+              </div>
+            </div>
+            <div class="mt-6 flex justify-end">
+              <button class="px-4 py-2 text-sm text-white bg-indigo-600 rounded-lg hover:bg-indigo-700 font-medium">저장</button>
+            </div>
+          </div>
+
+          <!-- 보안 탭 -->
+          <div x-show="activeTab === 'security'" x-cloak>
+            <h2 class="text-lg font-semibold text-gray-800 dark:text-white mb-6">보안 설정</h2>
+            <div class="space-y-4 max-w-md">
+              <div>
+                <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">현재 비밀번호</label>
+                <input type="password" class="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-sm">
+              </div>
+              <div>
+                <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">새 비밀번호</label>
+                <input type="password" class="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-sm">
+                <div class="flex gap-1 mt-2">
+                  <div class="h-1 flex-1 rounded-full bg-green-500"></div>
+                  <div class="h-1 flex-1 rounded-full bg-green-500"></div>
+                  <div class="h-1 flex-1 rounded-full bg-yellow-500"></div>
+                  <div class="h-1 flex-1 rounded-full bg-gray-200 dark:bg-gray-600"></div>
+                </div>
+                <p class="text-xs text-gray-400 mt-1">보통 강도</p>
+              </div>
+              <div>
+                <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">새 비밀번호 확인</label>
+                <input type="password" class="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-sm">
+              </div>
+              <button class="px-4 py-2 text-sm text-white bg-indigo-600 rounded-lg hover:bg-indigo-700 font-medium">비밀번호 변경</button>
+            </div>
+            <div class="border-t border-gray-200 dark:border-gray-700 mt-6 pt-6">
+              <div class="flex items-center justify-between">
+                <div>
+                  <p class="text-sm font-medium text-gray-800 dark:text-white">2단계 인증</p>
+                  <p class="text-xs text-gray-500 dark:text-gray-400 mt-1">로그인 시 추가 인증을 요구합니다</p>
+                </div>
+                <button class="relative w-11 h-6 bg-gray-200 dark:bg-gray-600 rounded-full transition-colors">
+                  <div class="absolute left-1 top-1 w-4 h-4 bg-white rounded-full transition-transform"></div>
+                </button>
+              </div>
+            </div>
+          </div>
+
+          <!-- 알림 설정 탭 -->
+          <div x-show="activeTab === 'notifications'" x-cloak>
+            <h2 class="text-lg font-semibold text-gray-800 dark:text-white mb-6">알림 설정</h2>
+            <div class="space-y-6">
+              <template x-for="group in notificationGroups" :key="group.title">
+                <div>
+                  <h3 class="text-sm font-semibold text-gray-800 dark:text-white mb-3" x-text="group.title"></h3>
+                  <div class="space-y-3">
+                    <template x-for="item in group.items" :key="item.label">
+                      <div class="flex items-center justify-between py-2">
+                        <div>
+                          <p class="text-sm text-gray-700 dark:text-gray-300" x-text="item.label"></p>
+                          <p class="text-xs text-gray-400 dark:text-gray-500" x-text="item.desc"></p>
+                        </div>
+                        <button @click="item.enabled = !item.enabled" :class="item.enabled ? 'bg-indigo-600' : 'bg-gray-200 dark:bg-gray-600'" class="relative w-11 h-6 rounded-full transition-colors">
+                          <div :class="item.enabled ? 'translate-x-5' : 'translate-x-1'" class="absolute top-1 w-4 h-4 bg-white rounded-full transition-transform"></div>
+                        </button>
+                      </div>
+                    </template>
+                  </div>
+                </div>
+              </template>
+            </div>
+          </div>
+
+          <!-- 연동 탭 -->
+          <div x-show="activeTab === 'integrations'" x-cloak>
+            <h2 class="text-lg font-semibold text-gray-800 dark:text-white mb-6">외부 서비스 연동</h2>
+            <div class="space-y-4">
+              <template x-for="svc in integrations" :key="svc.name">
+                <div class="flex items-center justify-between p-4 border border-gray-200 dark:border-gray-700 rounded-lg">
+                  <div class="flex items-center gap-3">
+                    <div class="w-10 h-10 rounded-lg flex items-center justify-center text-lg" :class="svc.iconBg" x-text="svc.icon"></div>
+                    <div>
+                      <p class="text-sm font-medium text-gray-800 dark:text-white" x-text="svc.name"></p>
+                      <p class="text-xs text-gray-500 dark:text-gray-400" x-text="svc.desc"></p>
+                    </div>
+                  </div>
+                  <div class="flex items-center gap-3">
+                    <span class="text-xs px-2 py-1 rounded-full font-medium" :class="svc.connected ? 'bg-green-100 text-green-700 dark:bg-green-900/30 dark:text-green-400' : 'bg-gray-100 text-gray-500 dark:bg-gray-700 dark:text-gray-400'" x-text="svc.connected ? '연동됨' : '미연동'"></span>
+                    <button :class="svc.connected ? 'text-red-600 dark:text-red-400 border-red-300 dark:border-red-700' : 'text-indigo-600 dark:text-indigo-400 border-indigo-300 dark:border-indigo-700'" class="px-3 py-1.5 text-xs font-medium border rounded-lg hover:bg-gray-50 dark:hover:bg-gray-700 transition-colors" x-text="svc.connected ? '해제' : '연동하기'"></button>
+                  </div>
+                </div>
+              </template>
+            </div>
+          </div>
+
+        </div>
+      </div>
+    </main>
+  </div>
+</div>
+
+<script>
+function appLayout() {
+  return {
+    mobileMenu: false,
+    darkMode: localStorage.getItem('darkMode') === 'true' || window.matchMedia('(prefers-color-scheme: dark)').matches,
+    init() { this.applyDark(); },
+    toggleDark() { this.darkMode = !this.darkMode; localStorage.setItem('darkMode', this.darkMode); this.applyDark(); },
+    applyDark() { document.documentElement.classList.toggle('dark', this.darkMode); }
+  }
+}
+
+function settingsPage() {
+  return {
+    activeTab: 'profile',
+    tabs: [
+      { id: 'profile', label: '프로필', icon: '<svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z"/></svg>' },
+      { id: 'security', label: '보안', icon: '<svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2zm10-10V7a4 4 0 00-8 0v4h8z"/></svg>' },
+      { id: 'notifications', label: '알림', icon: '<svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 17h5l-1.405-1.405A2.032 2.032 0 0118 14.158V11a6.002 6.002 0 00-4-5.659V5a2 2 0 10-4 0v.341C7.67 6.165 6 8.388 6 11v3.159c0 .538-.214 1.055-.595 1.436L4 17h5m6 0v1a3 3 0 11-6 0v-1m6 0H9"/></svg>' },
+      { id: 'integrations', label: '연동', icon: '<svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13.828 10.172a4 4 0 00-5.656 0l-4 4a4 4 0 105.656 5.656l1.102-1.101m-.758-4.899a4 4 0 005.656 0l4-4a4 4 0 00-5.656-5.656l-1.1 1.1"/></svg>' }
+    ],
+    notificationGroups: [
+      { title: '업무 알림', items: [
+        { label: '업무 배정', desc: '새 업무가 배정되었을 때', enabled: true },
+        { label: '상태 변경', desc: '업무 상태가 변경되었을 때', enabled: true },
+        { label: '마감일 임박', desc: '마감일 2일 전 알림', enabled: true }
+      ]},
+      { title: '프로젝트 알림', items: [
+        { label: '프로젝트 생성', desc: '새 프로젝트가 생성되었을 때', enabled: false },
+        { label: '문서 업로드', desc: '프로젝트에 문서가 업로드되었을 때', enabled: true }
+      ]},
+      { title: '보고서 알림', items: [
+        { label: '보고서 수신', desc: '새 보고서를 수신했을 때', enabled: true },
+        { label: '피드백 알림', desc: '피드백이 도착했을 때', enabled: true }
+      ]},
+      { title: '시스템 알림', items: [
+        { label: '공지사항', desc: '시스템 공지사항', enabled: false },
+        { label: '업데이트', desc: '새 기능 업데이트 안내', enabled: false }
+      ]}
+    ],
+    integrations: [
+      { name: 'Google Calendar', desc: '일정 동기화', icon: '\ud83d\udcc5', iconBg: 'bg-blue-50 dark:bg-blue-900/30', connected: true },
+      { name: 'Google Sheets', desc: '견적서 연동', icon: '\ud83d\udcca', iconBg: 'bg-green-50 dark:bg-green-900/30', connected: false },
+      { name: 'Resend Email', desc: '이메일 발송 서비스', icon: '\u2709\ufe0f', iconBg: 'bg-purple-50 dark:bg-purple-900/30', connected: true }
+    ]
+  }
+}
+</script>
+</body>
+</html>
