@@ -80,18 +80,26 @@ async def lifespan(app: FastAPI):
     cleanup_task = asyncio.create_task(_cleanup_expired_sessions())
 
     # 반복 업무 스케줄러 (매일 KST 00:00)
-    from app.services.scheduler_service import scheduler_loop, weekly_report_loop
+    from app.services.scheduler_service import (
+        scheduler_loop, weekly_report_loop,
+        figma_check_loop, feedback_reminder_loop,
+    )
     scheduler_task = asyncio.create_task(scheduler_loop())
     weekly_report_task = asyncio.create_task(weekly_report_loop())
+    figma_check_task = asyncio.create_task(figma_check_loop())
+    feedback_reminder_task = asyncio.create_task(feedback_reminder_loop())
     logger.info("Recurring task scheduler started")
     logger.info("Weekly report scheduler started")
+    logger.info("Figma change detection scheduler started")
+    logger.info("Feedback reminder scheduler started")
 
     yield
 
-    scheduler_task.cancel()
-    weekly_report_task.cancel()
-    cleanup_task.cancel()
-    for t in (scheduler_task, weekly_report_task, cleanup_task):
+    bg_tasks = (scheduler_task, weekly_report_task, cleanup_task,
+                figma_check_task, feedback_reminder_task)
+    for t in bg_tasks:
+        t.cancel()
+    for t in bg_tasks:
         try:
             await t
         except asyncio.CancelledError:

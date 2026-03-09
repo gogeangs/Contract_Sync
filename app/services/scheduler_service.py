@@ -140,3 +140,36 @@ async def weekly_report_loop():
             await generate_weekly_reports()
         except Exception as e:
             logger.error(f"주간 리포트 생성 오류: {e}")
+
+
+async def figma_check_loop():
+    """Figma 변경 감지 — 1시간 간격 (3차 개발 S3-5)"""
+    from app.services.figma_service import check_figma_updates
+
+    while True:
+        await asyncio.sleep(3600)  # 1시간
+        try:
+            await check_figma_updates()
+        except Exception as e:
+            logger.error(f"Figma 변경 감지 오류: {e}")
+
+
+async def feedback_reminder_loop():
+    """피드백 리마인더 — 매일 10:00 KST (3차 개발 S4-5)"""
+    from app.services.feedback_request_service import process_feedback_reminders
+
+    while True:
+        now_kst = datetime.now(KST)
+        # 다음 10:00 KST 계산
+        next_10am = now_kst.replace(hour=10, minute=0, second=0, microsecond=0)
+        if now_kst.hour >= 10:
+            next_10am += timedelta(days=1)
+        wait_seconds = (next_10am - now_kst).total_seconds()
+        logger.info(f"피드백 리마인더 스케줄러: 다음 실행까지 {wait_seconds:.0f}초 대기 (KST {next_10am.strftime('%Y-%m-%d %H:%M')})")
+
+        await asyncio.sleep(wait_seconds)
+
+        try:
+            await process_feedback_reminders()
+        except Exception as e:
+            logger.error(f"피드백 리마인더 오류: {e}")

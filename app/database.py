@@ -58,6 +58,7 @@ class User(Base):
     is_verified = Column(Boolean, default=False)
     is_active = Column(Boolean, default=True)
     auth_provider = Column(String, default="email")  # email / google
+    user_type = Column(String(20), default="human")  # human / ai_agent
     created_at = Column(DateTime, default=utc_now)
 
 
@@ -82,6 +83,41 @@ class UserSession(Base):
     created_at = Column(DateTime, default=utc_now)
 
     user = relationship("User", backref="sessions")
+
+
+# ══════════════════════════════════════════════════════════
+#  1-1. AI 챗봇 대화  [3차 개발]
+# ══════════════════════════════════════════════════════════
+
+class ChatSession(Base):
+    """챗봇 대화 세션"""
+    __tablename__ = "chat_sessions"
+
+    id = Column(Integer, primary_key=True, index=True)
+    user_id = Column(Integer, ForeignKey("users.id", ondelete="CASCADE"), nullable=False, index=True)
+    title = Column(String(300), nullable=True)
+    created_at = Column(DateTime, default=utc_now)
+    updated_at = Column(DateTime, default=utc_now, onupdate=utc_now)
+
+    user = relationship("User", backref="chat_sessions")
+    messages = relationship("ChatMessage", back_populates="session", cascade="all, delete-orphan",
+                            order_by="ChatMessage.created_at")
+
+
+class ChatMessage(Base):
+    """챗봇 대화 메시지"""
+    __tablename__ = "chat_messages"
+    __table_args__ = (
+        Index("ix_chat_message_session", "chat_session_id"),
+    )
+
+    id = Column(Integer, primary_key=True, index=True)
+    chat_session_id = Column(Integer, ForeignKey("chat_sessions.id", ondelete="CASCADE"), nullable=False)
+    message_type = Column(String(20), nullable=False)  # user / assistant
+    content = Column(Text, nullable=False)
+    created_at = Column(DateTime, default=utc_now)
+
+    session = relationship("ChatSession", back_populates="messages")
 
 
 # ══════════════════════════════════════════════════════════
@@ -174,6 +210,9 @@ class Project(Base):
     payment_method = Column(String(500), nullable=True)
     schedules = Column(JSON, nullable=True)
     milestones = Column(JSON, nullable=True)
+
+    # ── Figma 연동 (3차 개발) ──
+    figma_urls = Column(JSON, nullable=True)  # ["https://figma.com/design/..."]
 
     # ── AI 정기보고 설정 ──
     report_opt_in = Column(Boolean, default=False)
@@ -380,6 +419,102 @@ class ClientFeedback(Base):
 
     completion_report = relationship("CompletionReport", back_populates="feedbacks")
     task = relationship("Task", backref="feedbacks")
+
+
+# ══════════════════════════════════════════════════════════
+# 10-1. 고객 피드백 요청/응답  [3차 개발]
+# ══════════════════════════════════════════════════════════
+
+class FeedbackRequest(Base):
+    """고객 피드백 요청 — PM이 시안 확인 요청 발송"""
+    __tablename__ = "feedback_requests"
+    __table_args__ = (
+        Index("ix_feedback_request_project", "project_id"),
+        Index("ix_feedback_request_token", "feedback_token"),
+        Index("ix_feedback_request_status", "status"),
+    )
+
+    id = Column(Integer, primary_key=True, index=True)
+    project_id = Column(Integer, ForeignKey("projects.id", ondelete="CASCADE"), nullable=False)
+    sender_id = Column(Integer, ForeignKey("users.id", ondelete="CASCADE"), nullable=False)
+    recipient_email = Column(String(200), nullable=False)
+    subject = Column(String(500), nullable=False)
+    message = Column(Text, nullable=True)
+    attachments = Column(JSON, nullable=True)  # [{file_name, stored_path}]
+    figma_url = Column(Text, nullable=True)
+    feedback_token = Column(String(64), unique=True, nullable=False)
+    feedback_deadline = Column(String, nullable=True)  # YYYY-MM-DD
+    status = Column(String(20), default="sent")  # sent / viewed / responded / expired / cancelled
+    viewed_at = Column(DateTime, nullable=True)
+    responded_at = Column(DateTime, nullable=True)
+    reminder_count = Column(Integer, default=0)
+    last_reminder_at = Column(DateTime, nullable=True)
+    created_at = Column(DateTime, default=utc_now)
+
+    project = relationship("Project", backref="feedback_requests")
+    sender = relationship("User", backref="sent_feedback_requests")
+    responses = relationship("FeedbackResponse", back_populates="feedback_request", cascade="all, delete-orphan")
+
+
+class FeedbackResponse(Base):
+    """고객 피드백 응답 — 비로그인 고객이 포털에서 제출"""
+    __tablename__ = "feedback_responses"
+
+    id = Column(Integer, primary_key=True, index=True)
+    feedback_request_id = Column(Integer, ForeignKey("feedback_requests.id", ondelete="CASCADE"), nullable=False)
+    project_id = Column(Integer, ForeignKey("projects.id", ondelete="CASCADE"), nullable=False)
+    response_type = Column(String(30), nullable=False)  # approved / revision_requested / comment
+    content = Column(Text, nullable=True)
+    client_name = Column(String(100), nullable=True)
+    client_phone = Column(String(20), nullable=True)
+    ip_address = Column(String(50), nullable=True)
+    created_at = Column(DateTime, default=utc_now)
+
+    feedback_request = relationship("FeedbackRequest", back_populates="responses")
+    project = relationship("Project", backref="feedback_responses")
+
+
+# ══════════════════════════════════════════════════════════
+# 10-2. 알림톡 발송 이력  [3차 개발 — 선택]
+# ══════════════════════════════════════════════════════════
+
+class KakaoNotification(Base):
+    """카카오 알림톡 발송 이력"""
+    __tablename__ = "kakao_notifications"
+
+    id = Column(Integer, primary_key=True, index=True)
+    project_id = Column(Integer, ForeignKey("projects.id", ondelete="CASCADE"), nullable=True)
+    feedback_request_id = Column(Integer, ForeignKey("feedback_requests.id", ondelete="SET NULL"), nullable=True)
+    template_code = Column(String(50), nullable=False)
+    recipient_phone = Column(String(20), nullable=False)
+    variables = Column(JSON, nullable=True)  # 템플릿 변수
+    status = Column(String(20), default="pending")  # pending / sent / delivered / failed
+    error_message = Column(Text, nullable=True)
+    sent_at = Column(DateTime, nullable=True)
+    created_at = Column(DateTime, default=utc_now)
+
+    project = relationship("Project", backref="kakao_notifications")
+
+
+# ══════════════════════════════════════════════════════════
+# 10-3. MCP 추천  [3차 개발 — 선택]
+# ══════════════════════════════════════════════════════════
+
+class McpRecommendation(Base):
+    """MCP 추천 — 업무 패턴 기반 MCP 도구 추천"""
+    __tablename__ = "mcp_recommendations"
+
+    id = Column(Integer, primary_key=True, index=True)
+    team_id = Column(Integer, ForeignKey("teams.id", ondelete="CASCADE"), nullable=False)
+    user_id = Column(Integer, ForeignKey("users.id", ondelete="CASCADE"), nullable=False)
+    mcp_name = Column(String(100), nullable=False)  # figma / google_calendar / google_drive / youtube
+    reason = Column(Text, nullable=True)
+    score = Column(Integer, default=0)  # 추천 점수
+    is_dismissed = Column(Boolean, default=False)
+    created_at = Column(DateTime, default=utc_now)
+
+    team = relationship("Team", backref="mcp_recommendations")
+    user = relationship("User", backref="mcp_recommendations")
 
 
 # ══════════════════════════════════════════════════════════
@@ -729,6 +864,10 @@ async def init_db():
             # activity_logs 확장
             ("activity_logs", "project_id", "INTEGER"),
             ("activity_logs", "client_id", "INTEGER"),
+            # 3차 개발 — User 확장
+            ("users", "user_type", "VARCHAR(20) DEFAULT 'human'"),
+            # 3차 개발 — Figma 연동
+            ("projects", "figma_urls", "JSON"),
         ]
         for tbl, col_name, col_type in new_columns:
             try:
@@ -852,6 +991,12 @@ async def init_db():
             "CREATE INDEX IF NOT EXISTS ix_portal_token ON portal_tokens (token)",
             "CREATE INDEX IF NOT EXISTS ix_comment_parent ON comments (parent_id)",
             "CREATE INDEX IF NOT EXISTS ix_comment_reads_comment ON comment_reads (comment_id)",
+            # 3차 개발
+            "CREATE INDEX IF NOT EXISTS ix_chat_message_session ON chat_messages (chat_session_id)",
+            "CREATE INDEX IF NOT EXISTS ix_chat_session_user ON chat_sessions (user_id)",
+            "CREATE INDEX IF NOT EXISTS ix_feedback_request_project ON feedback_requests (project_id)",
+            "CREATE INDEX IF NOT EXISTS ix_feedback_request_token ON feedback_requests (feedback_token)",
+            "CREATE INDEX IF NOT EXISTS ix_feedback_request_status ON feedback_requests (status)",
         ]
         for idx_sql in new_indexes:
             try:
@@ -864,6 +1009,19 @@ async def init_db():
             await conn.execute(text(
                 "CREATE UNIQUE INDEX IF NOT EXISTS uq_team_user ON team_members (team_id, user_id)"
             ))
+        except Exception:
+            pass
+
+        # 3차 개발: AI 에이전트 시스템 사용자 생성 (S1-2)
+        try:
+            existing = await conn.execute(text(
+                "SELECT id FROM users WHERE email = 'system@contract-sync.local'"
+            ))
+            if not existing.fetchone():
+                await conn.execute(text(
+                    "INSERT INTO users (email, name, is_verified, is_active, auth_provider, user_type) "
+                    "VALUES ('system@contract-sync.local', 'CS 어시스턴트', 1, 1, 'system', 'ai_agent')"
+                ))
         except Exception:
             pass
 

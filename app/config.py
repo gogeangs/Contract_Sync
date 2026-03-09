@@ -33,6 +33,13 @@ class Settings(BaseSettings):
     # Google Sheets (서비스 계정 JSON)
     google_sheets_credentials: str = ""
 
+    # Figma (3차 개발)
+    figma_access_token: str = ""  # Figma Personal Access Token
+
+    # 카카오 알림톡 (3차 개발 — 선택)
+    kakao_api_key: str = ""       # 딜러사 API 키
+    kakao_sender_key: str = ""    # 발신 프로필 키
+
     # 이메일 발송 (Resend HTTP API 우선, SMTP 폴백)
     resend_api_key: str = ""  # Resend API 키 (Railway 등 SMTP 차단 환경용)
     resend_from_email: str = "Contract Sync <onboarding@resend.dev>"  # Resend 발신자

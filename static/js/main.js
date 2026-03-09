@@ -351,6 +351,12 @@ function appShell() {
                 this.currentPage = 'teamSettings'; this.pageParams = {};
             } else if (path === '/settings') {
                 this.currentPage = 'settings'; this.pageParams = {};
+            } else if (path === '/feedback-requests') {
+                this.currentPage = 'feedbackRequests'; this.pageParams = {};
+            } else if ((m = path.match(/^\/feedback-portal\/([a-zA-Z0-9_-]+)$/))) {
+                this.currentPage = 'feedbackPortal'; this.pageParams = { token: m[1] };
+            } else if (path === '/mcp') {
+                this.currentPage = 'mcp'; this.pageParams = {};
             } else {
                 this.currentPage = 'dashboard'; this.pageParams = {};
             }
@@ -983,6 +989,8 @@ function projectDetailPage() {
         showTaskModal: false, taskSaving: false,
         showTaskDetailModal: false, selectedTask: null,
         portalToken: null, portalLoading: false, showPortalModal: false,
+        showFeedbackRequestModal: false, fbReqSending: false,
+        fbReqForm: { recipient_email: '', subject: '', message: '', feedback_deadline: '', channel: 'email' },
         form: {},
         taskForm: { task_name: '', phase: '', priority: '보통', due_date: '', start_date: '', assignee_id: '', is_client_facing: false, description: '' },
 
@@ -1261,6 +1269,22 @@ function projectDetailPage() {
                 () => window.toast.success('포털 URL이 복사되었습니다.'),
                 () => window.toast.error('복사에 실패했습니다.')
             );
+        },
+
+        // 피드백 요청 (S4-6)
+        async sendFeedbackRequest() {
+            if (!this.fbReqForm.recipient_email || !this.fbReqForm.subject) {
+                window.toast.warning('수신자 이메일과 제목을 입력해주세요.');
+                return;
+            }
+            this.fbReqSending = true;
+            try {
+                await api.post(`/projects/${this.project.id}/feedback-request`, this.fbReqForm);
+                this.showFeedbackRequestModal = false;
+                this.fbReqForm = { recipient_email: '', subject: '', message: '', feedback_deadline: '' };
+                window.toast.success('피드백 요청이 발송되었습니다.');
+            } catch (e) { window.toast.error(e.message || '발송 실패'); }
+            finally { this.fbReqSending = false; }
         },
     };
 }
@@ -2898,5 +2922,400 @@ function settingsPage() {
             finally { this.syncing[syncId] = false; }
         },
         getProviderLabel(p) { return { google: 'Google Calendar', outlook: 'Outlook' }[p] || p; },
+    };
+}
+
+// ============ 3차 개발: AI 챗봇 위젯 (S2-1~S2-7) ============
+
+function chatbotWidget() {
+    return {
+        open: false,
+        fullscreen: false,
+        showSessions: false,
+        messages: [],
+        sessions: [],
+        currentSessionId: null,
+        input: '',
+        sending: false,
+        streaming: false,
+        presets: [],
+        quickPresets: [],
+        loading: true,
+        loggedIn: document.cookie.includes('session='),
+
+        async init() {
+            await this.loadPresets();
+            this.loading = false;
+        },
+
+        toggle() {
+            this.open = !this.open;
+            if (this.open && this.sessions.length === 0) this.loadSessions();
+        },
+
+        async loadPresets() {
+            try {
+                const res = await api.get('/chatbot/presets');
+                const all = res?.presets || [];
+                this.presets = all.slice(0, 6);
+                this.quickPresets = all.slice(0, 4);
+            } catch { this.presets = []; this.quickPresets = []; }
+        },
+
+        async loadSessions() {
+            try {
+                const data = await api.get('/chatbot/history');
+                this.sessions = data?.sessions || [];
+            } catch { this.sessions = []; }
+        },
+
+        async loadSession(sessionId) {
+            this.currentSessionId = sessionId;
+            this.showSessions = false;
+            try {
+                const data = await api.get(`/chatbot/history?session_id=${sessionId}`);
+                this.messages = (data?.messages || []).map(m => ({
+                    role: m.role,
+                    content: m.content,
+                    time: m.created_at,
+                }));
+            } catch { this.messages = []; }
+            this.$nextTick(() => this.scrollBottom());
+        },
+
+        newSession() {
+            this.currentSessionId = null;
+            this.messages = [];
+            this.showSessions = false;
+        },
+
+        async deleteSession(sessionId) {
+            try {
+                await api.del(`/chatbot/sessions/${sessionId}`);
+                this.sessions = this.sessions.filter(s => s.id !== sessionId);
+                if (this.currentSessionId === sessionId) this.newSession();
+            } catch {}
+        },
+
+        sendPreset(preset) {
+            this.input = preset.query || preset.text;
+            this.send();
+        },
+
+        async send() {
+            const msg = this.input.trim();
+            if (!msg || this.sending) return;
+            this.input = '';
+            this.messages.push({ role: 'user', content: msg, time: new Date().toISOString() });
+            this.$nextTick(() => this.scrollBottom());
+
+            this.sending = true;
+            this.streaming = true;
+            const aiMsg = { role: 'assistant', content: '', time: new Date().toISOString() };
+            this.messages.push(aiMsg);
+            const aiIdx = this.messages.length - 1;
+
+            try {
+                const res = await fetch('/api/v1/chatbot/message', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ message: msg, chat_session_id: this.currentSessionId }),
+                });
+
+                if (!res.ok) {
+                    const err = await res.json().catch(() => ({}));
+                    this.messages[aiIdx].content = err.detail || '오류가 발생했습니다.';
+                    this.sending = false; this.streaming = false;
+                    return;
+                }
+
+                const reader = res.body.getReader();
+                const decoder = new TextDecoder();
+                let buffer = '';
+
+                while (true) {
+                    const { done, value } = await reader.read();
+                    if (done) break;
+                    buffer += decoder.decode(value, { stream: true });
+
+                    const lines = buffer.split('\n');
+                    buffer = lines.pop() || '';
+
+                    for (const line of lines) {
+                        if (line.startsWith('data: ')) {
+                            try {
+                                const data = JSON.parse(line.slice(6));
+                                if (data.type === 'chunk') {
+                                    this.messages[aiIdx].content += data.content;
+                                    this.$nextTick(() => this.scrollBottom());
+                                } else if (data.type === 'done') {
+                                    if (data.session_id) this.currentSessionId = data.session_id;
+                                } else if (data.type === 'error') {
+                                    this.messages[aiIdx].content = data.content || '오류가 발생했습니다.';
+                                }
+                            } catch {}
+                        }
+                    }
+                }
+            } catch (e) {
+                this.messages[aiIdx].content = '네트워크 오류가 발생했습니다.';
+            } finally {
+                this.sending = false;
+                this.streaming = false;
+            }
+        },
+
+        scrollBottom() {
+            const el = this.$refs.chatMessages;
+            if (el) el.scrollTop = el.scrollHeight;
+        },
+
+        formatTime(t) {
+            if (!t) return '';
+            const d = new Date(t);
+            return d.toLocaleTimeString('ko-KR', { hour: '2-digit', minute: '2-digit' });
+        },
+
+        formatSessionDate(t) {
+            if (!t) return '';
+            return new Date(t).toLocaleDateString('ko-KR', { month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit' });
+        },
+    };
+}
+
+// ============ 3차 개발: Figma 탭 (S3-4) ============
+
+function figmaTabComponent() {
+    return {
+        files: [],
+        urls: [],
+        loading: true,
+        showAddModal: false,
+        newUrl: '',
+        adding: false,
+        selectedFile: null,
+        screenshots: {},
+
+        async init() {
+            await this.load();
+        },
+
+        async load() {
+            this.loading = true;
+            try {
+                const pid = this.projectId || window._projectDetailId;
+                if (!pid) return;
+                const data = await api.get(`/projects/${pid}/figma`);
+                this.files = data?.files || [];
+                this.urls = data?.urls || [];
+                if (this.files.length > 0) this.selectedFile = this.files[0];
+            } catch {}
+            finally { this.loading = false; }
+        },
+
+        async addUrl() {
+            if (!this.newUrl.trim() || this.adding) return;
+            this.adding = true;
+            try {
+                const pid = this.projectId || window._projectDetailId;
+                await api.post(`/projects/${pid}/figma`, { url: this.newUrl.trim() });
+                this.showAddModal = false;
+                this.newUrl = '';
+                await this.load();
+                window.toast.success('Figma 파일이 연결되었습니다.');
+            } catch (e) { window.toast.error(e.message || 'URL 등록 실패'); }
+            finally { this.adding = false; }
+        },
+
+        async removeUrl(url) {
+            if (!confirm('이 Figma 파일 연결을 해제하시겠습니까?')) return;
+            try {
+                const pid = this.projectId || window._projectDetailId;
+                await api.del(`/projects/${pid}/figma`, { url });
+                await this.load();
+                window.toast.success('연결이 해제되었습니다.');
+            } catch (e) { window.toast.error(e.message); }
+        },
+
+        selectFile(f) { this.selectedFile = f; },
+
+        extractFileKey(url) {
+            const m = url.match(/figma\.com\/(file|design)\/([a-zA-Z0-9]+)/);
+            return m ? m[2] : null;
+        },
+    };
+}
+
+// ============ 3차 개발: 피드백 요청 대시보드 (S4-6, S4-7) ============
+
+function feedbackRequestsPage() {
+    return {
+        requests: [],
+        loading: true,
+        filter: 'all',
+        search: '',
+
+        async init() {
+            await this.load();
+        },
+
+        async load() {
+            this.loading = true;
+            try {
+                const data = await api.get('/feedback/requests');
+                this.requests = data?.requests || data || [];
+            } catch { this.requests = []; }
+            finally { this.loading = false; }
+        },
+
+        get filteredRequests() {
+            let list = this.requests;
+            if (this.filter !== 'all') list = list.filter(r => r.status === this.filter);
+            if (this.search) {
+                const q = this.search.toLowerCase();
+                list = list.filter(r => (r.project_name || '').toLowerCase().includes(q) || (r.recipient_email || '').toLowerCase().includes(q));
+            }
+            return list;
+        },
+
+        get stats() {
+            const s = { total: this.requests.length, pending: 0, viewed: 0, responded: 0, expired: 0, cancelled: 0 };
+            this.requests.forEach(r => { if (s[r.status] !== undefined) s[r.status]++; });
+            return s;
+        },
+
+        statusBadge(status) {
+            return { pending: 'bg-yellow-100 text-yellow-700 dark:bg-yellow-900/30 dark:text-yellow-400', viewed: 'bg-blue-100 text-blue-700 dark:bg-blue-900/30 dark:text-blue-400', responded: 'bg-green-100 text-green-700 dark:bg-green-900/30 dark:text-green-400', expired: 'bg-red-100 text-red-700 dark:bg-red-900/30 dark:text-red-400', cancelled: 'bg-gray-100 text-gray-600 dark:bg-gray-700 dark:text-gray-400' }[status] || 'bg-gray-100 text-gray-600';
+        },
+
+        statusLabel(status) {
+            return { pending: '대기 중', viewed: '열람', responded: '응답 완료', expired: '만료', cancelled: '취소' }[status] || status;
+        },
+
+        responseLabel(type) {
+            return { approved: '승인', revision_requested: '수정 요청', comment: '의견' }[type] || type;
+        },
+
+        responseBadge(type) {
+            return { approved: 'bg-green-100 text-green-700', revision_requested: 'bg-red-100 text-red-700', comment: 'bg-blue-100 text-blue-700' }[type] || 'bg-gray-100 text-gray-600';
+        },
+
+        async cancelRequest(id) {
+            if (!confirm('이 피드백 요청을 취소하시겠습니까?')) return;
+            try {
+                await api.patch(`/feedback/requests/${id}/cancel`);
+                await this.load();
+                window.toast.success('피드백 요청이 취소되었습니다.');
+            } catch (e) { window.toast.error(e.message); }
+        },
+
+        daysSince(dateStr) {
+            if (!dateStr) return 0;
+            return Math.floor((Date.now() - new Date(dateStr).getTime()) / 86400000);
+        },
+    };
+}
+
+// ============ 3차 개발: 고객 피드백 포털 (S4-3) ============
+
+function feedbackPortalPage() {
+    return {
+        data: null,
+        loading: true,
+        error: null,
+        submitted: false,
+        expired: false,
+        form: { response_type: '', content: '', client_name: '' },
+        submitting: false,
+        showConfirm: false,
+
+        async init() {
+            const m = (window.location.hash || '').match(/\/feedback-portal\/([a-zA-Z0-9_-]+)/);
+            if (!m) { this.error = '유효하지 않은 링크입니다.'; this.loading = false; return; }
+            try {
+                this.data = await api.get(`/feedback/portal/${m[1]}`);
+                if (this.data?.already_responded) this.submitted = true;
+            } catch (e) {
+                if (e.status === 410) { this.expired = true; this.error = '피드백 기한이 만료되었습니다.'; }
+                else { this.error = e.message || '링크를 확인할 수 없습니다.'; }
+            } finally { this.loading = false; }
+        },
+
+        selectType(type) { this.form.response_type = type; },
+
+        async submit() {
+            if (!this.form.response_type) { window.toast.warning('피드백 유형을 선택해주세요.'); return; }
+            if (this.form.response_type !== 'approved' && !this.form.content.trim()) { window.toast.warning('내용을 입력해주세요.'); return; }
+            this.showConfirm = true;
+        },
+
+        async confirmSubmit() {
+            this.showConfirm = false;
+            this.submitting = true;
+            try {
+                const m = (window.location.hash || '').match(/\/feedback-portal\/([a-zA-Z0-9_-]+)/);
+                await api.post(`/feedback/portal/${m[1]}/response`, this.form);
+                this.submitted = true;
+                window.toast.success('피드백이 접수되었습니다.');
+            } catch (e) { window.toast.error(e.message || '제출에 실패했습니다.'); }
+            finally { this.submitting = false; }
+        },
+    };
+}
+
+// ============ 3차 개발: MCP 추천/관리 (S7-3, S7-4) ============
+
+function mcpPage() {
+    return {
+        recommendations: [],
+        catalog: [],
+        patterns: null,
+        loading: true,
+        activeTab: 'recommendations',
+
+        async init() {
+            await Promise.all([this.loadRecommendations(), this.loadCatalog()]);
+            this.loading = false;
+        },
+
+        async loadRecommendations() {
+            try {
+                const data = await api.get('/mcp/recommendations');
+                this.recommendations = data?.recommendations || [];
+            } catch { this.recommendations = []; }
+        },
+
+        async loadCatalog() {
+            try {
+                const data = await api.get('/mcp/catalog');
+                this.catalog = data?.catalog || [];
+            } catch { this.catalog = []; }
+        },
+
+        async loadPatterns() {
+            try {
+                this.patterns = await api.get('/mcp/patterns');
+            } catch { this.patterns = null; }
+        },
+
+        async generateRecs() {
+            try {
+                await api.post('/mcp/recommendations/generate');
+                await this.loadRecommendations();
+                window.toast.success('추천이 갱신되었습니다.');
+            } catch (e) { window.toast.error(e.message); }
+        },
+
+        async dismissRec(id) {
+            try {
+                await api.post(`/mcp/recommendations/${id}/dismiss`);
+                this.recommendations = this.recommendations.filter(r => r.id !== id);
+            } catch {}
+        },
+
+        mcpIcon(name) {
+            const icons = { figma: 'M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2z', google_calendar: 'M19 4h-1V2h-2v2H8V2H6v2H5c-1.1 0-2 .9-2 2v14c0 1.1.9 2 2 2h14c1.1 0 2-.9 2-2V6c0-1.1-.9-2-2-2z', github: 'M12 2C6.477 2 2 6.477 2 12c0 4.42 2.865 8.167 6.839 9.49.5.09.682-.217.682-.482 0-.237-.009-.866-.014-1.7-2.782.603-3.369-1.34-3.369-1.34-.454-1.156-1.11-1.464-1.11-1.464-.908-.62.069-.607.069-.607 1.004.07 1.532 1.032 1.532 1.032.892 1.53 2.341 1.088 2.91.832.092-.647.35-1.088.636-1.338-2.22-.253-4.555-1.11-4.555-4.943 0-1.091.39-1.984 1.029-2.683-.103-.253-.446-1.27.098-2.647 0 0 .84-.269 2.75 1.025A9.564 9.564 0 0112 6.844c.85.004 1.705.115 2.504.337 1.909-1.294 2.747-1.025 2.747-1.025.546 1.377.202 2.394.1 2.647.64.699 1.028 1.592 1.028 2.683 0 3.842-2.339 4.687-4.566 4.935.359.309.678.919.678 1.852 0 1.336-.012 2.415-.012 2.743 0 .267.18.578.688.48C19.138 20.163 22 16.418 22 12c0-5.523-4.477-10-10-10z' };
+            return icons[name] || icons.figma;
+        },
     };
 }

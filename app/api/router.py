@@ -9,6 +9,7 @@ from app.api.endpoints import (
     portal, calendar,  # Phase 6
     dashboard,  # Phase 7
     sse,  # 2차 개발
+    chatbot, figma, feedback_portal, kakao, mcp,  # 3차 개발
 )
 
 api_router = APIRouter()
@@ -30,6 +31,9 @@ api_router.include_router(documents.router, tags=["문서 관리"])
 
 # Phase 2 — 완료 보고 + 피드백
 api_router.include_router(completion_reports.router, tags=["완료 보고"])
+# 3차 개발 피드백 포털 (정적 경로 /feedback/requests 등)을 먼저 등록
+# — feedbacks.router의 /feedback/{token} 와일드카드 경로보다 우선 매칭
+api_router.include_router(feedback_portal.router, tags=["고객 피드백"])
 api_router.include_router(feedbacks.router, tags=["피드백"])
 
 # Phase 3 — AI 보고서
@@ -51,3 +55,15 @@ api_router.include_router(dashboard.router, prefix="/dashboard", tags=["대시�
 
 # 2차 개발 — SSE 실시간 알림
 api_router.include_router(sse.router, tags=["실시간 알림"])
+
+# 3차 개발 — AI 챗봇
+api_router.include_router(chatbot.router, tags=["AI 챗봇"])
+
+# 3차 개발 — Figma 연동
+api_router.include_router(figma.router, tags=["Figma 연동"])
+
+# 3차 개발 — 카카오 알림톡 (선택)
+api_router.include_router(kakao.router, tags=["알림톡"])
+
+# 3차 개발 — MCP 추천 (선택)
+api_router.include_router(mcp.router, tags=["MCP 추천"])
