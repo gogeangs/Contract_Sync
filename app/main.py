@@ -117,15 +117,6 @@ app = FastAPI(
 app.state.limiter = limiter
 app.add_exception_handler(RateLimitExceeded, _rate_limit_exceeded_handler)
 
-# 프록시 뒤에서 X-Forwarded-Proto를 반영하여 scheme 보정
-# (OAuth 세션 state 쿠키가 HTTPS 환경에서 올바르게 작동하도록)
-@app.middleware("http")
-async def fix_proxy_scheme(request: Request, call_next):
-    proto = request.headers.get("X-Forwarded-Proto")
-    if proto:
-        request.scope["scheme"] = proto
-    return await call_next(request)
-
 # C-2: 프로덕션에서 SECRET_KEY 미설정 시 앱 시작 차단
 if not settings.secret_key:
     import secrets as _secrets
@@ -142,6 +133,23 @@ app.add_middleware(
     same_site="lax",
 )
 logger.info("Session middleware configured")
+
+# 프록시 뒤에서 X-Forwarded-Proto를 반영 (OAuth 세션 state 쿠키 정상 작동)
+# add_middleware는 역순 실행 → 마지막 추가가 가장 먼저 실행됨
+class ProxySchemeMiddleware:
+    """ASGI 미들웨어: X-Forwarded-Proto 헤더로 scheme 보정"""
+    def __init__(self, app):
+        self.app = app
+    async def __call__(self, scope, receive, send):
+        if scope["type"] == "http":
+            headers = dict(scope.get("headers", []))
+            proto = headers.get(b"x-forwarded-proto", b"").decode()
+            if proto:
+                scope["scheme"] = proto
+        await self.app(scope, receive, send)
+
+app.add_middleware(ProxySchemeMiddleware)
+logger.info("Proxy scheme middleware configured")
 
 # H-1: CORS 설정 - 프로덕션에서는 와일드카드 차단
 if settings.allowed_origins:
