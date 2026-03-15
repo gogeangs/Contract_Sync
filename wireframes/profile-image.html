@@ -1,0 +1,98 @@
+<!DOCTYPE html>
+<html lang="ko" class="">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Contract Sync v2 - 프로필 설정</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <script defer src="https://cdn.jsdelivr.net/npm/alpinejs@3.x.x/dist/cdn.min.js"></script>
+  <script>tailwind.config = { darkMode: 'class' }</script>
+  <style>[x-cloak]{display:none!important}</style>
+</head>
+<body class="bg-gray-50 dark:bg-gray-900 text-gray-800 dark:text-gray-100 transition-colors duration-300">
+<div x-data="appLayout()" class="flex h-screen overflow-hidden">
+  <aside class="hidden lg:flex lg:flex-col w-64 bg-white dark:bg-gray-800 border-r border-gray-200 dark:border-gray-700 fixed inset-y-0 left-0 z-30">
+    <div class="flex items-center gap-3 px-6 py-5 border-b border-gray-200 dark:border-gray-700"><div class="w-8 h-8 bg-indigo-600 rounded-lg flex items-center justify-center"><svg class="w-5 h-5 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"/></svg></div><span class="text-lg font-bold dark:text-white">Contract Sync</span></div>
+    <nav class="flex-1 px-3 py-4 space-y-1"><a href="settings.html" class="flex items-center gap-3 px-3 py-2.5 rounded-lg bg-indigo-50 dark:bg-indigo-900/30 text-indigo-600 dark:text-indigo-400 font-medium text-sm"><svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10.325 4.317c.426-1.756 2.924-1.756 3.35 0"/><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z"/></svg><span>설정</span></a></nav>
+    <div class="px-4 py-3 border-t border-gray-200 dark:border-gray-700"><div class="flex items-center gap-3"><div class="w-8 h-8 bg-indigo-100 dark:bg-indigo-900 rounded-full flex items-center justify-center"><span class="text-sm font-medium text-indigo-600">김</span></div><div class="flex-1"><p class="text-sm font-medium truncate">김매니저</p></div></div></div>
+  </aside>
+  <div class="flex-1 flex flex-col lg:ml-64 min-h-screen">
+    <header class="sticky top-0 z-20 bg-white dark:bg-gray-800 border-b border-gray-200 dark:border-gray-700">
+      <div class="px-4 lg:px-6 py-3">
+        <div class="text-sm text-gray-500 flex items-center gap-1"><a href="settings.html" class="hover:text-indigo-600">설정</a><svg class="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7"/></svg><span class="text-gray-800 dark:text-gray-200">프로필</span></div>
+        <h1 class="text-lg font-bold mt-0.5">프로필 설정</h1>
+      </div>
+      <!-- 설정 탭 -->
+      <div class="px-4 lg:px-6 border-t border-gray-100 dark:border-gray-700">
+        <nav class="flex gap-1 -mb-px">
+          <a href="#" class="px-4 py-3 text-sm font-medium text-indigo-600 dark:text-indigo-400 border-b-2 border-indigo-600">프로필</a>
+          <a href="#" class="px-4 py-3 text-sm text-gray-500 dark:text-gray-400 hover:text-gray-700 border-b-2 border-transparent">보안</a>
+          <a href="#" class="px-4 py-3 text-sm text-gray-500 dark:text-gray-400 hover:text-gray-700 border-b-2 border-transparent">알림</a>
+          <a href="#" class="px-4 py-3 text-sm text-gray-500 dark:text-gray-400 hover:text-gray-700 border-b-2 border-transparent">연동</a>
+        </nav>
+      </div>
+    </header>
+    <main class="flex-1 p-4 lg:p-6" x-data="profileImagePage()">
+      <div class="max-w-2xl mx-auto space-y-6">
+        <!-- 프로필 이미지 -->
+        <div class="bg-white dark:bg-gray-800 rounded-xl border border-gray-200 dark:border-gray-700 p-6">
+          <h3 class="text-base font-bold mb-4">프로필 이미지</h3>
+          <div class="flex items-center gap-6">
+            <!-- 현재 아바타 -->
+            <div class="relative">
+              <div class="w-24 h-24 rounded-full overflow-hidden border-4 border-gray-200 dark:border-gray-600" :class="hasImage?'':'bg-indigo-100 dark:bg-indigo-900 flex items-center justify-center'">
+                <span x-show="!hasImage" class="text-3xl font-bold text-indigo-600 dark:text-indigo-400">김</span>
+                <div x-show="hasImage" class="w-full h-full bg-gradient-to-br from-indigo-400 to-purple-500 flex items-center justify-center">
+                  <svg class="w-10 h-10 text-white/80" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z"/></svg>
+                </div>
+              </div>
+              <button @click="hasImage=!hasImage" class="absolute -bottom-1 -right-1 w-8 h-8 bg-indigo-600 text-white rounded-full flex items-center justify-center shadow-lg hover:bg-indigo-700">
+                <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 9a2 2 0 012-2h.93a2 2 0 001.664-.89l.812-1.22A2 2 0 0110.07 4h3.86a2 2 0 011.664.89l.812 1.22A2 2 0 0018.07 7H19a2 2 0 012 2v9a2 2 0 01-2 2H5a2 2 0 01-2-2V9z"/><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 13a3 3 0 11-6 0 3 3 0 016 0z"/></svg>
+              </button>
+            </div>
+            <div>
+              <div class="flex items-center gap-2">
+                <button @click="hasImage=true" class="px-3 py-2 text-sm bg-indigo-600 hover:bg-indigo-700 text-white rounded-lg">이미지 변경</button>
+                <button x-show="hasImage" @click="hasImage=false" class="px-3 py-2 text-sm text-red-600 hover:bg-red-50 dark:hover:bg-red-900/20 rounded-lg">삭제</button>
+              </div>
+              <p class="text-xs text-gray-400 mt-2">최대 2MB · JPG, PNG, GIF 형식</p>
+              <p class="text-xs text-gray-400">권장 크기: 200×200 이상</p>
+            </div>
+          </div>
+        </div>
+        <!-- 기본 정보 -->
+        <div class="bg-white dark:bg-gray-800 rounded-xl border border-gray-200 dark:border-gray-700 p-6">
+          <h3 class="text-base font-bold mb-4">기본 정보</h3>
+          <div class="space-y-4">
+            <div>
+              <label class="block text-sm font-medium mb-1.5">이름</label>
+              <input type="text" value="김매니저" class="w-full px-3 py-2.5 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-sm outline-none focus:ring-2 focus:ring-indigo-500">
+            </div>
+            <div>
+              <label class="block text-sm font-medium mb-1.5">이메일</label>
+              <input type="email" value="pm@company.com" disabled class="w-full px-3 py-2.5 border border-gray-200 dark:border-gray-700 rounded-lg bg-gray-50 dark:bg-gray-900 text-sm text-gray-500 cursor-not-allowed">
+              <p class="text-[10px] text-gray-400 mt-1">Google 계정 연동 이메일 (변경 불가)</p>
+            </div>
+            <div>
+              <label class="block text-sm font-medium mb-1.5">전화번호</label>
+              <input type="tel" value="010-1234-5678" class="w-full px-3 py-2.5 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-sm outline-none focus:ring-2 focus:ring-indigo-500">
+            </div>
+            <div>
+              <label class="block text-sm font-medium mb-1.5">직책</label>
+              <input type="text" value="PM / 기획" class="w-full px-3 py-2.5 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-sm outline-none focus:ring-2 focus:ring-indigo-500">
+            </div>
+          </div>
+          <div class="flex justify-end mt-6">
+            <button class="px-6 py-2 bg-indigo-600 hover:bg-indigo-700 text-white text-sm rounded-lg">저장</button>
+          </div>
+        </div>
+      </div>
+    </main>
+  </div>
+</div>
+<script>
+function appLayout(){return{mobileMenuOpen:false,darkMode:false,init(){if(window.matchMedia('(prefers-color-scheme:dark)').matches){this.darkMode=true;document.documentElement.classList.add('dark')}}}}
+function profileImagePage(){return{hasImage:false}}
+</script>
+</body>
+</html>

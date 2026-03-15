@@ -1,0 +1,99 @@
+<!DOCTYPE html>
+<html lang="ko" class="">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Contract Sync v2 - 팀 근태 현황</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <script defer src="https://cdn.jsdelivr.net/npm/alpinejs@3.x.x/dist/cdn.min.js"></script>
+  <script>tailwind.config = { darkMode: 'class' }</script>
+  <style>[x-cloak]{display:none!important}</style>
+</head>
+<body class="bg-gray-50 dark:bg-gray-900 text-gray-800 dark:text-gray-100 transition-colors duration-300">
+<div x-data="appLayout()" class="flex h-screen overflow-hidden">
+  <aside class="hidden lg:flex lg:flex-col w-64 bg-white dark:bg-gray-800 border-r border-gray-200 dark:border-gray-700 fixed inset-y-0 left-0 z-30">
+    <div class="flex items-center gap-3 px-6 py-5 border-b border-gray-200 dark:border-gray-700"><div class="w-8 h-8 bg-indigo-600 rounded-lg flex items-center justify-center"><svg class="w-5 h-5 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"/></svg></div><span class="text-lg font-bold dark:text-white">Contract Sync</span></div>
+    <nav class="flex-1 px-3 py-4 space-y-1 overflow-y-auto">
+      <a href="dashboard-calendar.html" class="flex items-center gap-3 px-3 py-2.5 rounded-lg text-gray-600 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700 text-sm"><svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 12l2-2m0 0l7-7 7 7M5 10v10a1 1 0 001 1h3m10-11l2 2m-2-2v10a1 1 0 01-1 1h-3m-6 0a1 1 0 001-1v-4a1 1 0 011-1h2a1 1 0 011 1v4a1 1 0 001 1m-6 0h6"/></svg><span>대시보드</span></a>
+      <a href="#" class="flex items-center gap-3 px-3 py-2.5 rounded-lg bg-indigo-50 dark:bg-indigo-900/30 text-indigo-600 dark:text-indigo-400 font-medium text-sm"><svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z"/></svg><span>근태 (관리자)</span></a>
+    </nav>
+    <div class="px-4 py-3 border-t border-gray-200 dark:border-gray-700"><div class="flex items-center gap-3"><div class="w-8 h-8 bg-amber-100 dark:bg-amber-900 rounded-full flex items-center justify-center"><span class="text-sm font-medium text-amber-600 dark:text-amber-400">박</span></div><div class="flex-1"><p class="text-sm font-medium truncate">박대표</p><p class="text-[10px] text-gray-400">owner</p></div></div></div>
+  </aside>
+  <div x-show="mobileMenuOpen" x-cloak @click="mobileMenuOpen=false" class="fixed inset-0 bg-black/50 z-40 lg:hidden"></div>
+  <div class="flex-1 flex flex-col lg:ml-64 min-h-screen">
+    <header class="sticky top-0 z-20 bg-white dark:bg-gray-800 border-b border-gray-200 dark:border-gray-700">
+      <div class="flex items-center justify-between px-4 lg:px-6 py-3">
+        <div class="flex items-center gap-3">
+          <button @click="mobileMenuOpen=true" class="lg:hidden p-2 rounded-lg hover:bg-gray-100 dark:hover:bg-gray-700"><svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 6h16M4 12h16M4 18h16"/></svg></button>
+          <h1 class="text-lg font-bold">팀 근태 현황</h1>
+          <span class="text-xs px-2 py-0.5 bg-amber-100 dark:bg-amber-900/30 text-amber-700 dark:text-amber-300 rounded-full">관리자</span>
+        </div>
+        <a href="attendance-policy.html" class="px-3 py-1.5 text-xs border border-gray-300 dark:border-gray-600 rounded-lg hover:bg-gray-50 dark:hover:bg-gray-700 flex items-center gap-1"><svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10.325 4.317c.426-1.756 2.924-1.756 3.35 0a1.724 1.724 0 002.573 1.066c1.543-.94 3.31.826 2.37 2.37a1.724 1.724 0 001.066 2.573c1.756.426 1.756 2.924 0 3.35a1.724 1.724 0 00-1.066 2.573c.94 1.543-.826 3.31-2.37 2.37a1.724 1.724 0 00-2.573 1.066c-.426 1.756-2.924 1.756-3.35 0"/></svg>근무 정책</a>
+      </div>
+    </header>
+    <main class="flex-1 p-4 lg:p-6 pb-20 lg:pb-6" x-data="teamAttendancePage()">
+      <!-- 오늘 현황 카드 -->
+      <div class="grid grid-cols-2 lg:grid-cols-4 gap-4 mb-6">
+        <div class="bg-white dark:bg-gray-800 rounded-xl border border-gray-200 dark:border-gray-700 p-4 text-center">
+          <p class="text-3xl font-bold text-green-600">4</p><p class="text-xs text-gray-500 mt-1">근무 중</p>
+        </div>
+        <div class="bg-white dark:bg-gray-800 rounded-xl border border-gray-200 dark:border-gray-700 p-4 text-center">
+          <p class="text-3xl font-bold text-gray-400">1</p><p class="text-xs text-gray-500 mt-1">퇴근</p>
+        </div>
+        <div class="bg-white dark:bg-gray-800 rounded-xl border border-gray-200 dark:border-gray-700 p-4 text-center">
+          <p class="text-3xl font-bold text-red-600">1</p><p class="text-xs text-gray-500 mt-1">미출근</p>
+        </div>
+        <div class="bg-white dark:bg-gray-800 rounded-xl border border-gray-200 dark:border-gray-700 p-4 text-center">
+          <p class="text-3xl font-bold text-amber-600">1</p><p class="text-xs text-gray-500 mt-1">지각</p>
+        </div>
+      </div>
+      <!-- 팀원 목록 -->
+      <div class="bg-white dark:bg-gray-800 rounded-xl border border-gray-200 dark:border-gray-700 overflow-hidden mb-6">
+        <div class="px-5 py-3 border-b border-gray-200 dark:border-gray-700 flex items-center justify-between">
+          <h3 class="text-sm font-semibold">오늘 출결 현황 (3월 15일)</h3>
+        </div>
+        <div class="overflow-x-auto">
+          <table class="w-full">
+            <thead><tr class="bg-gray-50 dark:bg-gray-900/50 border-b border-gray-200 dark:border-gray-700"><th class="text-left px-5 py-2.5 text-xs text-gray-500 uppercase">팀원</th><th class="text-left px-5 py-2.5 text-xs text-gray-500 uppercase">상태</th><th class="text-left px-5 py-2.5 text-xs text-gray-500 uppercase">출근</th><th class="text-left px-5 py-2.5 text-xs text-gray-500 uppercase">퇴근</th><th class="text-left px-5 py-2.5 text-xs text-gray-500 uppercase">근무시간</th><th class="text-left px-5 py-2.5 text-xs text-gray-500 uppercase">이번 달</th></tr></thead>
+            <tbody class="divide-y divide-gray-100 dark:divide-gray-700">
+              <template x-for="m in members" :key="m.id">
+                <tr class="hover:bg-gray-50 dark:hover:bg-gray-700/30">
+                  <td class="px-5 py-3"><div class="flex items-center gap-2"><div class="w-8 h-8 rounded-full flex items-center justify-center text-xs font-medium" :class="m.avatarClass" x-text="m.name[0]"></div><div><p class="text-sm font-medium" x-text="m.name"></p><p class="text-[10px] text-gray-400" x-text="m.role"></p></div></div></td>
+                  <td class="px-5 py-3"><div class="flex items-center gap-1.5"><span class="w-2 h-2 rounded-full" :class="m.statusDot"></span><span class="text-xs" x-text="m.statusText"></span></div></td>
+                  <td class="px-5 py-3 text-sm" x-text="m.checkIn||'-'"></td>
+                  <td class="px-5 py-3 text-sm" x-text="m.checkOut||'-'"></td>
+                  <td class="px-5 py-3 text-sm font-medium" x-text="m.hours||'-'"></td>
+                  <td class="px-5 py-3"><div class="w-full bg-gray-200 dark:bg-gray-700 rounded-full h-1.5"><div class="h-1.5 rounded-full" :class="m.monthColor" :style="'width:'+m.monthPercent+'%'"></div></div><p class="text-[10px] text-gray-400 mt-0.5" x-text="m.monthHours"></p></td>
+                </tr>
+              </template>
+            </tbody>
+          </table>
+        </div>
+      </div>
+      <!-- 월별 요약 -->
+      <div class="bg-white dark:bg-gray-800 rounded-xl border border-gray-200 dark:border-gray-700 p-5">
+        <h3 class="text-sm font-semibold mb-4">3월 월별 통계</h3>
+        <div class="grid grid-cols-2 lg:grid-cols-3 gap-4">
+          <div class="p-3 bg-gray-50 dark:bg-gray-900 rounded-lg"><p class="text-xs text-gray-500">평균 출근시간</p><p class="text-lg font-bold mt-1">09:04</p></div>
+          <div class="p-3 bg-gray-50 dark:bg-gray-900 rounded-lg"><p class="text-xs text-gray-500">평균 근무시간</p><p class="text-lg font-bold mt-1">8h 12m</p></div>
+          <div class="p-3 bg-gray-50 dark:bg-gray-900 rounded-lg"><p class="text-xs text-gray-500">지각률</p><p class="text-lg font-bold text-amber-600 mt-1">8.3%</p></div>
+        </div>
+      </div>
+    </main>
+  </div>
+</div>
+<script>
+function appLayout(){return{mobileMenuOpen:false,darkMode:false,init(){if(window.matchMedia('(prefers-color-scheme:dark)').matches){this.darkMode=true;document.documentElement.classList.add('dark')}}}}
+function teamAttendancePage(){return{
+  members:[
+    {id:1,name:'김매니저',role:'PM',avatarClass:'bg-indigo-100 dark:bg-indigo-900 text-indigo-600',statusDot:'bg-green-500',statusText:'근무 중',checkIn:'09:02',checkOut:'',hours:'4h 10m',monthHours:'156h / 200h',monthPercent:78,monthColor:'bg-indigo-500'},
+    {id:2,name:'박디자이너',role:'디자이너',avatarClass:'bg-purple-100 dark:bg-purple-900 text-purple-600',statusDot:'bg-green-500',statusText:'근무 중',checkIn:'08:55',checkOut:'',hours:'4h 17m',monthHours:'162h / 200h',monthPercent:81,monthColor:'bg-green-500'},
+    {id:3,name:'이기획',role:'기획자',avatarClass:'bg-blue-100 dark:bg-blue-900 text-blue-600',statusDot:'bg-green-500',statusText:'근무 중',checkIn:'09:00',checkOut:'',hours:'4h 12m',monthHours:'148h / 200h',monthPercent:74,monthColor:'bg-indigo-500'},
+    {id:4,name:'최개발',role:'개발자',avatarClass:'bg-green-100 dark:bg-green-900 text-green-600',statusDot:'bg-amber-500',statusText:'지각 (근무 중)',checkIn:'09:25',checkOut:'',hours:'3h 47m',monthHours:'140h / 200h',monthPercent:70,monthColor:'bg-amber-500'},
+    {id:5,name:'정개발',role:'개발자',avatarClass:'bg-teal-100 dark:bg-teal-900 text-teal-600',statusDot:'bg-gray-400',statusText:'퇴근',checkIn:'07:30',checkOut:'16:30',hours:'8h 00m',monthHours:'170h / 200h',monthPercent:85,monthColor:'bg-green-500'},
+    {id:6,name:'한매니저',role:'CS',avatarClass:'bg-rose-100 dark:bg-rose-900 text-rose-600',statusDot:'bg-red-500',statusText:'미출근',checkIn:'',checkOut:'',hours:'',monthHours:'120h / 200h',monthPercent:60,monthColor:'bg-red-400'},
+  ]
+}}
+</script>
+</body>
+</html>

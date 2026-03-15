@@ -1,0 +1,153 @@
+<!DOCTYPE html>
+<html lang="ko" class="">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Contract Sync v2 - 내 근태</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <script defer src="https://cdn.jsdelivr.net/npm/alpinejs@3.x.x/dist/cdn.min.js"></script>
+  <script>tailwind.config = { darkMode: 'class' }</script>
+  <style>[x-cloak]{display:none!important}</style>
+</head>
+<body class="bg-gray-50 dark:bg-gray-900 text-gray-800 dark:text-gray-100 transition-colors duration-300">
+<div x-data="appLayout()" class="flex h-screen overflow-hidden">
+  <aside class="hidden lg:flex lg:flex-col w-64 bg-white dark:bg-gray-800 border-r border-gray-200 dark:border-gray-700 fixed inset-y-0 left-0 z-30">
+    <div class="flex items-center gap-3 px-6 py-5 border-b border-gray-200 dark:border-gray-700"><div class="w-8 h-8 bg-indigo-600 rounded-lg flex items-center justify-center"><svg class="w-5 h-5 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"/></svg></div><span class="text-lg font-bold dark:text-white">Contract Sync</span></div>
+    <nav class="flex-1 px-3 py-4 space-y-1 overflow-y-auto">
+      <a href="dashboard-calendar.html" class="flex items-center gap-3 px-3 py-2.5 rounded-lg text-gray-600 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700 text-sm"><svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 12l2-2m0 0l7-7 7 7M5 10v10a1 1 0 001 1h3m10-11l2 2m-2-2v10a1 1 0 01-1 1h-3m-6 0a1 1 0 001-1v-4a1 1 0 011-1h2a1 1 0 011 1v4a1 1 0 001 1m-6 0h6"/></svg><span>대시보드</span></a>
+      <a href="#" class="flex items-center gap-3 px-3 py-2.5 rounded-lg bg-indigo-50 dark:bg-indigo-900/30 text-indigo-600 dark:text-indigo-400 font-medium text-sm"><svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z"/></svg><span>근태</span></a>
+      <a href="my-tasks.html" class="flex items-center gap-3 px-3 py-2.5 rounded-lg text-gray-600 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700 text-sm"><svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2m-6 9l2 2 4-4"/></svg><span>내 업무</span></a>
+      <a href="board-list.html" class="flex items-center gap-3 px-3 py-2.5 rounded-lg text-gray-600 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700 text-sm"><svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 20H5a2 2 0 01-2-2V6a2 2 0 012-2h10a2 2 0 012 2v1m2 13a2 2 0 01-2-2V7m2 13a2 2 0 002-2V9a2 2 0 00-2-2h-2m-4-3H9M7 16h6M7 8h6v4H7V8z"/></svg><span>게시판</span></a>
+    </nav>
+    <div class="px-4 py-3 border-t border-gray-200 dark:border-gray-700"><div class="flex items-center gap-3"><div class="w-8 h-8 bg-indigo-100 dark:bg-indigo-900 rounded-full flex items-center justify-center"><span class="text-sm font-medium text-indigo-600 dark:text-indigo-400">김</span></div><div class="flex-1"><p class="text-sm font-medium truncate">김매니저</p></div><button @click="darkMode=!darkMode;document.documentElement.classList.toggle('dark')" class="p-1.5 rounded-lg hover:bg-gray-100 dark:hover:bg-gray-700"><svg x-show="!darkMode" class="w-4 h-4 text-gray-500" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M20.354 15.354A9 9 0 018.646 3.646 9.003 9.003 0 0012 21a9.003 9.003 0 008.354-5.646z"/></svg><svg x-show="darkMode" x-cloak class="w-4 h-4 text-yellow-400" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 3v1m0 16v1m9-9h-1M4 12H3m15.364 6.364l-.707-.707M6.343 6.343l-.707-.707m12.728 0l-.707.707M6.343 17.657l-.707.707M16 12a4 4 0 11-8 0 4 4 0 018 0z"/></svg></button></div></div>
+  </aside>
+  <div x-show="mobileMenuOpen" x-cloak @click="mobileMenuOpen=false" class="fixed inset-0 bg-black/50 z-40 lg:hidden"></div>
+  <div class="flex-1 flex flex-col lg:ml-64 min-h-screen">
+    <header class="sticky top-0 z-20 bg-white dark:bg-gray-800 border-b border-gray-200 dark:border-gray-700">
+      <div class="flex items-center justify-between px-4 lg:px-6 py-3">
+        <div class="flex items-center gap-3">
+          <button @click="mobileMenuOpen=true" class="lg:hidden p-2 rounded-lg hover:bg-gray-100 dark:hover:bg-gray-700"><svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 6h16M4 12h16M4 18h16"/></svg></button>
+          <h1 class="text-lg font-bold">내 근태</h1>
+        </div>
+        <div class="flex items-center gap-2">
+          <a href="team-attendance.html" class="px-3 py-1.5 text-xs border border-gray-300 dark:border-gray-600 rounded-lg hover:bg-gray-50 dark:hover:bg-gray-700">팀 근태</a>
+          <a href="attendance-policy.html" class="px-3 py-1.5 text-xs border border-gray-300 dark:border-gray-600 rounded-lg hover:bg-gray-50 dark:hover:bg-gray-700">근무 정책</a>
+        </div>
+      </div>
+    </header>
+    <main class="flex-1 p-4 lg:p-6 pb-20 lg:pb-6" x-data="myAttendancePage()">
+      <!-- 출퇴근 위젯 (D-14) -->
+      <div class="bg-gradient-to-r from-indigo-600 to-purple-600 rounded-2xl p-6 text-white mb-6">
+        <div class="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
+          <div>
+            <p class="text-sm opacity-80">2026년 3월 15일 (토)</p>
+            <p class="text-3xl font-bold mt-1" x-text="currentTime">13:12</p>
+            <div class="flex items-center gap-2 mt-2">
+              <span class="w-2 h-2 bg-green-400 rounded-full animate-pulse"></span>
+              <span class="text-sm" x-text="isWorking?'근무 중 · '+workHours+'시간 '+workMinutes+'분':'퇴근 상태'"></span>
+            </div>
+          </div>
+          <div class="flex gap-2">
+            <button x-show="!checkedIn" @click="checkIn()" class="px-6 py-3 bg-white/20 hover:bg-white/30 backdrop-blur rounded-xl font-medium text-sm flex items-center gap-2">
+              <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M11 16l-4-4m0 0l4-4m-4 4h14m-5 4v1a3 3 0 01-3 3H6a3 3 0 01-3-3V7a3 3 0 013-3h7a3 3 0 013 3v1"/></svg> 출근
+            </button>
+            <button x-show="checkedIn && !checkedOut" @click="checkOut()" class="px-6 py-3 bg-red-500/80 hover:bg-red-500 backdrop-blur rounded-xl font-medium text-sm flex items-center gap-2">
+              <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17 16l4-4m0 0l-4-4m4 4H7m6 4v1a3 3 0 01-3 3H6a3 3 0 01-3-3V7a3 3 0 013-3h4a3 3 0 013 3v1"/></svg> 퇴근
+            </button>
+            <div x-show="checkedOut" class="px-6 py-3 bg-white/10 rounded-xl text-sm">
+              <p class="font-medium">퇴근 완료</p>
+              <p class="text-xs opacity-80" x-text="checkOutTime"></p>
+            </div>
+          </div>
+        </div>
+        <!-- 오늘 기록 -->
+        <div class="grid grid-cols-3 gap-4 mt-4 pt-4 border-t border-white/20">
+          <div><p class="text-xs opacity-70">출근</p><p class="text-sm font-bold" x-text="checkInTime||'-'"></p></div>
+          <div><p class="text-xs opacity-70">퇴근</p><p class="text-sm font-bold" x-text="checkOutTime||'-'"></p></div>
+          <div><p class="text-xs opacity-70">근무시간</p><p class="text-sm font-bold" x-text="totalWork||'-'"></p></div>
+        </div>
+      </div>
+
+      <!-- 월 통계 카드 -->
+      <div class="grid grid-cols-2 lg:grid-cols-4 gap-4 mb-6">
+        <div class="bg-white dark:bg-gray-800 rounded-xl border border-gray-200 dark:border-gray-700 p-4">
+          <p class="text-2xl font-bold">156h</p>
+          <p class="text-xs text-gray-500 dark:text-gray-400 mt-1">이번 달 근무</p>
+          <div class="w-full bg-gray-200 dark:bg-gray-700 rounded-full h-1.5 mt-2"><div class="bg-indigo-500 h-1.5 rounded-full" style="width:78%"></div></div>
+          <p class="text-[10px] text-gray-400 mt-1">목표 200h 중 78%</p>
+        </div>
+        <div class="bg-white dark:bg-gray-800 rounded-xl border border-gray-200 dark:border-gray-700 p-4">
+          <p class="text-2xl font-bold text-green-600">11일</p>
+          <p class="text-xs text-gray-500 dark:text-gray-400 mt-1">정상 출근</p>
+        </div>
+        <div class="bg-white dark:bg-gray-800 rounded-xl border border-gray-200 dark:border-gray-700 p-4">
+          <p class="text-2xl font-bold text-amber-600">2일</p>
+          <p class="text-xs text-gray-500 dark:text-gray-400 mt-1">지각</p>
+        </div>
+        <div class="bg-white dark:bg-gray-800 rounded-xl border border-gray-200 dark:border-gray-700 p-4">
+          <p class="text-2xl font-bold">09:05</p>
+          <p class="text-xs text-gray-500 dark:text-gray-400 mt-1">평균 출근시간</p>
+        </div>
+      </div>
+
+      <!-- 근태 기록 테이블 (D-15) -->
+      <div class="bg-white dark:bg-gray-800 rounded-xl border border-gray-200 dark:border-gray-700 overflow-hidden">
+        <div class="px-5 py-3 border-b border-gray-200 dark:border-gray-700 flex items-center justify-between">
+          <h3 class="text-sm font-semibold">3월 근태 기록</h3>
+          <div class="flex items-center gap-2">
+            <button class="p-1 hover:bg-gray-100 dark:hover:bg-gray-700 rounded"><svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 19l-7-7 7-7"/></svg></button>
+            <span class="text-sm font-medium">2026년 3월</span>
+            <button class="p-1 hover:bg-gray-100 dark:hover:bg-gray-700 rounded"><svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7"/></svg></button>
+          </div>
+        </div>
+        <div class="overflow-x-auto">
+          <table class="w-full">
+            <thead><tr class="bg-gray-50 dark:bg-gray-900/50 border-b border-gray-200 dark:border-gray-700"><th class="text-left px-5 py-2.5 text-xs font-medium text-gray-500 uppercase">날짜</th><th class="text-left px-5 py-2.5 text-xs font-medium text-gray-500 uppercase">출근</th><th class="text-left px-5 py-2.5 text-xs font-medium text-gray-500 uppercase">퇴근</th><th class="text-left px-5 py-2.5 text-xs font-medium text-gray-500 uppercase">근무시간</th><th class="text-left px-5 py-2.5 text-xs font-medium text-gray-500 uppercase">상태</th></tr></thead>
+            <tbody class="divide-y divide-gray-100 dark:divide-gray-700">
+              <template x-for="r in records" :key="r.date">
+                <tr class="hover:bg-gray-50 dark:hover:bg-gray-700/30">
+                  <td class="px-5 py-3 text-sm"><span class="font-medium" x-text="r.date"></span><span class="text-xs text-gray-400 ml-1" x-text="r.day"></span></td>
+                  <td class="px-5 py-3 text-sm" x-text="r.checkIn||'-'"></td>
+                  <td class="px-5 py-3 text-sm" x-text="r.checkOut||'-'"></td>
+                  <td class="px-5 py-3 text-sm font-medium" x-text="r.hours||'-'"></td>
+                  <td class="px-5 py-3"><span class="text-[10px] px-2 py-0.5 rounded-full font-medium" :class="{
+                    'bg-green-100 dark:bg-green-900/30 text-green-700 dark:text-green-300':r.status==='normal',
+                    'bg-amber-100 dark:bg-amber-900/30 text-amber-700 dark:text-amber-300':r.status==='late',
+                    'bg-red-100 dark:bg-red-900/30 text-red-700 dark:text-red-300':r.status==='early_leave',
+                    'bg-gray-100 dark:bg-gray-700 text-gray-500 dark:text-gray-400':r.status==='absent'||r.status==='weekend'
+                  }" x-text="statusLabel(r.status)"></span></td>
+                </tr>
+              </template>
+            </tbody>
+          </table>
+        </div>
+      </div>
+    </main>
+  </div>
+</div>
+<script>
+function appLayout(){return{mobileMenuOpen:false,darkMode:false,init(){if(window.matchMedia('(prefers-color-scheme:dark)').matches){this.darkMode=true;document.documentElement.classList.add('dark')}}}}
+function myAttendancePage(){return{
+  currentTime:'13:12',checkedIn:true,checkedOut:false,isWorking:true,
+  checkInTime:'09:02',checkOutTime:'',totalWork:'4시간 10분',
+  workHours:4,workMinutes:10,
+  records:[
+    {date:'03-15',day:'토',checkIn:'09:02',checkOut:'',hours:'',status:'normal'},
+    {date:'03-14',day:'금',checkIn:'08:55',checkOut:'18:10',hours:'8h 15m',status:'normal'},
+    {date:'03-13',day:'목',checkIn:'09:12',checkOut:'18:30',hours:'8h 18m',status:'late'},
+    {date:'03-12',day:'수',checkIn:'08:50',checkOut:'18:05',hours:'8h 15m',status:'normal'},
+    {date:'03-11',day:'화',checkIn:'09:00',checkOut:'18:00',hours:'8h 00m',status:'normal'},
+    {date:'03-10',day:'월',checkIn:'08:58',checkOut:'18:20',hours:'8h 22m',status:'normal'},
+    {date:'03-09',day:'일',checkIn:'',checkOut:'',hours:'',status:'weekend'},
+    {date:'03-08',day:'토',checkIn:'',checkOut:'',hours:'',status:'weekend'},
+    {date:'03-07',day:'금',checkIn:'09:25',checkOut:'17:30',hours:'7h 05m',status:'late'},
+    {date:'03-06',day:'목',checkIn:'08:45',checkOut:'18:15',hours:'8h 30m',status:'normal'},
+    {date:'03-05',day:'수',checkIn:'09:00',checkOut:'16:30',hours:'6h 30m',status:'early_leave'},
+  ],
+  statusLabel(s){return{normal:'정상',late:'지각',early_leave:'조퇴',absent:'결근',weekend:'주말'}[s]||s},
+  checkIn(){this.checkedIn=true;this.checkInTime='13:12';this.isWorking=true},
+  checkOut(){this.checkedOut=true;this.checkOutTime='18:00';this.isWorking=false;this.totalWork='8시간 00분'}
+}}
+</script>
+</body>
+</html>

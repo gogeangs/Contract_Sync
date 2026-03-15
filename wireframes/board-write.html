@@ -1,0 +1,105 @@
+<!DOCTYPE html>
+<html lang="ko" class="">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Contract Sync v2 - 글 작성</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <script defer src="https://cdn.jsdelivr.net/npm/alpinejs@3.x.x/dist/cdn.min.js"></script>
+  <script>tailwind.config = { darkMode: 'class' }</script>
+  <style>[x-cloak]{display:none!important}</style>
+</head>
+<body class="bg-gray-50 dark:bg-gray-900 text-gray-800 dark:text-gray-100 transition-colors duration-300">
+<div x-data="appLayout()" class="flex h-screen overflow-hidden">
+  <aside class="hidden lg:flex lg:flex-col w-64 bg-white dark:bg-gray-800 border-r border-gray-200 dark:border-gray-700 fixed inset-y-0 left-0 z-30">
+    <div class="flex items-center gap-3 px-6 py-5 border-b border-gray-200 dark:border-gray-700"><div class="w-8 h-8 bg-indigo-600 rounded-lg flex items-center justify-center"><svg class="w-5 h-5 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"/></svg></div><span class="text-lg font-bold dark:text-white">Contract Sync</span></div>
+    <nav class="flex-1 px-3 py-4 space-y-1"><a href="board-list.html" class="flex items-center gap-3 px-3 py-2.5 rounded-lg bg-indigo-50 dark:bg-indigo-900/30 text-indigo-600 dark:text-indigo-400 font-medium text-sm"><svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 20H5a2 2 0 01-2-2V6a2 2 0 012-2h10a2 2 0 012 2v1m2 13a2 2 0 01-2-2V7m2 13a2 2 0 002-2V9a2 2 0 00-2-2h-2m-4-3H9M7 16h6M7 8h6v4H7V8z"/></svg><span>게시판</span></a></nav>
+    <div class="px-4 py-3 border-t border-gray-200 dark:border-gray-700"><div class="flex items-center gap-3"><div class="w-8 h-8 bg-indigo-100 dark:bg-indigo-900 rounded-full flex items-center justify-center"><span class="text-sm font-medium text-indigo-600">김</span></div><div class="flex-1"><p class="text-sm font-medium truncate">김매니저</p></div></div></div>
+  </aside>
+  <div class="flex-1 flex flex-col lg:ml-64 min-h-screen">
+    <header class="sticky top-0 z-20 bg-white dark:bg-gray-800 border-b border-gray-200 dark:border-gray-700">
+      <div class="flex items-center justify-between px-4 lg:px-6 py-3">
+        <div class="flex items-center gap-3">
+          <a href="board-list.html" class="p-2 hover:bg-gray-100 dark:hover:bg-gray-700 rounded-lg"><svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 19l-7-7 7-7"/></svg></a>
+          <h1 class="text-lg font-bold">글 작성</h1>
+        </div>
+        <div class="flex items-center gap-2">
+          <a href="board-list.html" class="px-4 py-2 text-sm text-gray-600 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700 rounded-lg">취소</a>
+          <button class="px-4 py-2 bg-indigo-600 hover:bg-indigo-700 text-white text-sm rounded-lg">등록</button>
+        </div>
+      </div>
+    </header>
+    <main class="flex-1 p-4 lg:p-6" x-data="boardWritePage()">
+      <div class="max-w-3xl mx-auto space-y-4">
+        <!-- 카테고리 -->
+        <div>
+          <label class="block text-sm font-medium mb-1.5">카테고리</label>
+          <select x-model="form.category" class="px-3 py-2.5 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-sm outline-none focus:ring-2 focus:ring-indigo-500 w-full sm:w-auto">
+            <option value="notice">📌 공지사항</option>
+            <option value="free">💬 자유게시판</option>
+            <option value="archive">📁 자료실</option>
+          </select>
+        </div>
+        <!-- 제목 -->
+        <div>
+          <label class="block text-sm font-medium mb-1.5">제목</label>
+          <input type="text" x-model="form.title" placeholder="제목을 입력하세요" class="w-full px-3 py-2.5 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-sm outline-none focus:ring-2 focus:ring-indigo-500">
+        </div>
+        <!-- 에디터 (Quill.js 시뮬레이션) -->
+        <div>
+          <label class="block text-sm font-medium mb-1.5">내용</label>
+          <div class="border border-gray-300 dark:border-gray-600 rounded-lg overflow-hidden bg-white dark:bg-gray-700">
+            <!-- 툴바 -->
+            <div class="flex items-center gap-0.5 px-2 py-1.5 border-b border-gray-200 dark:border-gray-600 bg-gray-50 dark:bg-gray-800 flex-wrap">
+              <button class="p-1.5 hover:bg-gray-200 dark:hover:bg-gray-600 rounded text-gray-600 dark:text-gray-300"><strong class="text-sm">B</strong></button>
+              <button class="p-1.5 hover:bg-gray-200 dark:hover:bg-gray-600 rounded text-gray-600 dark:text-gray-300"><em class="text-sm">I</em></button>
+              <button class="p-1.5 hover:bg-gray-200 dark:hover:bg-gray-600 rounded text-gray-600 dark:text-gray-300"><span class="text-sm underline">U</span></button>
+              <button class="p-1.5 hover:bg-gray-200 dark:hover:bg-gray-600 rounded text-gray-600 dark:text-gray-300"><s class="text-sm">S</s></button>
+              <div class="w-px h-5 bg-gray-300 dark:bg-gray-600 mx-1"></div>
+              <button class="p-1.5 hover:bg-gray-200 dark:hover:bg-gray-600 rounded text-gray-500"><svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 6h16M4 10h16M4 14h10M4 18h7"/></svg></button>
+              <button class="p-1.5 hover:bg-gray-200 dark:hover:bg-gray-600 rounded text-gray-500"><svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 6h16M4 10h16M7 14h10M8 18h7"/></svg></button>
+              <div class="w-px h-5 bg-gray-300 dark:bg-gray-600 mx-1"></div>
+              <button class="p-1.5 hover:bg-gray-200 dark:hover:bg-gray-600 rounded text-gray-500"><svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z"/></svg></button>
+              <button class="p-1.5 hover:bg-gray-200 dark:hover:bg-gray-600 rounded text-gray-500"><svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13.828 10.172a4 4 0 00-5.656 0l-4 4a4 4 0 105.656 5.656l1.102-1.101m-.758-4.899a4 4 0 005.656 0l4-4a4 4 0 00-5.656-5.656l-1.1 1.1"/></svg></button>
+              <div class="w-px h-5 bg-gray-300 dark:bg-gray-600 mx-1"></div>
+              <select class="text-xs bg-transparent border-0 text-gray-500 outline-none"><option>본문</option><option>제목 1</option><option>제목 2</option><option>제목 3</option></select>
+            </div>
+            <!-- 편집 영역 -->
+            <div contenteditable="true" class="min-h-[300px] p-4 text-sm outline-none" style="line-height:1.8">
+              <p>여기에 내용을 입력하세요...</p>
+            </div>
+          </div>
+        </div>
+        <!-- 파일 첨부 -->
+        <div>
+          <label class="block text-sm font-medium mb-1.5">파일 첨부</label>
+          <div class="border-2 border-dashed border-gray-300 dark:border-gray-600 rounded-lg p-6 text-center hover:border-indigo-400 transition-colors cursor-pointer">
+            <svg class="w-8 h-8 text-gray-400 mx-auto" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M7 16a4 4 0 01-.88-7.903A5 5 0 1115.9 6L16 6a5 5 0 011 9.9M15 13l-3-3m0 0l-3 3m3-3v12"/></svg>
+            <p class="text-sm text-gray-500 mt-2">파일을 드래그하거나 클릭하여 업로드</p>
+            <p class="text-xs text-gray-400 mt-1">최대 10MB · PDF, DOC, XLS, JPG, PNG, ZIP</p>
+          </div>
+          <!-- 첨부된 파일 샘플 -->
+          <div class="mt-2 space-y-1" x-show="form.files.length>0">
+            <template x-for="f in form.files" :key="f.name">
+              <div class="flex items-center justify-between px-3 py-2 bg-gray-50 dark:bg-gray-800 rounded-lg">
+                <div class="flex items-center gap-2"><svg class="w-4 h-4 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15.172 7l-6.586 6.586a2 2 0 102.828 2.828l6.414-6.586a4 4 0 00-5.656-5.656l-6.415 6.585a6 6 0 108.486 8.486L20.5 13"/></svg><span class="text-sm" x-text="f.name"></span><span class="text-xs text-gray-400" x-text="f.size"></span></div>
+                <button class="text-red-400 hover:text-red-600"><svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"/></svg></button>
+              </div>
+            </template>
+          </div>
+        </div>
+        <!-- 공지 고정 (공지사항일 때) -->
+        <div x-show="form.category==='notice'" class="flex items-center gap-2">
+          <input type="checkbox" x-model="form.pinned" id="pin" class="w-4 h-4 text-indigo-600 rounded border-gray-300">
+          <label for="pin" class="text-sm">상단 고정 (공지사항 목록 최상단에 표시)</label>
+        </div>
+      </div>
+    </main>
+  </div>
+</div>
+<script>
+function appLayout(){return{mobileMenuOpen:false,darkMode:false,init(){if(window.matchMedia('(prefers-color-scheme:dark)').matches){this.darkMode=true;document.documentElement.classList.add('dark')}}}}
+function boardWritePage(){return{form:{category:'free',title:'',pinned:false,files:[{name:'참고자료.pdf',size:'2.1MB'}]}}}
+</script>
+</body>
+</html>

@@ -1,0 +1,74 @@
+<!DOCTYPE html>
+<html lang="ko" class="">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Contract Sync - 팀 초대</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <script defer src="https://cdn.jsdelivr.net/npm/alpinejs@3.x.x/dist/cdn.min.js"></script>
+  <script>tailwind.config = { darkMode: 'class' }</script>
+  <style>[x-cloak]{display:none!important}</style>
+</head>
+<body class="bg-gradient-to-br from-indigo-50 via-white to-purple-50 dark:from-gray-900 dark:via-gray-900 dark:to-gray-800 min-h-screen flex items-center justify-center p-4">
+
+<div x-data="inviteAcceptPage()" class="w-full max-w-md">
+  <!-- 유효한 초대 -->
+  <div x-show="state==='valid'" class="bg-white dark:bg-gray-800 rounded-2xl shadow-xl border border-gray-200 dark:border-gray-700 overflow-hidden">
+    <!-- 헤더 -->
+    <div class="bg-gradient-to-r from-indigo-600 to-purple-600 px-8 py-8 text-center">
+      <div class="w-14 h-14 bg-white/20 rounded-2xl flex items-center justify-center mx-auto mb-3">
+        <svg class="w-8 h-8 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"/></svg>
+      </div>
+      <h1 class="text-xl font-bold text-white">Contract Sync</h1>
+      <p class="text-white/80 text-sm mt-1">팀에 초대되었습니다</p>
+    </div>
+    <!-- 초대 정보 -->
+    <div class="px-8 py-6">
+      <div class="bg-gray-50 dark:bg-gray-900 rounded-xl p-4 space-y-3">
+        <div class="flex items-center justify-between"><span class="text-sm text-gray-500">팀명</span><span class="text-sm font-bold">디자인팀</span></div>
+        <div class="flex items-center justify-between"><span class="text-sm text-gray-500">초대자</span><span class="text-sm font-medium">박대표</span></div>
+        <div class="flex items-center justify-between"><span class="text-sm text-gray-500">역할</span><span class="text-sm"><span class="px-2 py-0.5 bg-indigo-100 dark:bg-indigo-900/30 text-indigo-700 dark:text-indigo-300 rounded-full text-xs font-medium">멤버</span></span></div>
+        <div class="flex items-center justify-between"><span class="text-sm text-gray-500">만료일</span><span class="text-sm text-gray-600">2026-03-22</span></div>
+      </div>
+      <!-- Google 로그인 버튼 -->
+      <button @click="state='accepted'" class="w-full mt-6 px-4 py-3 bg-white dark:bg-gray-700 border border-gray-300 dark:border-gray-600 rounded-xl hover:bg-gray-50 dark:hover:bg-gray-600 transition-colors flex items-center justify-center gap-3 shadow-sm">
+        <svg class="w-5 h-5" viewBox="0 0 24 24"><path d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92a5.06 5.06 0 01-2.2 3.32v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.1z" fill="#4285F4"/><path d="M12 23c2.97 0 5.46-.98 7.28-2.66l-3.57-2.77c-.98.66-2.23 1.06-3.71 1.06-2.86 0-5.29-1.93-6.16-4.53H2.18v2.84C3.99 20.53 7.7 23 12 23z" fill="#34A853"/><path d="M5.84 14.09c-.22-.66-.35-1.36-.35-2.09s.13-1.43.35-2.09V7.07H2.18C1.43 8.55 1 10.22 1 12s.43 3.45 1.18 4.93l2.85-2.22.81-.62z" fill="#FBBC05"/><path d="M12 5.38c1.62 0 3.06.56 4.21 1.64l3.15-3.15C17.45 2.09 14.97 1 12 1 7.7 1 3.99 3.47 2.18 7.07l3.66 2.84c.87-2.6 3.3-4.53 6.16-4.53z" fill="#EA4335"/></svg>
+        <span class="text-sm font-medium">Google 계정으로 시작하기</span>
+      </button>
+      <p class="text-center text-xs text-gray-400 mt-4">이미 계정이 있으신가요? <a href="#" class="text-indigo-600 dark:text-indigo-400 hover:underline">로그인</a></p>
+    </div>
+  </div>
+
+  <!-- 만료된 초대 -->
+  <div x-show="state==='expired'" x-cloak class="bg-white dark:bg-gray-800 rounded-2xl shadow-xl border border-gray-200 dark:border-gray-700 p-8 text-center">
+    <div class="w-16 h-16 bg-red-100 dark:bg-red-900/30 rounded-full flex items-center justify-center mx-auto mb-4">
+      <svg class="w-8 h-8 text-red-500" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2zm10-10V7a4 4 0 00-8 0v4h8z"/></svg>
+    </div>
+    <h2 class="text-xl font-bold mb-2">초대 링크가 만료되었습니다</h2>
+    <p class="text-sm text-gray-500 dark:text-gray-400">이 초대 링크는 유효 기간이 지났습니다.<br>팀 관리자에게 새 초대를 요청해 주세요.</p>
+    <button @click="state='valid'" class="mt-6 px-4 py-2 text-sm text-indigo-600 dark:text-indigo-400 hover:bg-indigo-50 dark:hover:bg-indigo-900/20 rounded-lg">데모: 유효 상태 보기</button>
+  </div>
+
+  <!-- 수락 완료 -->
+  <div x-show="state==='accepted'" x-cloak class="bg-white dark:bg-gray-800 rounded-2xl shadow-xl border border-gray-200 dark:border-gray-700 p-8 text-center">
+    <div class="w-16 h-16 bg-green-100 dark:bg-green-900/30 rounded-full flex items-center justify-center mx-auto mb-4">
+      <svg class="w-8 h-8 text-green-500" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7"/></svg>
+    </div>
+    <h2 class="text-xl font-bold mb-2">팀에 합류했습니다!</h2>
+    <p class="text-sm text-gray-500 dark:text-gray-400">디자인팀에 성공적으로 합류하였습니다.<br>대시보드에서 팀 업무를 확인하세요.</p>
+    <a href="dashboard-calendar.html" class="inline-flex items-center gap-2 mt-6 px-6 py-3 bg-indigo-600 hover:bg-indigo-700 text-white rounded-xl font-medium text-sm">대시보드로 이동 <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 7l5 5m0 0l-5 5m5-5H6"/></svg></a>
+  </div>
+
+  <!-- 상태 전환 데모 -->
+  <div class="flex justify-center gap-2 mt-4">
+    <button @click="state='valid'" class="px-3 py-1 text-[10px] rounded-full" :class="state==='valid'?'bg-indigo-600 text-white':'bg-white dark:bg-gray-800 text-gray-500 border'">유효</button>
+    <button @click="state='expired'" class="px-3 py-1 text-[10px] rounded-full" :class="state==='expired'?'bg-red-600 text-white':'bg-white dark:bg-gray-800 text-gray-500 border'">만료</button>
+    <button @click="state='accepted'" class="px-3 py-1 text-[10px] rounded-full" :class="state==='accepted'?'bg-green-600 text-white':'bg-white dark:bg-gray-800 text-gray-500 border'">수락</button>
+  </div>
+</div>
+
+<script>
+function inviteAcceptPage(){return{state:'valid'}}
+</script>
+</body>
+</html>

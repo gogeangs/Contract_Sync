@@ -1,0 +1,143 @@
+<!DOCTYPE html>
+<html lang="ko" class="">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Contract Sync v2 - 근무 정책 설정</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <script defer src="https://cdn.jsdelivr.net/npm/alpinejs@3.x.x/dist/cdn.min.js"></script>
+  <script>tailwind.config = { darkMode: 'class' }</script>
+  <style>[x-cloak]{display:none!important}</style>
+</head>
+<body class="bg-gray-50 dark:bg-gray-900 text-gray-800 dark:text-gray-100 transition-colors duration-300">
+<div x-data="appLayout()" class="flex h-screen overflow-hidden">
+  <aside class="hidden lg:flex lg:flex-col w-64 bg-white dark:bg-gray-800 border-r border-gray-200 dark:border-gray-700 fixed inset-y-0 left-0 z-30">
+    <div class="flex items-center gap-3 px-6 py-5 border-b border-gray-200 dark:border-gray-700"><div class="w-8 h-8 bg-indigo-600 rounded-lg flex items-center justify-center"><svg class="w-5 h-5 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"/></svg></div><span class="text-lg font-bold dark:text-white">Contract Sync</span></div>
+    <nav class="flex-1 px-3 py-4 space-y-1 overflow-y-auto">
+      <a href="dashboard-calendar.html" class="flex items-center gap-3 px-3 py-2.5 rounded-lg text-gray-600 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700 text-sm"><svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 12l2-2m0 0l7-7 7 7M5 10v10a1 1 0 001 1h3m10-11l2 2m-2-2v10a1 1 0 01-1 1h-3m-6 0a1 1 0 001-1v-4a1 1 0 011-1h2a1 1 0 011 1v4a1 1 0 001 1m-6 0h6"/></svg><span>대시보드</span></a>
+      <a href="settings.html" class="flex items-center gap-3 px-3 py-2.5 rounded-lg bg-indigo-50 dark:bg-indigo-900/30 text-indigo-600 dark:text-indigo-400 font-medium text-sm"><svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10.325 4.317c.426-1.756 2.924-1.756 3.35 0a1.724 1.724 0 002.573 1.066c1.543-.94 3.31.826 2.37 2.37a1.724 1.724 0 001.066 2.573c1.756.426 1.756 2.924 0 3.35a1.724 1.724 0 00-1.066 2.573c.94 1.543-.826 3.31-2.37 2.37a1.724 1.724 0 00-2.573 1.066c-.426 1.756-2.924 1.756-3.35 0a1.724 1.724 0 00-2.573-1.066c-1.543.94-3.31-.826-2.37-2.37a1.724 1.724 0 00-1.066-2.573c-1.756-.426-1.756-2.924 0-3.35a1.724 1.724 0 001.066-2.573c-.94-1.543.826-3.31 2.37-2.37.996.608 2.296.07 2.572-1.065z"/><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z"/></svg><span>설정</span></a>
+    </nav>
+    <div class="px-4 py-3 border-t border-gray-200 dark:border-gray-700"><div class="flex items-center gap-3"><div class="w-8 h-8 bg-amber-100 dark:bg-amber-900 rounded-full flex items-center justify-center"><span class="text-sm font-medium text-amber-600">박</span></div><div class="flex-1"><p class="text-sm font-medium truncate">박대표</p><p class="text-[10px] text-gray-400">owner</p></div></div></div>
+  </aside>
+  <div x-show="mobileMenuOpen" x-cloak @click="mobileMenuOpen=false" class="fixed inset-0 bg-black/50 z-40 lg:hidden"></div>
+  <div class="flex-1 flex flex-col lg:ml-64 min-h-screen">
+    <header class="sticky top-0 z-20 bg-white dark:bg-gray-800 border-b border-gray-200 dark:border-gray-700">
+      <div class="flex items-center justify-between px-4 lg:px-6 py-3">
+        <div class="flex items-center gap-3">
+          <button @click="mobileMenuOpen=true" class="lg:hidden p-2 rounded-lg hover:bg-gray-100 dark:hover:bg-gray-700"><svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 6h16M4 12h16M4 18h16"/></svg></button>
+          <div>
+            <div class="text-sm text-gray-500 dark:text-gray-400 flex items-center gap-1">
+              <a href="settings.html" class="hover:text-indigo-600">설정</a>
+              <svg class="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7"/></svg>
+              <span class="text-gray-800 dark:text-gray-200">근무 정책</span>
+            </div>
+            <h1 class="text-lg font-bold">근무 정책 설정</h1>
+          </div>
+        </div>
+        <span class="text-xs px-2 py-0.5 bg-amber-100 dark:bg-amber-900/30 text-amber-700 dark:text-amber-300 rounded-full">owner 전용</span>
+      </div>
+    </header>
+    <main class="flex-1 p-4 lg:p-6 pb-20 lg:pb-6" x-data="policyPage()">
+      <div class="max-w-2xl mx-auto space-y-6">
+        <!-- 근무시간 설정 -->
+        <div class="bg-white dark:bg-gray-800 rounded-xl border border-gray-200 dark:border-gray-700 p-6">
+          <h3 class="text-base font-bold mb-4 flex items-center gap-2">
+            <svg class="w-5 h-5 text-indigo-500" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z"/></svg>
+            근무시간
+          </h3>
+          <div class="grid grid-cols-2 gap-4">
+            <div>
+              <label class="block text-sm font-medium mb-1.5">기본 출근 시간</label>
+              <input type="time" x-model="policy.checkIn" class="w-full px-3 py-2.5 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-sm outline-none focus:ring-2 focus:ring-indigo-500">
+              <p class="text-[10px] text-gray-400 mt-1">이 시간 이후 출근 시 '지각' 처리</p>
+            </div>
+            <div>
+              <label class="block text-sm font-medium mb-1.5">기본 퇴근 시간</label>
+              <input type="time" x-model="policy.checkOut" class="w-full px-3 py-2.5 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-sm outline-none focus:ring-2 focus:ring-indigo-500">
+              <p class="text-[10px] text-gray-400 mt-1">이 시간 이전 퇴근 시 '조퇴' 처리</p>
+            </div>
+            <div>
+              <label class="block text-sm font-medium mb-1.5">일 근무시간</label>
+              <div class="flex items-center gap-2">
+                <input type="number" x-model="policy.workHours" min="1" max="12" class="w-20 px-3 py-2.5 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-sm outline-none focus:ring-2 focus:ring-indigo-500">
+                <span class="text-sm text-gray-500">시간</span>
+              </div>
+            </div>
+            <div>
+              <label class="block text-sm font-medium mb-1.5">휴게시간</label>
+              <div class="flex items-center gap-2">
+                <input type="number" x-model="policy.breakHours" min="0" max="3" class="w-20 px-3 py-2.5 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-sm outline-none focus:ring-2 focus:ring-indigo-500">
+                <span class="text-sm text-gray-500">시간 (점심시간 자동 차감)</span>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <!-- 지각/조퇴 기준 -->
+        <div class="bg-white dark:bg-gray-800 rounded-xl border border-gray-200 dark:border-gray-700 p-6">
+          <h3 class="text-base font-bold mb-4 flex items-center gap-2">
+            <svg class="w-5 h-5 text-amber-500" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-2.5L13.732 4c-.77-.833-1.964-.833-2.732 0L4.082 16.5c-.77.833.192 2.5 1.732 2.5z"/></svg>
+            판정 기준
+          </h3>
+          <div class="space-y-3">
+            <div class="flex items-center justify-between p-3 bg-gray-50 dark:bg-gray-900 rounded-lg">
+              <div><p class="text-sm font-medium">지각</p><p class="text-xs text-gray-500 dark:text-gray-400">출근 시간 이후 출근</p></div>
+              <span class="text-sm font-mono text-amber-600 dark:text-amber-400" x-text="policy.checkIn + ' 이후'"></span>
+            </div>
+            <div class="flex items-center justify-between p-3 bg-gray-50 dark:bg-gray-900 rounded-lg">
+              <div><p class="text-sm font-medium">조퇴</p><p class="text-xs text-gray-500 dark:text-gray-400">퇴근 시간 이전 퇴근</p></div>
+              <span class="text-sm font-mono text-amber-600 dark:text-amber-400" x-text="policy.checkOut + ' 이전'"></span>
+            </div>
+            <div class="flex items-center justify-between p-3 bg-gray-50 dark:bg-gray-900 rounded-lg">
+              <div><p class="text-sm font-medium">결근</p><p class="text-xs text-gray-500 dark:text-gray-400">출근 기록 없음 (평일)</p></div>
+              <span class="text-sm text-red-500">자동 판정</span>
+            </div>
+          </div>
+        </div>
+
+        <!-- 근무 요일 -->
+        <div class="bg-white dark:bg-gray-800 rounded-xl border border-gray-200 dark:border-gray-700 p-6">
+          <h3 class="text-base font-bold mb-4 flex items-center gap-2">
+            <svg class="w-5 h-5 text-blue-500" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z"/></svg>
+            근무 요일
+          </h3>
+          <div class="flex gap-2">
+            <template x-for="(d,i) in ['일','월','화','수','목','금','토']" :key="i">
+              <button @click="toggleDay(i)" class="w-10 h-10 rounded-full text-sm font-medium transition-colors" :class="policy.workDays.includes(i)?'bg-indigo-600 text-white':'bg-gray-100 dark:bg-gray-700 text-gray-500 dark:text-gray-400'" x-text="d"></button>
+            </template>
+          </div>
+          <p class="text-xs text-gray-400 mt-3">선택된 요일만 출결 판정 대상입니다</p>
+        </div>
+
+        <!-- 현재 적용 요약 -->
+        <div class="bg-indigo-50 dark:bg-indigo-900/20 rounded-xl border border-indigo-200 dark:border-indigo-800 p-4">
+          <h4 class="text-sm font-semibold text-indigo-700 dark:text-indigo-300 mb-2">현재 적용 중인 정책</h4>
+          <div class="text-sm text-indigo-600 dark:text-indigo-400 space-y-1">
+            <p>출근 <strong x-text="policy.checkIn"></strong> · 퇴근 <strong x-text="policy.checkOut"></strong></p>
+            <p>일 <strong x-text="policy.workHours"></strong>시간 (휴게 <strong x-text="policy.breakHours"></strong>시간 차감)</p>
+            <p>근무 요일: <strong x-text="policy.workDays.map(d=>['일','월','화','수','목','금','토'][d]).join(', ')"></strong></p>
+          </div>
+        </div>
+
+        <!-- 저장 버튼 -->
+        <div class="flex justify-end gap-2">
+          <button class="px-4 py-2 text-sm text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700 rounded-lg">취소</button>
+          <button @click="saved=true;setTimeout(()=>saved=false,2000)" class="px-6 py-2 bg-indigo-600 hover:bg-indigo-700 text-white text-sm rounded-lg flex items-center gap-1.5">
+            <svg x-show="!saved" class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7"/></svg>
+            <span x-text="saved?'저장 완료!':'저장'"></span>
+          </button>
+        </div>
+      </div>
+    </main>
+  </div>
+</div>
+<script>
+function appLayout(){return{mobileMenuOpen:false,darkMode:false,init(){if(window.matchMedia('(prefers-color-scheme:dark)').matches){this.darkMode=true;document.documentElement.classList.add('dark')}}}}
+function policyPage(){return{
+  saved:false,
+  policy:{checkIn:'09:00',checkOut:'18:00',workHours:8,breakHours:1,workDays:[1,2,3,4,5]},
+  toggleDay(d){const i=this.policy.workDays.indexOf(d);if(i>-1)this.policy.workDays.splice(i,1);else this.policy.workDays.push(d);this.policy.workDays.sort()}
+}}
+</script>
+</body>
+</html>

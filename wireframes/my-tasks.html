@@ -1,0 +1,127 @@
+<!DOCTYPE html>
+<html lang="ko" class="">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Contract Sync v2 - 내 업무</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <script defer src="https://cdn.jsdelivr.net/npm/alpinejs@3.x.x/dist/cdn.min.js"></script>
+  <script>tailwind.config = { darkMode: 'class' }</script>
+  <style>[x-cloak] { display: none !important; } .drag-over{border-color:#6366f1!important;background:rgba(99,102,241,.05)!important}</style>
+</head>
+<body class="bg-gray-50 dark:bg-gray-900 text-gray-800 dark:text-gray-100 transition-colors duration-300">
+<div x-data="appLayout()" class="flex h-screen overflow-hidden">
+  <aside class="hidden lg:flex lg:flex-col w-64 bg-white dark:bg-gray-800 border-r border-gray-200 dark:border-gray-700 fixed inset-y-0 left-0 z-30">
+    <div class="flex items-center gap-3 px-6 py-5 border-b border-gray-200 dark:border-gray-700"><div class="w-8 h-8 bg-indigo-600 rounded-lg flex items-center justify-center"><svg class="w-5 h-5 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"/></svg></div><span class="text-lg font-bold dark:text-white">Contract Sync</span></div>
+    <nav class="flex-1 px-3 py-4 space-y-1 overflow-y-auto">
+      <a href="dashboard-calendar.html" class="flex items-center gap-3 px-3 py-2.5 rounded-lg text-gray-600 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700 text-sm"><svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 12l2-2m0 0l7-7 7 7M5 10v10a1 1 0 001 1h3m10-11l2 2m-2-2v10a1 1 0 01-1 1h-3m-6 0a1 1 0 001-1v-4a1 1 0 011-1h2a1 1 0 011 1v4a1 1 0 001 1m-6 0h6"/></svg><span>대시보드</span></a>
+      <a href="#" class="flex items-center gap-3 px-3 py-2.5 rounded-lg bg-indigo-50 dark:bg-indigo-900/30 text-indigo-600 dark:text-indigo-400 font-medium text-sm"><svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2m-6 9l2 2 4-4"/></svg><span>내 업무</span></a>
+      <a href="projects.html" class="flex items-center gap-3 px-3 py-2.5 rounded-lg text-gray-600 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700 text-sm"><svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 7v10a2 2 0 002 2h14a2 2 0 002-2V9a2 2 0 00-2-2h-6l-2-2H5a2 2 0 00-2 2z"/></svg><span>프로젝트</span></a>
+      <a href="board-list.html" class="flex items-center gap-3 px-3 py-2.5 rounded-lg text-gray-600 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700 text-sm"><svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 20H5a2 2 0 01-2-2V6a2 2 0 012-2h10a2 2 0 012 2v1m2 13a2 2 0 01-2-2V7m2 13a2 2 0 002-2V9a2 2 0 00-2-2h-2m-4-3H9M7 16h6M7 8h6v4H7V8z"/></svg><span>게시판</span></a>
+    </nav>
+    <div class="px-4 py-3 border-t border-gray-200 dark:border-gray-700"><div class="flex items-center gap-3"><div class="w-8 h-8 bg-indigo-100 dark:bg-indigo-900 rounded-full flex items-center justify-center"><span class="text-sm font-medium text-indigo-600 dark:text-indigo-400">김</span></div><div class="flex-1 min-w-0"><p class="text-sm font-medium truncate">김매니저</p></div><button @click="darkMode=!darkMode;document.documentElement.classList.toggle('dark')" class="p-1.5 rounded-lg hover:bg-gray-100 dark:hover:bg-gray-700"><svg x-show="!darkMode" class="w-4 h-4 text-gray-500" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M20.354 15.354A9 9 0 018.646 3.646 9.003 9.003 0 0012 21a9.003 9.003 0 008.354-5.646z"/></svg><svg x-show="darkMode" x-cloak class="w-4 h-4 text-yellow-400" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 3v1m0 16v1m9-9h-1M4 12H3m15.364 6.364l-.707-.707M6.343 6.343l-.707-.707m12.728 0l-.707.707M6.343 17.657l-.707.707M16 12a4 4 0 11-8 0 4 4 0 018 0z"/></svg></button></div></div>
+  </aside>
+  <div x-show="mobileMenuOpen" x-cloak @click="mobileMenuOpen=false" class="fixed inset-0 bg-black/50 z-40 lg:hidden"></div>
+  <div class="flex-1 flex flex-col lg:ml-64 min-h-screen">
+    <header class="sticky top-0 z-20 bg-white dark:bg-gray-800 border-b border-gray-200 dark:border-gray-700">
+      <div class="flex items-center justify-between px-4 lg:px-6 py-3">
+        <div class="flex items-center gap-3">
+          <button @click="mobileMenuOpen=true" class="lg:hidden p-2 rounded-lg hover:bg-gray-100 dark:hover:bg-gray-700"><svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 6h16M4 12h16M4 18h16"/></svg></button>
+          <h1 class="text-lg font-bold">내 업무</h1>
+          <span class="text-sm text-gray-500 dark:text-gray-400">멀티팀 통합</span>
+        </div>
+        <div class="flex items-center gap-2">
+          <select x-model="sortBy" class="px-3 py-1.5 text-xs border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700">
+            <option value="priority">우선순위순</option><option value="deadline">마감일순</option><option value="team">팀별</option>
+          </select>
+        </div>
+      </div>
+    </header>
+    <main class="flex-1 p-4 lg:p-6 pb-20 lg:pb-6" x-data="myTasksPage()">
+      <!-- 팀 필터 -->
+      <div class="flex items-center gap-2 mb-4 overflow-x-auto pb-1">
+        <button @click="teamFilter='all'" class="px-3 py-1.5 text-xs rounded-full whitespace-nowrap" :class="teamFilter==='all'?'bg-indigo-600 text-white':'bg-white dark:bg-gray-800 border border-gray-300 dark:border-gray-600 text-gray-600 dark:text-gray-300'">전체 팀</button>
+        <template x-for="t in teams" :key="t.id">
+          <button @click="teamFilter=t.id" class="px-3 py-1.5 text-xs rounded-full whitespace-nowrap flex items-center gap-1.5" :class="teamFilter===t.id?'text-white':'bg-white dark:bg-gray-800 border border-gray-300 dark:border-gray-600 text-gray-600 dark:text-gray-300'" :style="teamFilter===t.id?'background:'+t.color:''">
+            <span class="w-2 h-2 rounded-full" :style="'background:'+t.color"></span>
+            <span x-text="t.name"></span>
+          </button>
+        </template>
+      </div>
+      <!-- 요약 -->
+      <div class="grid grid-cols-3 gap-3 mb-6">
+        <div class="bg-white dark:bg-gray-800 rounded-xl border border-gray-200 dark:border-gray-700 p-3 text-center">
+          <p class="text-xl font-bold text-amber-600" x-text="filteredTasks.filter(t=>t.status==='in_progress').length"></p>
+          <p class="text-[10px] text-gray-500 dark:text-gray-400">진행 중</p>
+        </div>
+        <div class="bg-white dark:bg-gray-800 rounded-xl border border-gray-200 dark:border-gray-700 p-3 text-center">
+          <p class="text-xl font-bold text-red-600" x-text="filteredTasks.filter(t=>t.overdue).length"></p>
+          <p class="text-[10px] text-gray-500 dark:text-gray-400">기한 초과</p>
+        </div>
+        <div class="bg-white dark:bg-gray-800 rounded-xl border border-gray-200 dark:border-gray-700 p-3 text-center">
+          <p class="text-xl font-bold text-green-600" x-text="filteredTasks.filter(t=>t.status==='done').length"></p>
+          <p class="text-[10px] text-gray-500 dark:text-gray-400">완료</p>
+        </div>
+      </div>
+      <!-- 업무 리스트 (드래그 가능 시뮬레이션) -->
+      <div class="space-y-2">
+        <template x-for="(task,idx) in filteredTasks" :key="task.id">
+          <div class="bg-white dark:bg-gray-800 rounded-xl border border-gray-200 dark:border-gray-700 p-4 flex items-center gap-3 cursor-grab hover:shadow-md transition-shadow" draggable="true">
+            <!-- 드래그 핸들 -->
+            <div class="text-gray-300 dark:text-gray-600 flex-shrink-0 cursor-grab">
+              <svg class="w-4 h-4" fill="currentColor" viewBox="0 0 20 20"><path d="M7 2a2 2 0 10.001 4.001A2 2 0 007 2zm0 6a2 2 0 10.001 4.001A2 2 0 007 8zm0 6a2 2 0 10.001 4.001A2 2 0 007 14zm6-12a2 2 0 10.001 4.001A2 2 0 0013 2zm0 6a2 2 0 10.001 4.001A2 2 0 0013 8zm0 6a2 2 0 10.001 4.001A2 2 0 0013 14z"/></svg>
+            </div>
+            <!-- 순서 번호 -->
+            <div class="w-6 h-6 bg-gray-100 dark:bg-gray-700 rounded-full flex items-center justify-center flex-shrink-0">
+              <span class="text-[10px] font-bold text-gray-500 dark:text-gray-400" x-text="idx+1"></span>
+            </div>
+            <!-- 팀 뱃지 -->
+            <span class="text-[10px] px-2 py-0.5 rounded-full font-medium flex-shrink-0 text-white" :style="'background:'+task.teamColor" x-text="task.teamName"></span>
+            <!-- 내용 -->
+            <div class="flex-1 min-w-0">
+              <p class="text-sm font-medium truncate" x-text="task.title"></p>
+              <p class="text-xs text-gray-500 dark:text-gray-400 mt-0.5" x-text="task.project"></p>
+            </div>
+            <!-- 상태 -->
+            <span class="text-[10px] px-2 py-0.5 rounded-full flex-shrink-0" :class="{
+              'bg-amber-100 dark:bg-amber-900/30 text-amber-700 dark:text-amber-300':task.status==='in_progress',
+              'bg-gray-100 dark:bg-gray-700 text-gray-600 dark:text-gray-400':task.status==='todo',
+              'bg-green-100 dark:bg-green-900/30 text-green-700 dark:text-green-300':task.status==='done'
+            }" x-text="task.status==='in_progress'?'진행 중':task.status==='todo'?'대기':'완료'"></span>
+            <!-- 마감일 -->
+            <div class="text-right flex-shrink-0">
+              <p class="text-xs font-medium" :class="task.overdue?'text-red-500':'text-gray-600 dark:text-gray-300'" x-text="task.deadline"></p>
+              <p x-show="task.overdue" class="text-[10px] text-red-400">기한 초과</p>
+            </div>
+          </div>
+        </template>
+      </div>
+    </main>
+  </div>
+</div>
+<script>
+function appLayout(){return{mobileMenuOpen:false,darkMode:false,init(){if(window.matchMedia('(prefers-color-scheme:dark)').matches){this.darkMode=true;document.documentElement.classList.add('dark')}}}}
+function myTasksPage(){return{
+  teamFilter:'all',sortBy:'priority',
+  teams:[{id:'design',name:'디자인팀',color:'#8b5cf6'},{id:'dev',name:'개발팀',color:'#3b82f6'},{id:'mkt',name:'마케팅팀',color:'#10b981'}],
+  tasks:[
+    {id:1,title:'홈페이지 메인 시안 v4',project:'홈페이지 리뉴얼',teamId:'design',teamName:'디자인',teamColor:'#8b5cf6',status:'in_progress',deadline:'03-18',overdue:false,priority:1},
+    {id:2,title:'ERP 기획서 작성',project:'ERP 시스템 구축',teamId:'dev',teamName:'개발',teamColor:'#3b82f6',status:'in_progress',deadline:'03-15',overdue:true,priority:2},
+    {id:3,title:'서브 페이지 디자인',project:'홈페이지 리뉴얼',teamId:'design',teamName:'디자인',teamColor:'#8b5cf6',status:'todo',deadline:'03-20',overdue:false,priority:3},
+    {id:4,title:'SNS 배너 디자인 (3종)',project:'마케팅 캠페인',teamId:'mkt',teamName:'마케팅',teamColor:'#10b981',status:'in_progress',deadline:'03-17',overdue:false,priority:4},
+    {id:5,title:'모바일 반응형 퍼블리싱',project:'홈페이지 리뉴얼',teamId:'dev',teamName:'개발',teamColor:'#3b82f6',status:'todo',deadline:'03-22',overdue:false,priority:5},
+    {id:6,title:'고객 피드백 반영',project:'브랜딩 프로젝트',teamId:'design',teamName:'디자인',teamColor:'#8b5cf6',status:'in_progress',deadline:'03-12',overdue:true,priority:6},
+    {id:7,title:'이벤트 페이지 기획',project:'마케팅 캠페인',teamId:'mkt',teamName:'마케팅',teamColor:'#10b981',status:'todo',deadline:'03-25',overdue:false,priority:7},
+    {id:8,title:'API 문서 정리',project:'ERP 시스템 구축',teamId:'dev',teamName:'개발',teamColor:'#3b82f6',status:'done',deadline:'03-10',overdue:false,priority:8},
+  ],
+  get filteredTasks(){
+    let r=this.tasks;
+    if(this.teamFilter!=='all') r=r.filter(t=>t.teamId===this.teamFilter);
+    if(this.sortBy==='deadline') r=[...r].sort((a,b)=>a.deadline.localeCompare(b.deadline));
+    else if(this.sortBy==='team') r=[...r].sort((a,b)=>a.teamId.localeCompare(b.teamId));
+    return r;
+  }
+}}
+</script>
+</body>
+</html>

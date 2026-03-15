@@ -1,0 +1,130 @@
+<!DOCTYPE html>
+<html lang="ko" class="">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Contract Sync - 스마트 프로젝트 관리</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <script defer src="https://cdn.jsdelivr.net/npm/alpinejs@3.x.x/dist/cdn.min.js"></script>
+  <script>tailwind.config = { darkMode: 'class' }</script>
+  <style>[x-cloak]{display:none!important}@keyframes float{0%,100%{transform:translateY(0)}50%{transform:translateY(-10px)}}.float{animation:float 3s ease-in-out infinite}</style>
+</head>
+<body class="bg-white dark:bg-gray-900 text-gray-800 dark:text-gray-100" x-data="{darkMode:false}">
+
+<!-- 상단 네비게이션 -->
+<nav class="fixed top-0 left-0 right-0 z-50 bg-white/80 dark:bg-gray-900/80 backdrop-blur-lg border-b border-gray-200/50 dark:border-gray-700/50">
+  <div class="max-w-6xl mx-auto px-4 sm:px-6 py-3 flex items-center justify-between">
+    <div class="flex items-center gap-2">
+      <div class="w-8 h-8 bg-indigo-600 rounded-lg flex items-center justify-center"><svg class="w-5 h-5 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"/></svg></div>
+      <span class="text-lg font-bold">Contract Sync</span>
+    </div>
+    <div class="hidden sm:flex items-center gap-6 text-sm">
+      <a href="#features" class="text-gray-600 dark:text-gray-300 hover:text-indigo-600">기능</a>
+      <a href="#screenshots" class="text-gray-600 dark:text-gray-300 hover:text-indigo-600">스크린샷</a>
+      <a href="#pricing" class="text-gray-600 dark:text-gray-300 hover:text-indigo-600">요금</a>
+    </div>
+    <div class="flex items-center gap-3">
+      <button @click="darkMode=!darkMode;document.documentElement.classList.toggle('dark')" class="p-2 rounded-lg hover:bg-gray-100 dark:hover:bg-gray-700"><svg x-show="!darkMode" class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M20.354 15.354A9 9 0 018.646 3.646 9.003 9.003 0 0012 21a9.003 9.003 0 008.354-5.646z"/></svg><svg x-show="darkMode" x-cloak class="w-4 h-4 text-yellow-400" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 3v1m0 16v1m9-9h-1M4 12H3m15.364 6.364l-.707-.707M6.343 6.343l-.707-.707m12.728 0l-.707.707M6.343 17.657l-.707.707M16 12a4 4 0 11-8 0 4 4 0 018 0z"/></svg></button>
+      <a href="#" class="text-sm text-gray-600 dark:text-gray-300 hover:text-indigo-600">로그인</a>
+      <a href="#" class="px-4 py-2 bg-indigo-600 hover:bg-indigo-700 text-white text-sm rounded-lg font-medium">무료 시작</a>
+    </div>
+  </div>
+</nav>
+
+<!-- 히어로 섹션 -->
+<section class="pt-28 pb-20 px-4 sm:px-6">
+  <div class="max-w-6xl mx-auto text-center">
+    <div class="inline-flex items-center gap-2 px-3 py-1 bg-indigo-50 dark:bg-indigo-900/30 text-indigo-600 dark:text-indigo-400 rounded-full text-sm mb-6">
+      <span class="w-2 h-2 bg-green-500 rounded-full animate-pulse"></span>
+      AI 어시스턴트 탑재
+    </div>
+    <h1 class="text-4xl sm:text-5xl lg:text-6xl font-bold leading-tight mb-6">
+      외주 프로젝트를<br>
+      <span class="bg-gradient-to-r from-indigo-600 to-purple-600 bg-clip-text text-transparent">스마트하게</span> 관리하세요
+    </h1>
+    <p class="text-lg text-gray-600 dark:text-gray-400 max-w-2xl mx-auto mb-8">
+      발주처 등록부터 시안 피드백, 수금까지.<br>
+      AI가 업무를 분석하고, Figma 시안을 연동하고, 고객 피드백을 자동 수집합니다.
+    </p>
+    <div class="flex items-center justify-center gap-3">
+      <a href="#" class="px-6 py-3 bg-indigo-600 hover:bg-indigo-700 text-white rounded-xl font-medium flex items-center gap-2 shadow-lg shadow-indigo-500/30">
+        무료로 시작하기 <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 7l5 5m0 0l-5 5m5-5H6"/></svg>
+      </a>
+      <a href="#features" class="px-6 py-3 border border-gray-300 dark:border-gray-600 rounded-xl font-medium hover:bg-gray-50 dark:hover:bg-gray-800">기능 보기</a>
+    </div>
+    <!-- 히어로 이미지 (시뮬레이션) -->
+    <div class="mt-16 relative max-w-4xl mx-auto float">
+      <div class="bg-gray-900 dark:bg-gray-800 rounded-2xl shadow-2xl overflow-hidden border border-gray-700">
+        <div class="flex items-center gap-1.5 px-4 py-2 bg-gray-800 dark:bg-gray-700"><div class="w-3 h-3 bg-red-400 rounded-full"></div><div class="w-3 h-3 bg-yellow-400 rounded-full"></div><div class="w-3 h-3 bg-green-400 rounded-full"></div></div>
+        <div class="bg-gray-50 dark:bg-gray-900 p-6 grid grid-cols-4 gap-4" style="min-height:280px">
+          <div class="bg-white dark:bg-gray-800 rounded-lg p-3 space-y-2"><div class="h-3 bg-indigo-200 dark:bg-indigo-900/50 rounded w-20"></div><div class="space-y-1.5"><div class="h-2 bg-gray-200 dark:bg-gray-700 rounded"></div><div class="h-2 bg-gray-200 dark:bg-gray-700 rounded w-4/5"></div><div class="h-2 bg-gray-200 dark:bg-gray-700 rounded w-3/5"></div><div class="h-2 bg-gray-200 dark:bg-gray-700 rounded"></div><div class="h-2 bg-gray-200 dark:bg-gray-700 rounded w-2/3"></div></div></div>
+          <div class="col-span-3 space-y-3"><div class="flex gap-3"><div class="flex-1 bg-white dark:bg-gray-800 rounded-lg p-3"><div class="h-3 bg-green-200 dark:bg-green-900/50 rounded w-16 mb-2"></div><div class="text-2xl font-bold text-green-600">12</div></div><div class="flex-1 bg-white dark:bg-gray-800 rounded-lg p-3"><div class="h-3 bg-amber-200 dark:bg-amber-900/50 rounded w-16 mb-2"></div><div class="text-2xl font-bold text-amber-600">5</div></div><div class="flex-1 bg-white dark:bg-gray-800 rounded-lg p-3"><div class="h-3 bg-blue-200 dark:bg-blue-900/50 rounded w-16 mb-2"></div><div class="text-2xl font-bold text-blue-600">3</div></div></div><div class="bg-white dark:bg-gray-800 rounded-lg p-3 flex-1"><div class="h-3 bg-gray-200 dark:bg-gray-700 rounded w-24 mb-3"></div><div class="grid grid-cols-7 gap-1"><template x-for="i in 35"><div class="h-6 bg-gray-100 dark:bg-gray-700 rounded text-[8px] flex items-center justify-center text-gray-400" x-text="(i%31)+1"></div></template></div></div></div>
+        </div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- 기능 소개 -->
+<section id="features" class="py-20 px-4 sm:px-6 bg-gray-50 dark:bg-gray-800/50">
+  <div class="max-w-6xl mx-auto">
+    <h2 class="text-3xl font-bold text-center mb-4">핵심 기능</h2>
+    <p class="text-gray-600 dark:text-gray-400 text-center mb-12">외주 프로젝트 관리에 필요한 모든 것</p>
+    <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6">
+      <div class="bg-white dark:bg-gray-800 rounded-2xl p-6 border border-gray-200 dark:border-gray-700 hover:shadow-lg transition-shadow">
+        <div class="w-12 h-12 bg-indigo-100 dark:bg-indigo-900/30 rounded-xl flex items-center justify-center mb-4"><svg class="w-6 h-6 text-indigo-600 dark:text-indigo-400" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 10h.01M12 10h.01M16 10h.01M9 16H5a2 2 0 01-2-2V6a2 2 0 012-2h14a2 2 0 012 2v8a2 2 0 01-2 2h-5l-5 5v-5z"/></svg></div>
+        <h3 class="font-bold mb-2">AI 어시스턴트</h3>
+        <p class="text-sm text-gray-600 dark:text-gray-400">업무 현황, 마감일, 팀 워크로드를 자연어로 질의. 내장 챗봇이 실시간 답변합니다.</p>
+      </div>
+      <div class="bg-white dark:bg-gray-800 rounded-2xl p-6 border border-gray-200 dark:border-gray-700 hover:shadow-lg transition-shadow">
+        <div class="w-12 h-12 bg-purple-100 dark:bg-purple-900/30 rounded-xl flex items-center justify-center mb-4"><svg class="w-6 h-6 text-purple-600 dark:text-purple-400" viewBox="0 0 24 24" fill="currentColor"><path d="M5.5 3.21V20.8c0 .45.54.67.85.35l4.86-4.86a.5.5 0 0 1 .35-.15h6.87a.5.5 0 0 0 .35-.85L6.35 2.85a.5.5 0 0 0-.85.36z"/></svg></div>
+        <h3 class="font-bold mb-2">Figma 연동</h3>
+        <p class="text-sm text-gray-600 dark:text-gray-400">시안 자동 미리보기, 변경 알림. 고객에게 포털 링크로 시안 공유 + 피드백 수집.</p>
+      </div>
+      <div class="bg-white dark:bg-gray-800 rounded-2xl p-6 border border-gray-200 dark:border-gray-700 hover:shadow-lg transition-shadow">
+        <div class="w-12 h-12 bg-green-100 dark:bg-green-900/30 rounded-xl flex items-center justify-center mb-4"><svg class="w-6 h-6 text-green-600 dark:text-green-400" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z"/></svg></div>
+        <h3 class="font-bold mb-2">고객 피드백</h3>
+        <p class="text-sm text-gray-600 dark:text-gray-400">이메일로 피드백 요청 → 비로그인 포털에서 승인/수정요청. 자동 리마인더 발송.</p>
+      </div>
+      <div class="bg-white dark:bg-gray-800 rounded-2xl p-6 border border-gray-200 dark:border-gray-700 hover:shadow-lg transition-shadow">
+        <div class="w-12 h-12 bg-amber-100 dark:bg-amber-900/30 rounded-xl flex items-center justify-center mb-4"><svg class="w-6 h-6 text-amber-600 dark:text-amber-400" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8c-1.657 0-3 .895-3 2s1.343 2 3 2 3 .895 3 2-1.343 2-3 2m0-8c1.11 0 2.08.402 2.599 1M12 8V7m0 1v8m0 0v1m0-1c-1.11 0-2.08-.402-2.599-1M21 12a9 9 0 11-18 0 9 9 0 0118 0z"/></svg></div>
+        <h3 class="font-bold mb-2">수금 관리</h3>
+        <p class="text-sm text-gray-600 dark:text-gray-400">계약금/중도금/잔금 일정 관리. D-7 예정 알림, 연체 자동 알림.</p>
+      </div>
+      <div class="bg-white dark:bg-gray-800 rounded-2xl p-6 border border-gray-200 dark:border-gray-700 hover:shadow-lg transition-shadow">
+        <div class="w-12 h-12 bg-blue-100 dark:bg-blue-900/30 rounded-xl flex items-center justify-center mb-4"><svg class="w-6 h-6 text-blue-600 dark:text-blue-400" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 17v-2m3 2v-4m3 4v-6m2 10H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"/></svg></div>
+        <h3 class="font-bold mb-2">AI 보고서</h3>
+        <p class="text-sm text-gray-600 dark:text-gray-400">일간/주간/월간 보고서 자동 생성. Gemini AI가 프로젝트 현황을 분석합니다.</p>
+      </div>
+      <div class="bg-white dark:bg-gray-800 rounded-2xl p-6 border border-gray-200 dark:border-gray-700 hover:shadow-lg transition-shadow">
+        <div class="w-12 h-12 bg-rose-100 dark:bg-rose-900/30 rounded-xl flex items-center justify-center mb-4"><svg class="w-6 h-6 text-rose-600 dark:text-rose-400" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17 20h5v-2a3 3 0 00-5.356-1.857M17 20H7m10 0v-2c0-.656-.126-1.283-.356-1.857M7 20H2v-2a3 3 0 015.356-1.857M7 20v-2c0-.656.126-1.283.356-1.857m0 0a5.002 5.002 0 019.288 0M15 7a3 3 0 11-6 0 3 3 0 016 0z"/></svg></div>
+        <h3 class="font-bold mb-2">팀 협업</h3>
+        <p class="text-sm text-gray-600 dark:text-gray-400">실시간 알림, @멘션, 댓글 스레드, 게시판. 멤버 간 채팅으로 외부 메신저 불필요.</p>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- CTA -->
+<section class="py-20 px-4 sm:px-6">
+  <div class="max-w-3xl mx-auto text-center">
+    <h2 class="text-3xl font-bold mb-4">지금 바로 시작하세요</h2>
+    <p class="text-gray-600 dark:text-gray-400 mb-8">Google 계정으로 30초 만에 가입. 신용카드 불필요.</p>
+    <a href="#" class="inline-flex items-center gap-2 px-8 py-4 bg-indigo-600 hover:bg-indigo-700 text-white rounded-xl font-medium text-lg shadow-lg shadow-indigo-500/30">
+      무료로 시작하기 <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 7l5 5m0 0l-5 5m5-5H6"/></svg>
+    </a>
+  </div>
+</section>
+
+<!-- 푸터 -->
+<footer class="py-8 px-4 sm:px-6 border-t border-gray-200 dark:border-gray-700 bg-gray-50 dark:bg-gray-800/50">
+  <div class="max-w-6xl mx-auto flex flex-col sm:flex-row items-center justify-between gap-4">
+    <div class="flex items-center gap-2">
+      <div class="w-6 h-6 bg-indigo-600 rounded flex items-center justify-center"><svg class="w-4 h-4 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"/></svg></div>
+      <span class="text-sm font-bold">Contract Sync</span>
+    </div>
+    <p class="text-xs text-gray-500 dark:text-gray-400">&copy; 2026 IT솔루션. All rights reserved.</p>
+  </div>
+</footer>
+</body>
+</html>
