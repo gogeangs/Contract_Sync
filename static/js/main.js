@@ -687,7 +687,7 @@ function dashboardPage() {
         },
 
         async load() {
-            if (!document.cookie.includes('session_token')) { this.loading = false; return; }
+            try { await api.get('/auth/me'); } catch { this.loading = false; return; }
             this.loading = true;
             this.revenueLoading = true;
             this.workloadLoading = true;
@@ -2941,10 +2941,14 @@ function chatbotWidget() {
         presets: [],
         quickPresets: [],
         loading: true,
-        loggedIn: document.cookie.includes('session='),
+        loggedIn: false,
 
         async init() {
-            await this.loadPresets();
+            try {
+                const me = await api.get('/auth/me');
+                this.loggedIn = !!me?.email;
+            } catch { this.loggedIn = false; }
+            if (this.loggedIn) await this.loadPresets();
             this.loading = false;
         },
 
