@@ -129,7 +129,6 @@ if not settings.secret_key:
 app.add_middleware(
     SessionMiddleware,
     secret_key=settings.secret_key,
-    https_only=not settings.debug,
     same_site="lax",
 )
 logger.info("Session middleware configured")

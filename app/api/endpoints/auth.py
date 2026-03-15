@@ -268,6 +268,9 @@ async def google_login(request: Request):
 async def google_callback(request: Request, db: AsyncSession = Depends(get_db)):
     """Google OAuth 콜백"""
     try:
+        # 디버그: 세션 상태 확인
+        session_data = dict(request.session) if hasattr(request, 'session') else {}
+        logger.info(f"OAuth callback - scheme: {request.url.scheme}, session keys: {list(session_data.keys())}, cookies: {list(request.cookies.keys())}")
         token = await oauth.google.authorize_access_token(request)
         user_info = token.get('userinfo')
 
