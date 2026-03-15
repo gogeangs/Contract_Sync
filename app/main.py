@@ -126,7 +126,12 @@ if not settings.secret_key:
         settings.secret_key = _generated_key
     else:
         raise RuntimeError("SECRET_KEY가 설정되지 않았습니다. 환경변수 SECRET_KEY를 설정하세요.")
-app.add_middleware(SessionMiddleware, secret_key=settings.secret_key)
+app.add_middleware(
+    SessionMiddleware,
+    secret_key=settings.secret_key,
+    https_only=not settings.debug,
+    same_site="lax",
+)
 logger.info("Session middleware configured")
 
 # H-1: CORS 설정 - 프로덕션에서는 와일드카드 차단
