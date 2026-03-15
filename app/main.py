@@ -117,6 +117,15 @@ app = FastAPI(
 app.state.limiter = limiter
 app.add_exception_handler(RateLimitExceeded, _rate_limit_exceeded_handler)
 
+# 프록시 뒤에서 X-Forwarded-Proto를 반영하여 scheme 보정
+# (OAuth 세션 state 쿠키가 HTTPS 환경에서 올바르게 작동하도록)
+@app.middleware("http")
+async def fix_proxy_scheme(request: Request, call_next):
+    proto = request.headers.get("X-Forwarded-Proto")
+    if proto:
+        request.scope["scheme"] = proto
+    return await call_next(request)
+
 # C-2: 프로덕션에서 SECRET_KEY 미설정 시 앱 시작 차단
 if not settings.secret_key:
     import secrets as _secrets
