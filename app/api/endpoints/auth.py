@@ -1,6 +1,5 @@
 from fastapi import APIRouter, Request, HTTPException, Depends
 from fastapi.responses import RedirectResponse, JSONResponse
-from authlib.integrations.starlette_client import OAuth
 from pydantic import BaseModel, EmailStr
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy import select
@@ -8,6 +7,8 @@ import secrets
 import bcrypt
 import re
 import logging
+import httpx
+from urllib.parse import urlencode
 
 from app.config import settings
 from app.database import get_db, User, VerificationCode, UserSession, Team, TeamMember, utc_now
@@ -19,20 +20,10 @@ logger = logging.getLogger(__name__)
 
 router = APIRouter()
 
-# OAuth 설정
-oauth = OAuth()
-
-# Google OAuth 등록
-if settings.google_client_id and settings.google_client_secret:
-    oauth.register(
-        name='google',
-        client_id=settings.google_client_id,
-        client_secret=settings.google_client_secret,
-        server_metadata_url='https://accounts.google.com/.well-known/openid-configuration',
-        client_kwargs={
-            'scope': 'openid email profile'
-        }
-    )
+# Google OAuth 설정 (authlib 세션 의존 제거 — 직접 구현)
+GOOGLE_AUTH_URL = "https://accounts.google.com/o/oauth2/v2/auth"
+GOOGLE_TOKEN_URL = "https://oauth2.googleapis.com/token"
+GOOGLE_USERINFO_URL = "https://www.googleapis.com/oauth2/v3/userinfo"
 
 SESSION_MAX_AGE = 86400  # 24시간
 
@@ -252,42 +243,75 @@ async def email_login(request: Request, data: LoginRequest, db: AsyncSession = D
 
 @router.get("/login/google")
 async def google_login(request: Request):
-    """Google OAuth 로그인 시작"""
+    """Google OAuth 로그인 시작 (세션 비의존 방식)"""
     if not settings.google_client_id:
         raise HTTPException(status_code=400, detail="Google OAuth가 설정되지 않았습니다.")
 
+    # 리디렉션 URI 생성
     redirect_uri = str(request.url_for('google_callback'))
-    # 프록시 뒤에서 http -> https 변환 (X-Forwarded-Proto 우선)
     proto = request.headers.get("X-Forwarded-Proto", request.url.scheme)
     if proto == "https" and redirect_uri.startswith('http://'):
         redirect_uri = redirect_uri.replace('http://', 'https://', 1)
-    return await oauth.google.authorize_redirect(request, redirect_uri)
+
+    params = {
+        "client_id": settings.google_client_id,
+        "redirect_uri": redirect_uri,
+        "response_type": "code",
+        "scope": "openid email profile",
+        "access_type": "offline",
+        "prompt": "consent",
+    }
+    return RedirectResponse(url=f"{GOOGLE_AUTH_URL}?{urlencode(params)}")
 
 
 @router.get("/callback/google")
 async def google_callback(request: Request, db: AsyncSession = Depends(get_db)):
-    """Google OAuth 콜백"""
-    try:
-        # 디버그: 세션 상태 확인
-        session_data = dict(request.session) if hasattr(request, 'session') else {}
-        logger.info(f"OAuth callback - scheme: {request.url.scheme}, session keys: {list(session_data.keys())}, cookies: {list(request.cookies.keys())}")
-        token = await oauth.google.authorize_access_token(request)
-        user_info = token.get('userinfo')
+    """Google OAuth 콜백 (세션 비의존 방식)"""
+    code = request.query_params.get("code")
+    if not code:
+        raise HTTPException(status_code=400, detail="인증 코드가 없습니다.")
 
-        if not user_info:
-            raise HTTPException(status_code=400, detail="사용자 정보를 가져올 수 없습니다.")
+    # 리디렉션 URI 복원
+    redirect_uri = str(request.url_for('google_callback'))
+    proto = request.headers.get("X-Forwarded-Proto", request.url.scheme)
+    if proto == "https" and redirect_uri.startswith('http://'):
+        redirect_uri = redirect_uri.replace('http://', 'https://', 1)
+
+    try:
+        # authorization code → access token 교환
+        async with httpx.AsyncClient() as client:
+            token_resp = await client.post(GOOGLE_TOKEN_URL, data={
+                "client_id": settings.google_client_id,
+                "client_secret": settings.google_client_secret,
+                "code": code,
+                "grant_type": "authorization_code",
+                "redirect_uri": redirect_uri,
+            })
+            if token_resp.status_code != 200:
+                logger.error(f"Google token exchange failed: {token_resp.status_code} {token_resp.text}")
+                raise HTTPException(status_code=400, detail="Google 인증 토큰 교환에 실패했습니다.")
+            token_data = token_resp.json()
+
+            # access token으로 사용자 정보 조회
+            userinfo_resp = await client.get(GOOGLE_USERINFO_URL, headers={
+                "Authorization": f"Bearer {token_data['access_token']}"
+            })
+            if userinfo_resp.status_code != 200:
+                raise HTTPException(status_code=400, detail="사용자 정보를 가져올 수 없습니다.")
+            user_info = userinfo_resp.json()
 
         email = user_info.get('email')
+        if not email:
+            raise HTTPException(status_code=400, detail="이메일 정보를 가져올 수 없습니다.")
 
         # DB에서 사용자 확인 또는 생성
         result = await db.execute(select(User).where(User.email == email))
         user = result.scalar_one_or_none()
 
         if not user:
-            # 새 사용자 생성
             user = User(
                 email=email,
-                password_hash=None,  # Google 로그인은 비밀번호 없음
+                password_hash=None,
                 name=user_info.get('name'),
                 picture=user_info.get('picture'),
                 is_verified=True,
