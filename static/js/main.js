@@ -189,7 +189,7 @@ window.CS = {
 
 const api = {
     async _fetch(method, url, body) {
-        const opts = { method, headers: {} };
+        const opts = { method, headers: {}, credentials: 'include' };
         if (body && !(body instanceof FormData)) {
             opts.headers['Content-Type'] = 'application/json';
             opts.body = JSON.stringify(body);
@@ -397,6 +397,7 @@ function appShell() {
                 const data = await res.json();
                 if (data.logged_in && data.user) {
                     this.user = data.user;
+                    window._loggedIn = true;
                     this.teams = data.teams || [];
                     window._teams = this.teams;
                     window._selectedTeamId = this.selectedTeamId;
@@ -2944,10 +2945,12 @@ function chatbotWidget() {
         loggedIn: false,
 
         async init() {
-            try {
-                const me = await api.get('/auth/me');
-                this.loggedIn = !!me?.email;
-            } catch { this.loggedIn = false; }
+            // 메인 앱의 checkAuth 완료를 기다림 (최대 3초)
+            for (let i = 0; i < 30; i++) {
+                if (window._loggedIn) break;
+                await new Promise(r => setTimeout(r, 100));
+            }
+            this.loggedIn = !!window._loggedIn;
             if (this.loggedIn) await this.loadPresets();
             this.loading = false;
         },
