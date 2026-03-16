@@ -141,7 +141,9 @@ function chatbotGreetingDemo() {
     chatOpen: false,
 
     init() {
-      // 첫 로그인 시뮬레이션: 3초 후 자동 인사
+      // 구현 시: localStorage.getItem('cs_chatbot_greeted') 확인 → 이미 본 사용자는 스킵
+      // 인사 후: localStorage.setItem('cs_chatbot_greeted', 'true') 저장 → 1회만 표시
+      // 와이어프레임에서는 항상 표시 (시연 용도)
       setTimeout(() => {
         if (!this.chatOpen) this.showGreeting = true;
       }, 2000);
