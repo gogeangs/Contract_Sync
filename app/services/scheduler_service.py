@@ -173,3 +173,15 @@ async def feedback_reminder_loop():
             await process_feedback_reminders()
         except Exception as e:
             logger.error(f"피드백 리마인더 오류: {e}")
+
+
+async def proactive_notification_loop():
+    """능동적 알림 — 30분 간격 (6차 개발 Phase 3-1)"""
+    from app.services.proactive_notification_service import run_proactive_notifications
+
+    while True:
+        await asyncio.sleep(1800)  # 30분
+        try:
+            await run_proactive_notifications()
+        except Exception as e:
+            logger.error(f"능동적 알림 처리 오류: {e}")

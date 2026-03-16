@@ -24,9 +24,15 @@ from app.services.chatbot_service import (
 router = APIRouter(prefix="/chatbot")
 
 
+class ChatContext(BaseModel):
+    page: str | None = Field(None, description="현재 페이지 (예: projectDetail, tasks, dashboard)")
+    params: dict | None = Field(None, description="페이지 파라미터 (예: {id: 5})")
+
+
 class ChatMessageRequest(BaseModel):
     message: str = Field(..., min_length=1, max_length=2000)
     chat_session_id: int | None = Field(None)
+    context: ChatContext | None = Field(None, description="현재 화면 맥락")
 
 
 @router.post("/message")
@@ -39,9 +45,18 @@ async def send_message(
     """챗봇 메시지 전송 — SSE 스트리밍 응답"""
     user = await require_current_user(request, db)
 
+    # 화면 맥락 딕셔너리로 전달
+    page_context = None
+    if data.context:
+        page_context = {
+            "page": data.context.page,
+            "params": data.context.params or {},
+        }
+
     async def event_stream():
         async for event in stream_chatbot_response(
-            db, user, data.message, data.chat_session_id
+            db, user, data.message, data.chat_session_id,
+            page_context=page_context,
         ):
             yield event
 

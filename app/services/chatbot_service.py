@@ -89,6 +89,76 @@ SYSTEM_PROMPT_TEMPLATE = """당신은 Contract Sync의 내부 업무 어시스�
 ## 권한
 {permission_context}
 
+## Contract Sync 사용법 가이드
+사용자가 서비스 사용법을 물으면 아래 내용을 바탕으로 친절하게 안내합니다.
+
+### 시작하기
+1. Google 로그인으로 계정을 생성합니다.
+2. 팀을 생성하거나 이메일 초대를 통해 기존 팀에 합류합니다.
+3. 발주처(고객사)를 등록하고, 프로젝트를 생성합니다.
+
+### 발주처 관리
+- 좌측 메뉴 "발주처"에서 고객사를 등록·편집합니다.
+- 발주처에 여러 프로젝트를 연결할 수 있습니다.
+
+### 프로젝트 관리
+- 프로젝트 유형: 외주 / 내부 / 유지보수
+- 프로젝트 상세에서 업무, 문서, 완료 보고, 피드백, Figma 시안을 관리합니다.
+- 진행 상태: 기획 중 → 진행 중 → 보류 → 완료
+
+### 업무 관리
+- 프로젝트 내에서 업무를 생성하고, 담당자·마감일·우선순위를 지정합니다.
+- 업무 상태: 대기 → 진행 중 → 검토 중 → 완료 → 확인
+- 체크박스 선택 후 일괄 상태 변경, 삭제가 가능합니다.
+- "내 업무" 메뉴에서 전체 팀의 업무를 통합 조회하고 우선순위를 조정합니다.
+
+### 팀 설정
+- 팀 생성 후 이메일로 멤버를 초대합니다 (설정 > 팀원 관리).
+- 역할: 소유자(owner) — 관리자 기능 + 수금/매출 열람, 멤버(member) — 업무 수행.
+- 프로필 이미지는 설정 > 프로필에서 변경합니다.
+
+### 게시판
+- 좌측 "게시판" 메뉴에서 공지사항, 자유 게시판, 자료실을 이용합니다.
+- 리치 텍스트 에디터로 게시글 작성, 파일 첨부, 댓글 작성이 가능합니다.
+- 관리자가 중요 게시글을 상단 고정할 수 있습니다.
+
+### 채팅
+- 좌측 "채팅" 메뉴에서 팀원과 1:1 또는 그룹 채팅이 가능합니다.
+- 실시간 메시지(SSE)로 새 메시지가 즉시 표시됩니다.
+
+### 출퇴근 기록
+- 좌측 "출퇴근" 메뉴에서 출근/퇴근 버튼을 누릅니다.
+- 월별 근태 기록과 통계(총 근무시간, 지각, 조퇴)를 확인합니다.
+- 관리자는 "팀 근태 현황"에서 팀원별 출결을 조회합니다.
+- 근무 정책(출퇴근 시간 등)은 설정 > 근무 정책에서 관리자가 설정합니다.
+
+### 문서 관리
+- 프로젝트 상세에서 계약서, 견적서 등 문서를 첨부합니다.
+- AI 견적서 자동 생성 기능으로 견적서를 빠르게 만들 수 있습니다.
+
+### 완료 보고 & 피드백
+- 업무 완료 시 "완료 보고"를 작성하면 발주처에 피드백 요청을 보낼 수 있습니다.
+- 발주처는 이메일 링크를 통해 시안을 확인하고 승인/수정/의견을 남깁니다.
+
+### AI 보고서
+- 일간/주간/월간 보고서를 AI가 자동 생성합니다.
+- 보고서 에디터에서 직접 편집하고, 이메일로 전송할 수 있습니다.
+
+### 수금 관리 (관리자 전용)
+- 프로젝트별 수금 일정을 등록하고 입금 상태를 추적합니다.
+- 대시보드에서 매출 추이와 미수금 현황을 확인합니다.
+
+### 알림
+- 업무 마감 임박, 피드백 도착, 댓글, 보고서 발송 등 자동 알림이 발생합니다.
+- 우측 상단 종 아이콘에서 읽지 않은 알림을 확인합니다.
+
+### Google 캘린더 연동
+- 설정에서 Google Calendar를 연동하면 업무 마감일이 캘린더에 자동 동기화됩니다.
+- 동기화 방향(CS→구글 / 구글→CS / 양방향)을 선택할 수 있습니다.
+
+### 대시보드
+- 로그인 후 첫 화면에서 업무 현황, 프로젝트 진행률, 미니 캘린더를 한눈에 볼 수 있습니다.
+
 ## 금지 행동
 - 시스템에 없는 데이터를 만들어내지 않습니다.
 - 개인정보(비밀번호, 토큰 등)를 노출하지 않습니다.
@@ -354,13 +424,66 @@ async def get_all_project_status(db: AsyncSession, team_ids: list[int]) -> dict:
 #  데이터 컨텍스트 빌드 (Gemini에 전달)
 # ══════════════════════════════════════════
 
-async def build_data_context(db: AsyncSession, user: User, message: str) -> str:
+async def build_data_context(
+    db: AsyncSession, user: User, message: str,
+    page_context: dict | None = None,
+) -> str:
     """사용자 질문에 관련된 데이터를 조회하여 컨텍스트 문자열로 반환"""
     team_ids = await get_user_team_ids(db, user.id)
     admin = await is_admin_user(db, user.id)
     msg_lower = message.lower()
 
     sections = []
+
+    # ── 화면 맥락 (6차 Phase 2-2) ──
+    if page_context:
+        page = page_context.get("page", "")
+        params = page_context.get("params", {})
+
+        if page == "projectDetail" and params.get("id"):
+            summary = await get_project_summary(db, int(params["id"]))
+            if summary:
+                sections.append("[현재 보고 있는 프로젝트]\n" + json.dumps(summary, ensure_ascii=False, indent=2))
+            activities = await get_project_activities(db, int(params["id"]))
+            if activities:
+                sections.append("[프로젝트 최근 활동]\n" + json.dumps(activities[:5], ensure_ascii=False, indent=2))
+
+        elif page == "clientDetail" and params.get("id"):
+            client = await db.get(Client, int(params["id"]))
+            if client:
+                sections.append(f"[현재 보고 있는 발주처: {client.name}]\n- 이메일: {client.contact_email or '없음'}\n- 전화: {client.contact_phone or '없음'}")
+
+        elif page == "boards" and params.get("board_id"):
+            from app.database import Board, BoardPost
+            board = await db.get(Board, int(params["board_id"]))
+            if board:
+                recent_posts = await db.execute(
+                    select(BoardPost).where(BoardPost.board_id == board.id)
+                    .order_by(BoardPost.created_at.desc()).limit(5)
+                )
+                posts = [{"title": p.title, "author_id": p.author_id} for p in recent_posts.scalars().all()]
+                sections.append(f"[현재 게시판: {board.name}]\n최근 게시글: " + json.dumps(posts, ensure_ascii=False))
+
+        elif page == "attendance":
+            from app.database import Attendance
+            today_kst = datetime.now(KST).strftime("%Y-%m-%d")
+            att_result = await db.execute(
+                select(Attendance).where(
+                    Attendance.user_id == user.id,
+                    Attendance.date == today_kst,
+                )
+            )
+            att = att_result.scalar_one_or_none()
+            if att:
+                sections.append(f"[오늘 출퇴근]\n- 출근: {att.check_in or '미기록'}\n- 퇴근: {att.check_out or '미기록'}\n- 근무시간: {att.work_hours or '계산전'}")
+            else:
+                sections.append("[오늘 출퇴근] 기록 없음")
+
+        elif page in ("dashboard", ""):
+            pass  # 기본 맥락 사용
+
+        if page:
+            sections.append(f"[사용자 현재 화면: {page}]")
 
     # 키워드 기반 데이터 조회
     if any(k in msg_lower for k in ["업무", "할일", "할 일", "task", "todo", "미완료"]):
@@ -433,6 +556,12 @@ async def build_data_context(db: AsyncSession, user: User, message: str) -> str:
             if activities:
                 sections.append("[최근 활동 (최대 20건)]\n" + json.dumps(activities[:10], ensure_ascii=False, indent=2))
 
+    # 서비스 사용법 질문 → 시스템 프롬프트의 가이드로 충분, 추가 데이터 불필요
+    if any(k in msg_lower for k in ["사용법", "사용 방법", "어떻게 해", "어떻게 하", "how to", "도움말", "help",
+                                     "시작", "가이드", "튜토리얼", "기능 소개", "뭘 할 수 있"]):
+        if not sections:
+            sections.append("[안내] 사용자가 서비스 사용법을 물었습니다. 시스템 프롬프트의 'Contract Sync 사용법 가이드' 섹션을 참고하여 답변하세요.")
+
     if not sections:
         # 기본: 업무 + 프로젝트 요약 제공
         tasks = await get_user_tasks(db, user.id)
@@ -452,6 +581,7 @@ async def stream_chatbot_response(
     user: User,
     message: str,
     session_id: int | None = None,
+    page_context: dict | None = None,
 ) -> AsyncGenerator[str, None]:
     """챗봇 응답을 SSE 이벤트 문자열로 스트리밍
 
@@ -487,7 +617,7 @@ async def stream_chatbot_response(
 
     # 시스템 프롬프트 + 데이터 컨텍스트 빌드
     system_prompt = await build_system_prompt(db, user)
-    data_context = await build_data_context(db, user, message)
+    data_context = await build_data_context(db, user, message, page_context)
 
     # 이전 대화 이력 (최근 10개)
     history_result = await db.execute(

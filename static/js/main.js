@@ -271,6 +271,17 @@ function appShell() {
         // 팀
         selectedTeamId: null,
         teamDropdown: false,
+        // 사이드바 그룹핑 (5차)
+        sideGroup: { project: true, comm: true, manage: false, etc: false },
+        // F-5: 코치마크/온보딩
+        coachStep: 0,
+        showCoachmark: false,
+        coachSteps: [
+            { target: 'dashboard', title: '대시보드', desc: '전체 프로젝트 현황과 업무 통계를 한눈에 확인하세요.' },
+            { target: 'projects', title: '프로젝트 관리', desc: '프로젝트를 생성하고 업무를 배정할 수 있습니다.' },
+            { target: 'chatbot', title: 'AI 어시스턴트', desc: '우하단 버튼으로 AI에게 업무를 질문하세요.' },
+            { target: 'settings', title: '설정', desc: '프로필, 알림, 캘린더 연동 등을 설정합니다.' },
+        ],
 
         // 프로필 드롭다운
         profileDropdown: false,
@@ -442,10 +453,22 @@ function appShell() {
                         this._notifInterval = setInterval(() => { if (!document.hidden) this.loadUnreadCount(); }, 30000);
                     }
                     this._connectSSE();
+                    // F-5: 신규 사용자 온보딩 코치마크 (1회)
+                    if (!localStorage.getItem('cs_onboarded')) {
+                        setTimeout(() => { this.showCoachmark = true; this.coachStep = 0; }, 2000);
+                    }
                 }
             } catch { /* ignore */ }
             finally { this.loading = false; }
         },
+
+        // F-5: 코치마크 제어
+        nextCoach() {
+            if (this.coachStep < this.coachSteps.length - 1) this.coachStep++;
+            else this.finishCoach();
+        },
+        prevCoach() { if (this.coachStep > 0) this.coachStep--; },
+        finishCoach() { this.showCoachmark = false; localStorage.setItem('cs_onboarded', 'true'); },
 
         openLogin() { this.resetForm(); this.modalMode = 'login'; this.showModal = true; },
         openSignup() { this.resetForm(); this.modalMode = 'signup'; this.showModal = true; },
@@ -719,9 +742,43 @@ function dashboardPage() {
         insightsLoading: false,
         revenueLoading: true,
         workloadLoading: true,
+        // F-4: 오늘의 브리핑
+        briefingDismissed: sessionStorage.getItem('cs_briefing_dismissed') === 'true',
+        // F-6: 능동적 알림 카드
+        proactiveAlerts: [],
+        alertsDismissed: new Set(),
+
+        get greeting() {
+            const h = new Date().getHours();
+            return h < 12 ? '좋은 아침이에요' : h < 18 ? '좋은 오후에요' : '좋은 저녁이에요';
+        },
+
+        get briefingItems() {
+            const items = [];
+            const due = this.stats?.pendingTasks || 0;
+            if (due > 0) items.push({ icon: '⏰', text: `오늘 마감 업무 ${due}건이 있습니다`, color: 'text-red-600 dark:text-red-400' });
+            const ip = this.stats?.inProgressTasks || 0;
+            if (ip > 0) items.push({ icon: '🔄', text: `진행 중 업무 ${ip}건`, color: 'text-blue-600 dark:text-blue-400' });
+            const proj = this.stats?.projects || 0;
+            if (proj > 0) items.push({ icon: '📁', text: `활성 프로젝트 ${proj}개`, color: 'text-indigo-600 dark:text-indigo-400' });
+            return items;
+        },
+
+        dismissBriefing() { this.briefingDismissed = true; sessionStorage.setItem('cs_briefing_dismissed', 'true'); },
+        // F-6: 능동적 알림 생성 (데이터 기반)
+        buildProactiveAlerts() {
+            const alerts = [];
+            const due = this.stats?.pendingTasks || 0;
+            if (due >= 3) alerts.push({ id: 'overdue', icon: '🔴', title: `마감 임박 업무 ${due}건`, desc: '우선순위를 확인하고 일정을 조정하세요.', action: '내 업무 보기', route: '/my-tasks', type: 'urgent' });
+            const ip = this.stats?.inProgressTasks || 0;
+            if (ip >= 5) alerts.push({ id: 'busy', icon: '⚡', title: `진행 중 업무가 ${ip}건입니다`, desc: '업무 부하가 높습니다. 우선순위를 조정해보세요.', action: '업무 목록', route: '/tasks', type: 'warning' });
+            this.proactiveAlerts = alerts.filter(a => !this.alertsDismissed.has(a.id));
+        },
+        dismissAlert(id) { this.alertsDismissed.add(id); this.proactiveAlerts = this.proactiveAlerts.filter(a => a.id !== id); },
 
         async init() {
             await this.load();
+            this.buildProactiveAlerts();
             this.$el.addEventListener('route-changed', () => { if (this.$data.currentPage === 'dashboard') this.load(); });
         },
 
@@ -3016,6 +3073,9 @@ function chatbotWidget() {
         open: false,
         fullscreen: false,
         showSessions: false,
+        showGreeting: false,
+        // F-8: 자연어 명령 확인
+        pendingAction: null,
         messages: [],
         sessions: [],
         currentSessionId: null,
@@ -3036,10 +3096,20 @@ function chatbotWidget() {
             this.loggedIn = !!window._loggedIn;
             if (this.loggedIn) await this.loadPresets();
             this.loading = false;
+            // 자동 인사 말풍선 (첫 방문 시 1회, 3초 후)
+            if (this.loggedIn && !localStorage.getItem('cs_chatbot_greeted')) {
+                setTimeout(() => { if (!this.open) this.showGreeting = true; }, 3000);
+            }
+        },
+
+        dismissGreeting() {
+            this.showGreeting = false;
+            localStorage.setItem('cs_chatbot_greeted', 'true');
         },
 
         toggle() {
             this.open = !this.open;
+            if (this.showGreeting) this.dismissGreeting();
             if (this.open && this.sessions.length === 0) this.loadSessions();
         },
 
@@ -3140,6 +3210,10 @@ function chatbotWidget() {
                                     this.$nextTick(() => this.scrollBottom());
                                 } else if (data.type === 'done') {
                                     if (data.session_id) this.currentSessionId = data.session_id;
+                                } else if (data.type === 'action_confirm') {
+                                    // F-8: 자연어 명령 확인 카드
+                                    this.pendingAction = data;
+                                    this.$nextTick(() => this.scrollBottom());
                                 } else if (data.type === 'error') {
                                     this.messages[aiIdx].content = data.content || '오류가 발생했습니다.';
                                 }
@@ -3153,6 +3227,27 @@ function chatbotWidget() {
                 this.sending = false;
                 this.streaming = false;
             }
+        },
+
+        // F-8: 자연어 명령 확인/거절
+        async confirmAction() {
+            if (!this.pendingAction) return;
+            const action = this.pendingAction;
+            this.pendingAction = null;
+            this.messages.push({ role: 'user', content: `✅ "${action.action_label || '실행'}" 확인`, time: new Date().toISOString() });
+            try {
+                const res = await api.post(action.endpoint, action.payload || {});
+                this.messages.push({ role: 'assistant', content: res?.message || '명령이 실행되었습니다.', time: new Date().toISOString() });
+            } catch (e) {
+                this.messages.push({ role: 'assistant', content: `실행 실패: ${e.message}`, time: new Date().toISOString() });
+            }
+            this.$nextTick(() => this.scrollBottom());
+        },
+
+        cancelAction() {
+            this.pendingAction = null;
+            this.messages.push({ role: 'assistant', content: '명령이 취소되었습니다.', time: new Date().toISOString() });
+            this.$nextTick(() => this.scrollBottom());
         },
 
         scrollBottom() {
@@ -3952,6 +4047,8 @@ function attendancePage() {
         today: null, loading: true,
         month: new Date().toISOString().slice(0, 7),
         records: [], stats: null,
+        // F-7: 퇴근 업무 보고
+        showWorkReport: false, workReportText: '', workReportSubmitting: false,
 
         async init() {
             await Promise.all([this.loadToday(), this.loadMonth()]);
@@ -3985,7 +4082,20 @@ function attendancePage() {
                 this.today = await api.post('/attendance/check-out');
                 window.toast.success('퇴근이 기록되었습니다.');
                 await this.loadMonth();
+                // F-7: 퇴근 후 업무 보고 모달 표시
+                this.showWorkReport = true;
             } catch (e) { window.toast.error(e.message); }
+        },
+
+        async submitWorkReport() {
+            if (!this.workReportText.trim()) { this.showWorkReport = false; return; }
+            this.workReportSubmitting = true;
+            try {
+                // 업무 보고를 활동 로그로 기록
+                await api.post('/activity', { type: 'work_report', content: this.workReportText.trim() });
+                window.toast.success('업무 보고가 저장되었습니다.');
+            } catch { /* 실패해도 퇴근은 완료됨 */ }
+            finally { this.showWorkReport = false; this.workReportText = ''; this.workReportSubmitting = false; }
         },
 
         changeMonth(dir) {

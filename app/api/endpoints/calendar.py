@@ -1,4 +1,7 @@
-"""캘린더 연동 엔드포인트 — Phase 6 (§17, 4개)"""
+"""캘린더 연동 엔드포인트 — Phase 6 (§17) + 5차 확장
+
+connect/disconnect/sync(양방향)/status/direction 변경
+"""
 import logging
 
 from fastapi import APIRouter, Depends, Request
@@ -7,7 +10,11 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from app.database import get_db
 from app.api.endpoints.auth import require_current_user
 from app.limiter import limiter
-from app.schemas.portal import CalendarConnectRequest, CalendarStatusResponse
+from app.schemas.portal import (
+    CalendarConnectRequest,
+    CalendarSyncDirectionRequest,
+    CalendarStatusResponse,
+)
 from app.services import calendar_service
 
 logger = logging.getLogger(__name__)
@@ -21,9 +28,11 @@ async def connect_calendar(
     request: Request,
     db: AsyncSession = Depends(get_db),
 ):
-    """캘린더 연동 (OAuth code 교환)"""
+    """캘린더 연동 (OAuth code 교환 + 동기화 방향 설정)"""
     user = await require_current_user(request, db)
-    sync = await calendar_service.connect_calendar(db, user, data)
+    sync = await calendar_service.connect_calendar(
+        db, user, data, sync_direction=data.sync_direction,
+    )
     return sync
 
 
@@ -46,10 +55,25 @@ async def sync_calendar(
     request: Request,
     db: AsyncSession = Depends(get_db),
 ):
-    """업무 → 캘린더 동기화"""
+    """캘린더 동기화 (sync_direction에 따라 CS→Google / Google→CS / 양방향 자동 판별)"""
     user = await require_current_user(request, db)
-    count = await calendar_service.sync_tasks_to_calendar(db, user, sync_id)
-    return {"synced_count": count}
+    result = await calendar_service.sync_calendar(db, user, sync_id)
+    return result
+
+
+@router.patch("/{sync_id}/direction", response_model=CalendarStatusResponse)
+async def update_sync_direction(
+    sync_id: int,
+    data: CalendarSyncDirectionRequest,
+    request: Request,
+    db: AsyncSession = Depends(get_db),
+):
+    """동기화 방향 변경"""
+    user = await require_current_user(request, db)
+    sync = await calendar_service.update_sync_direction(
+        db, user, sync_id, data.sync_direction,
+    )
+    return sync
 
 
 @router.get("/status", response_model=list[CalendarStatusResponse])

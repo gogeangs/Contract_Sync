@@ -57,6 +57,16 @@ async def get_ai_insights(
     return await dashboard_service.get_ai_insights(db, user)
 
 
+@router.get("/briefing")
+async def get_briefing(
+    request: Request,
+    db: AsyncSession = Depends(get_db),
+):
+    """오늘의 브리핑 (6차 개발 Phase 2-1) — 대시보드 최상단 AI 요약"""
+    user = await require_current_user(request, db)
+    return await dashboard_service.get_briefing(db, user)
+
+
 @router.get("/weekly-report")
 async def get_weekly_report(
     request: Request,

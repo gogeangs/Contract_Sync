@@ -83,20 +83,23 @@ async def lifespan(app: FastAPI):
     from app.services.scheduler_service import (
         scheduler_loop, weekly_report_loop,
         figma_check_loop, feedback_reminder_loop,
+        proactive_notification_loop,
     )
     scheduler_task = asyncio.create_task(scheduler_loop())
     weekly_report_task = asyncio.create_task(weekly_report_loop())
     figma_check_task = asyncio.create_task(figma_check_loop())
     feedback_reminder_task = asyncio.create_task(feedback_reminder_loop())
+    proactive_task = asyncio.create_task(proactive_notification_loop())
     logger.info("Recurring task scheduler started")
     logger.info("Weekly report scheduler started")
     logger.info("Figma change detection scheduler started")
     logger.info("Feedback reminder scheduler started")
+    logger.info("Proactive notification scheduler started")
 
     yield
 
     bg_tasks = (scheduler_task, weekly_report_task, cleanup_task,
-                figma_check_task, feedback_reminder_task)
+                figma_check_task, feedback_reminder_task, proactive_task)
     for t in bg_tasks:
         t.cancel()
     for t in bg_tasks:
@@ -185,6 +188,9 @@ app.add_middleware(SecurityHeadersMiddleware)
 
 # 정적 파일 마운트
 app.mount("/static", StaticFiles(directory=BASE_DIR / "static"), name="static")
+
+# 업로드 파일 서빙 (프로필 이미지 등)
+app.mount("/uploads", StaticFiles(directory=uploads_dir), name="uploads")
 
 # 템플릿 설정
 templates = Jinja2Templates(directory=BASE_DIR / "templates")

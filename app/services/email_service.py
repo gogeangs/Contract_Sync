@@ -34,6 +34,79 @@ def generate_verification_code(length: int = 6) -> str:
 
 
 # ══════════════════════════════════════════
+#  Gmail API (Google Workspace — HTTP 방식)
+# ══════════════════════════════════════════
+
+async def _send_via_gmail_api(
+    to_emails: list[str],
+    subject: str,
+    html_body: str,
+    cc_emails: list[str] | None = None,
+) -> tuple[bool, str]:
+    """Gmail API(서비스 계정 위임)로 이메일 발송"""
+    import base64
+    import json as _json
+
+    creds_json = settings.gmail_credentials_json
+    delegated_user = settings.gmail_delegated_user
+    if not creds_json or not delegated_user:
+        return False, "Gmail API 미설정"
+
+    print(f"[EMAIL] Gmail API 발송: to={to_emails}, subject={subject}", flush=True)
+
+    try:
+        from google.oauth2 import service_account
+        from google.auth.transport.requests import Request as AuthRequest
+
+        creds_data = _json.loads(creds_json)
+        credentials = service_account.Credentials.from_service_account_info(
+            creds_data,
+            scopes=["https://www.googleapis.com/auth/gmail.send"],
+            subject=delegated_user,
+        )
+        credentials.refresh(AuthRequest())
+
+        # MIME 메시지 구성
+        message = MIMEMultipart("alternative")
+        message["From"] = delegated_user
+        message["To"] = ", ".join(to_emails)
+        message["Subject"] = subject
+        if cc_emails:
+            message["Cc"] = ", ".join(cc_emails)
+        message.attach(MIMEText(html_body, "html", "utf-8"))
+
+        raw = base64.urlsafe_b64encode(message.as_bytes()).decode("utf-8")
+
+        async with httpx.AsyncClient(timeout=30) as client:
+            resp = await client.post(
+                f"https://gmail.googleapis.com/gmail/v1/users/{delegated_user}/messages/send",
+                headers={
+                    "Authorization": f"Bearer {credentials.token}",
+                    "Content-Type": "application/json",
+                },
+                json={"raw": raw},
+            )
+
+        if resp.status_code == 200:
+            print(f"[EMAIL] Gmail API 발송 성공: {resp.json().get('id')}", flush=True)
+            logger.info(f"이메일 발송 성공 (Gmail API): to={to_emails}")
+            return True, ""
+        else:
+            err_msg = f"Gmail API {resp.status_code}: {resp.text}"
+            print(f"[EMAIL] Gmail API 발송 실패: {err_msg}", flush=True)
+            logger.error(f"이메일 발송 실패 (Gmail API): {err_msg}")
+            return False, err_msg
+
+    except ImportError:
+        return False, "google-auth 패키지 미설치"
+    except Exception as e:
+        err_msg = f"{type(e).__name__}: {e}"
+        print(f"[EMAIL] Gmail API 발송 실패: {err_msg}", flush=True)
+        logger.error(f"이메일 발송 실패 (Gmail API): {err_msg}")
+        return False, err_msg
+
+
+# ══════════════════════════════════════════
 #  Resend HTTP API (Railway 등 SMTP 차단 환경용)
 # ══════════════════════════════════════════
 
@@ -148,22 +221,26 @@ async def _send_email(
     html_body: str,
     cc_emails: list[str] | None = None,
 ) -> tuple[bool, str]:
-    """통합 이메일 발송 (Resend → SMTP → 개발모드)"""
+    """통합 이메일 발송 (Gmail API → Resend → SMTP → 개발모드)"""
     # 테스트 도메인 스킵
     all_recipients = list(to_emails) + (cc_emails or [])
     if all(_is_test_recipient(e) for e in all_recipients):
         logger.debug(f"테스트 도메인 발송 스킵: {all_recipients}")
         return True, ""
 
-    # 1) Resend API (우선)
+    # 1) Gmail API (최우선 — Google Workspace 도메인 발송)
+    if settings.gmail_credentials_json and settings.gmail_delegated_user:
+        return await _send_via_gmail_api(to_emails, subject, html_body, cc_emails)
+
+    # 2) Resend API
     if settings.resend_api_key:
         return await _send_via_resend(to_emails, subject, html_body, cc_emails)
 
-    # 2) SMTP (폴백)
+    # 3) SMTP (폴백)
     if settings.smtp_host and settings.smtp_username:
         return await _send_via_smtp(to_emails, subject, html_body, cc_emails)
 
-    # 3) 개발 모드
+    # 4) 개발 모드
     logger.info(f"[DEV] 이메일 미설정 - 발송 시뮬레이션: to={to_emails}, subject={subject}")
     return True, ""
 

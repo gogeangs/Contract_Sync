@@ -1,17 +1,20 @@
-"""대시보드 서비스 — Phase 7 (§18)
+"""대시보드 서비스 — Phase 7 (§18) + 6차 브리핑
 
-통계 요약, 매출 추이, 팀 워크로드, AI 인사이트.
+통계 요약, 매출 추이, 팀 워크로드, AI 인사이트, 오늘의 브리핑.
 """
 import logging
-from datetime import timedelta
+from datetime import datetime, timedelta, timezone
 
 from sqlalchemy import select, func, case
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.database import (
     Project, Task, PaymentSchedule, User, utc_now,
+    Notification, Attendance, TeamMember,
 )
 from app.services.common import get_user_team_ids, access_filter
+
+KST = timezone(timedelta(hours=9))
 
 logger = logging.getLogger(__name__)
 
@@ -276,3 +279,154 @@ async def get_ai_insights(db: AsyncSession, user) -> list[dict]:
         })
 
     return insights
+
+
+# ── 5. 오늘의 브리핑 (6차 개발 Phase 2-1) ──
+
+async def get_briefing(db: AsyncSession, user) -> dict:
+    """로그인 시 대시보드 최상단에 표시할 AI 브리핑 데이터"""
+    now_kst = datetime.now(KST)
+    today = now_kst.strftime("%Y-%m-%d")
+    tomorrow = (now_kst + timedelta(days=1)).strftime("%Y-%m-%d")
+    three_days_ago = (now_kst - timedelta(days=3)).isoformat()
+
+    # 인사말
+    hour = now_kst.hour
+    if 6 <= hour < 12:
+        greeting = "좋은 아침"
+    elif 12 <= hour < 18:
+        greeting = "좋은 오후"
+    else:
+        greeting = "좋은 저녁"
+
+    items = []
+
+    # 1. 오늘 마감 업무
+    today_due = await db.execute(
+        select(func.count(Task.id)).where(
+            Task.assignee_id == user.id,
+            Task.due_date == today,
+            Task.status.notin_(["completed", "confirmed"]),
+        )
+    )
+    count = today_due.scalar() or 0
+    if count > 0:
+        items.append({
+            "priority": 1,
+            "icon": "🔴",
+            "message": f"오늘 마감 업무 {count}건",
+            "action": "확인하기",
+            "link": "#/my-tasks",
+        })
+
+    # 2. 내일 마감 업무
+    tomorrow_due = await db.execute(
+        select(func.count(Task.id)).where(
+            Task.assignee_id == user.id,
+            Task.due_date == tomorrow,
+            Task.status.notin_(["completed", "confirmed"]),
+        )
+    )
+    count = tomorrow_due.scalar() or 0
+    if count > 0:
+        items.append({
+            "priority": 2,
+            "icon": "🟡",
+            "message": f"내일 마감 업무 {count}건",
+            "action": "확인하기",
+            "link": "#/my-tasks",
+        })
+
+    # 3. 미확인 피드백 (최근 30일)
+    thirty_days_ago = (utc_now() - timedelta(days=30))
+    unread_fb = await db.execute(
+        select(func.count(Notification.id)).where(
+            Notification.user_id == user.id,
+            Notification.is_read == False,  # noqa: E712
+            Notification.type.in_(["feedback_received", "revision_requested"]),
+            Notification.created_at >= thirty_days_ago,
+        )
+    )
+    count = unread_fb.scalar() or 0
+    if count > 0:
+        items.append({
+            "priority": 3,
+            "icon": "🟡",
+            "message": f"고객 피드백 {count}건 미확인",
+            "action": "확인하기",
+            "link": "#/feedback-requests",
+        })
+
+    # 4. 읽지 않은 채팅 (단일 쿼리)
+    from app.database import ChatRoomMember, RoomMessage
+    from sqlalchemy.orm import aliased
+    crm = aliased(ChatRoomMember)
+    unread_chat_result = await db.execute(
+        select(func.count(RoomMessage.id)).select_from(RoomMessage)
+        .join(crm, crm.room_id == RoomMessage.room_id)
+        .where(
+            crm.user_id == user.id,
+            RoomMessage.sender_id != user.id,
+            (RoomMessage.created_at > crm.last_read_at) | (crm.last_read_at == None),  # noqa: E711
+        )
+    )
+    unread_chat_total = unread_chat_result.scalar() or 0
+
+    if unread_chat_total > 0:
+        items.append({
+            "priority": 4,
+            "icon": "💬",
+            "message": f"채팅 {unread_chat_total}건 읽지 않음",
+            "action": "읽기",
+            "link": "#/chat",
+        })
+
+    # 5. 3일간 미업데이트 업무
+    stale_result = await db.execute(
+        select(func.count(Task.id)).where(
+            Task.assignee_id == user.id,
+            Task.status == "in_progress",
+            Task.updated_at < three_days_ago,
+        )
+    )
+    count = stale_result.scalar() or 0
+    if count > 0:
+        items.append({
+            "priority": 5,
+            "icon": "⚠️",
+            "message": f"진행 중 업무 {count}건 3일간 변동 없음",
+            "action": "확인하기",
+            "link": "#/my-tasks",
+        })
+
+    # 6. 출근 미기록 (업무 시간일 때만: 평일 06~18시)
+    weekday = now_kst.weekday()  # 0=월 ~ 6=일
+    if weekday < 5 and 6 <= hour < 18:
+        team_result = await db.execute(
+            select(TeamMember.team_id).where(TeamMember.user_id == user.id).limit(1)
+        )
+        team_row = team_result.first()
+        if team_row:
+            attendance_result = await db.execute(
+                select(Attendance).where(
+                    Attendance.user_id == user.id,
+                    Attendance.team_id == team_row[0],
+                    Attendance.date == today,
+                )
+            )
+            record = attendance_result.scalar_one_or_none()
+            if not record or not record.check_in:
+                items.append({
+                    "priority": 6,
+                    "icon": "⏰",
+                    "message": "오늘 출근 기록이 없어요",
+                    "action": "업무 시작하기",
+                    "link": "check-in",  # 프론트에서 POST /attendance/check-in 호출
+                })
+
+    return {
+        "greeting": greeting,
+        "user_name": user.name or user.email,
+        "items": sorted(items, key=lambda x: x["priority"]),
+        "empty_message": "오늘은 특별한 알림이 없어요! 좋은 하루 되세요" if not items else None,
+    }

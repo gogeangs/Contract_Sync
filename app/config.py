@@ -40,7 +40,11 @@ class Settings(BaseSettings):
     kakao_api_key: str = ""       # 딜러사 API 키
     kakao_sender_key: str = ""    # 발신 프로필 키
 
-    # 이메일 발송 (Resend HTTP API 우선, SMTP 폴백)
+    # Gmail API (Google Workspace — HTTP 방식, Railway SMTP 차단 우회)
+    gmail_credentials_json: str = ""  # 서비스 계정 JSON (또는 OAuth refresh token)
+    gmail_delegated_user: str = ""    # 위임 발송 이메일 (예: noreply@itso.co.kr)
+
+    # 이메일 발송 (Gmail API 우선 → Resend → SMTP 폴백)
     resend_api_key: str = ""  # Resend API 키 (Railway 등 SMTP 차단 환경용)
     resend_from_email: str = "Contract Sync <onboarding@resend.dev>"  # Resend 발신자
 

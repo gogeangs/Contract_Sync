@@ -10,6 +10,8 @@ from app.api.endpoints import (
     dashboard,  # Phase 7
     sse,  # 2차 개발
     chatbot, figma, feedback_portal, kakao, mcp,  # 3차 개발
+    boards, invites, profile, my_tasks, chat, attendance,  # 4차 개발
+    work_report, command,  # 6차 개발
 )
 
 api_router = APIRouter()
@@ -67,3 +69,27 @@ api_router.include_router(kakao.router, tags=["알림톡"])
 
 # 3차 개발 — MCP 추천 (선택)
 api_router.include_router(mcp.router, tags=["MCP 추천"])
+
+# 4차 개발 — 게시판
+api_router.include_router(boards.router, tags=["게시판"])
+
+# 4차 개발 — 이메일 초대
+api_router.include_router(invites.router, tags=["이메일 초대"])
+
+# 4차 개발 — 프로필 이미지
+api_router.include_router(profile.router, tags=["프로필"])
+
+# 4차 개발 — 멀티팀 우선업무
+api_router.include_router(my_tasks.router, tags=["내 업무"])
+
+# 4차 개발 — 멤버 간 채팅
+api_router.include_router(chat.router, tags=["채팅"])
+
+# 4차 개발 — 출퇴근 기록
+api_router.include_router(attendance.router, tags=["출퇴근"])
+
+# 6차 개발 — AI 업무 보고 + 퇴근
+api_router.include_router(work_report.router, tags=["업무 보고"])
+
+# 6차 개발 — 자연어 명령
+api_router.include_router(command.router, tags=["자연어 명령"])

@@ -40,6 +40,20 @@ class CalendarConnectRequest(BaseModel):
     """캘린더 연동 요청"""
     provider: str = Field(..., pattern=r"^(google|outlook)$", description="제공자")
     auth_code: str = Field(..., description="OAuth 인증 코드")
+    sync_direction: str = Field(
+        "cs_to_google",
+        pattern=r"^(cs_to_google|google_to_cs|bidirectional)$",
+        description="동기화 방향: cs_to_google / google_to_cs / bidirectional",
+    )
+
+
+class CalendarSyncDirectionRequest(BaseModel):
+    """동기화 방향 변경 요청"""
+    sync_direction: str = Field(
+        ...,
+        pattern=r"^(cs_to_google|google_to_cs|bidirectional)$",
+        description="동기화 방향",
+    )
 
 
 class CalendarStatusResponse(BaseModel):
@@ -47,6 +61,7 @@ class CalendarStatusResponse(BaseModel):
     id: int
     provider: str
     calendar_id: str
+    sync_direction: Optional[str] = "cs_to_google"
     is_active: bool
     last_synced_at: Optional[datetime] = None
 
