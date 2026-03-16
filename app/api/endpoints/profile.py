@@ -44,6 +44,19 @@ async def upload_profile_picture(
     if len(content) > MAX_SIZE:
         raise HTTPException(status_code=400, detail="이미지 크기는 2MB 이하여야 합니다.")
 
+    # 파일 시그니처(magic number) 검증
+    _SIGNATURES = {
+        b'\xff\xd8\xff': '.jpg',      # JPEG
+        b'\x89PNG': '.png',            # PNG
+        b'GIF87a': '.gif',             # GIF87a
+        b'GIF89a': '.gif',             # GIF89a
+        b'RIFF': '.webp',             # WebP (RIFF container)
+    }
+    header = content[:8]
+    valid_sig = any(header.startswith(sig) for sig in _SIGNATURES)
+    if not valid_sig:
+        raise HTTPException(status_code=400, detail="유효하지 않은 이미지 파일입니다.")
+
     # 기존 프로필 이미지 삭제
     upload_dir = _get_upload_dir()
     for old_file in upload_dir.glob(f"{current_user.id}.*"):

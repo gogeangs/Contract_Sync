@@ -52,7 +52,7 @@ async def _send_via_gmail_api(
     if not creds_json or not delegated_user:
         return False, "Gmail API 미설정"
 
-    print(f"[EMAIL] Gmail API 발송: to={to_emails}, subject={subject}", flush=True)
+    logger.info(f"Gmail API 발송 시도: to={len(to_emails)}명, subject={subject[:30]}")
 
     try:
         from google.oauth2 import service_account
@@ -88,21 +88,17 @@ async def _send_via_gmail_api(
             )
 
         if resp.status_code == 200:
-            print(f"[EMAIL] Gmail API 발송 성공: {resp.json().get('id')}", flush=True)
-            logger.info(f"이메일 발송 성공 (Gmail API): to={to_emails}")
+            logger.info(f"이메일 발송 성공 (Gmail API): id={resp.json().get('id')}")
             return True, ""
         else:
-            err_msg = f"Gmail API {resp.status_code}: {resp.text}"
-            print(f"[EMAIL] Gmail API 발송 실패: {err_msg}", flush=True)
+            err_msg = f"Gmail API {resp.status_code}"
             logger.error(f"이메일 발송 실패 (Gmail API): {err_msg}")
             return False, err_msg
 
     except ImportError:
         return False, "google-auth 패키지 미설치"
     except Exception as e:
-        err_msg = f"{type(e).__name__}: {e}"
-        print(f"[EMAIL] Gmail API 발송 실패: {err_msg}", flush=True)
-        logger.error(f"이메일 발송 실패 (Gmail API): {err_msg}")
+        logger.error(f"이메일 발송 실패 (Gmail API): {type(e).__name__}: {e}")
         return False, err_msg
 
 
@@ -117,7 +113,7 @@ async def _send_via_resend(
     cc_emails: list[str] | None = None,
 ) -> tuple[bool, str]:
     """Resend HTTP API로 이메일 발송"""
-    print(f"[EMAIL] Resend API 발송: to={to_emails}, subject={subject}", flush=True)
+    logger.info(f"Resend API 발송 시도: to={len(to_emails)}명, subject={subject[:30]}")
 
     payload = {
         "from": settings.resend_from_email,
@@ -140,19 +136,15 @@ async def _send_via_resend(
             )
 
         if resp.status_code == 200:
-            print(f"[EMAIL] Resend 발송 성공: {resp.json()}", flush=True)
-            logger.info(f"이메일 발송 성공 (Resend): to={to_emails}")
+            logger.info(f"이메일 발송 성공 (Resend): id={resp.json().get('id')}")
             return True, ""
         else:
-            err_msg = f"Resend API {resp.status_code}: {resp.text}"
-            print(f"[EMAIL] Resend 발송 실패: {err_msg}", flush=True)
+            err_msg = f"Resend API {resp.status_code}"
             logger.error(f"이메일 발송 실패 (Resend): {err_msg}")
             return False, err_msg
 
     except Exception as e:
-        err_msg = f"{type(e).__name__}: {e}"
-        print(f"[EMAIL] Resend 발송 실패: {err_msg}", flush=True)
-        logger.error(f"이메일 발송 실패 (Resend): {err_msg}")
+        logger.error(f"이메일 발송 실패 (Resend): {type(e).__name__}: {e}")
         return False, err_msg
 
 
@@ -175,7 +167,7 @@ async def _send_via_smtp(
     else:
         use_tls, start_tls = False, settings.smtp_use_tls
 
-    print(f"[EMAIL] SMTP 발송: host={host}:{port}, to={to_emails}", flush=True)
+    logger.info(f"SMTP 발송 시도: host={host}:{port}, to={len(to_emails)}명")
 
     try:
         message = MIMEMultipart("alternative")
@@ -194,15 +186,12 @@ async def _send_via_smtp(
         await smtp.send_message(message, recipients=recipients)
         await smtp.quit()
 
-        print("[EMAIL] SMTP 발송 성공", flush=True)
-        logger.info(f"이메일 발송 성공 (SMTP): to={to_emails}")
+        logger.info("이메일 발송 성공 (SMTP)")
         return True, ""
 
     except Exception as e:
-        err_msg = f"{type(e).__name__}: {e}"
-        print(f"[EMAIL] SMTP 발송 실패: {err_msg}", flush=True)
-        logger.error(f"이메일 발송 실패 (SMTP): {err_msg}")
-        return False, err_msg
+        logger.error(f"이메일 발송 실패 (SMTP): {type(e).__name__}: {e}")
+        return False, f"{type(e).__name__}: {e}"
 
 
 # ══════════════════════════════════════════

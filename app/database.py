@@ -266,18 +266,18 @@ class Task(Base):
 
     id = Column(Integer, primary_key=True, index=True)
     task_code = Column(String(20), nullable=True)  # TASK-001 형식
-    project_id = Column(Integer, ForeignKey("projects.id", ondelete="SET NULL"), nullable=True)
-    user_id = Column(Integer, ForeignKey("users.id", ondelete="CASCADE"), nullable=False)
-    team_id = Column(Integer, ForeignKey("teams.id", ondelete="SET NULL"), nullable=True)
+    project_id = Column(Integer, ForeignKey("projects.id", ondelete="SET NULL"), nullable=True, index=True)
+    user_id = Column(Integer, ForeignKey("users.id", ondelete="CASCADE"), nullable=False, index=True)
+    team_id = Column(Integer, ForeignKey("teams.id", ondelete="SET NULL"), nullable=True, index=True)
     task_name = Column(String(300), nullable=False)
     description = Column(Text, nullable=True)
     phase = Column(String(200), nullable=True)
-    status = Column(String(20), default="pending")
+    status = Column(String(20), default="pending", index=True)
     # pending / in_progress / completed / report_sent / feedback_pending / confirmed / revision_requested
     priority = Column(String(10), default="보통")  # 긴급 / 높음 / 보통 / 낮음
-    due_date = Column(String, nullable=True)
+    due_date = Column(String, nullable=True, index=True)
     start_date = Column(String, nullable=True)
-    assignee_id = Column(Integer, ForeignKey("users.id", ondelete="SET NULL"), nullable=True)
+    assignee_id = Column(Integer, ForeignKey("users.id", ondelete="SET NULL"), nullable=True, index=True)
     is_client_facing = Column(Boolean, default=False)
     note = Column(Text, nullable=True)
     sort_order = Column(Integer, default=0)

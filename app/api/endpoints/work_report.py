@@ -6,7 +6,7 @@ POST /work-report/submit    — 업무 보고 제출 + 자동 퇴근
 import logging
 from typing import Optional
 
-from fastapi import APIRouter, Depends, HTTPException
+from fastapi import APIRouter, Depends, HTTPException, Request
 from pydantic import BaseModel, Field
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -15,6 +15,7 @@ from datetime import datetime, timedelta, timezone
 from app.database import get_db, Attendance, TeamMember, AttendancePolicy, User
 from app.api.endpoints.auth import require_current_user
 from app.services.work_report_service import generate_daily_work_summary
+from app.limiter import limiter
 
 logger = logging.getLogger(__name__)
 router = APIRouter()
@@ -28,7 +29,9 @@ class WorkReportSubmit(BaseModel):
 
 
 @router.get("/work-report/today")
+@limiter.limit("30/minute")
 async def get_today_report(
+    request: Request,
     db: AsyncSession = Depends(get_db),
     current_user: User = Depends(require_current_user),
 ):
@@ -37,7 +40,9 @@ async def get_today_report(
 
 
 @router.post("/work-report/submit")
+@limiter.limit("5/minute")
 async def submit_work_report(
+    request: Request,
     body: WorkReportSubmit,
     db: AsyncSession = Depends(get_db),
     current_user: User = Depends(require_current_user),

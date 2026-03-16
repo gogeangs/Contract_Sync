@@ -13,6 +13,8 @@ from app.database import (
 )
 from app.api.endpoints.auth import require_current_user
 from app.api.endpoints.teams import get_team_member
+from app.limiter import limiter
+from fastapi import Request
 
 logger = logging.getLogger(__name__)
 router = APIRouter()
@@ -117,7 +119,9 @@ async def _get_user_team_id(db: AsyncSession, user_id: int) -> int:
 # ── 출퇴근 API ─────────────────────────────────
 
 @router.post("/attendance/check-in")
+@limiter.limit("10/minute")
 async def check_in(
+    request: Request,
     db: AsyncSession = Depends(get_db),
     current_user: User = Depends(require_current_user),
 ):
@@ -160,7 +164,9 @@ async def check_in(
 
 
 @router.post("/attendance/check-out")
+@limiter.limit("10/minute")
 async def check_out(
+    request: Request,
     db: AsyncSession = Depends(get_db),
     current_user: User = Depends(require_current_user),
 ):
@@ -229,7 +235,7 @@ async def get_my_attendance(
         select(Attendance).where(
             Attendance.team_id == team_id,
             Attendance.user_id == current_user.id,
-            Attendance.date.like(f"{month}%"),
+            Attendance.date >= f"{month}-01", Attendance.date <= f"{month}-31",
         ).order_by(Attendance.date)
     )
     records = result.scalars().all()
@@ -279,7 +285,7 @@ async def get_team_attendance(
             select(Attendance).where(
                 Attendance.team_id == team_id,
                 Attendance.user_id == user.id,
-                Attendance.date.like(f"{month}%"),
+                Attendance.date >= f"{month}-01", Attendance.date <= f"{month}-31",
             ).order_by(Attendance.date)
         )
         records = records_q.scalars().all()
