@@ -293,9 +293,17 @@ function appShell() {
 
         async init() {
             this.initDarkMode();
-            await this.checkAuth();
+            try { await this.checkAuth(); } catch {}
             this.initRouter();
             this._initGlobalSearch();
+            // checkAuth 후 비로그인 상태면 랜딩으로 강제 이동 (Alpine 반응성 보장)
+            this.$nextTick(() => {
+                if (!this.user && this.currentPage !== 'landing' && this.currentPage !== 'feedback' && this.currentPage !== 'feedbackPortal' && this.currentPage !== 'inviteAccept' && this.currentPage !== 'portal') {
+                    this.currentPage = 'landing';
+                    this.pageParams = {};
+                    history.replaceState(null, '', '#/landing');
+                }
+            });
         },
 
         // ---- 라우터 ----
