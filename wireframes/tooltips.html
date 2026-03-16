@@ -1,0 +1,192 @@
+<!DOCTYPE html>
+<html lang="ko" class="">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Contract Sync v2 - 툴팁/코치마크</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <script defer src="https://cdn.jsdelivr.net/npm/alpinejs@3.x.x/dist/cdn.min.js"></script>
+  <script>tailwind.config = { darkMode: 'class' }</script>
+  <style>
+    [x-cloak] { display: none !important; }
+    @keyframes fadeSlideIn { from { opacity: 0; transform: translateY(8px); } to { opacity: 1; transform: translateY(0); } }
+    .tooltip-animate { animation: fadeSlideIn 0.3s ease-out; }
+    /* 말풍선 꼬리표 */
+    .tooltip-tail-left::before { content: ''; position: absolute; left: 16px; bottom: -6px; width: 12px; height: 12px; background: inherit; transform: rotate(45deg); border-radius: 0 0 2px 0; }
+    .tooltip-tail-right::before { content: ''; position: absolute; right: 16px; bottom: -6px; width: 12px; height: 12px; background: inherit; transform: rotate(45deg); border-radius: 0 0 2px 0; }
+    .tooltip-tail-bottom::after { content: ''; position: absolute; left: 50%; top: -6px; width: 12px; height: 12px; background: inherit; transform: translateX(-50%) rotate(45deg); border-radius: 2px 0 0 0; }
+  </style>
+</head>
+<body class="bg-gray-50 dark:bg-gray-900 text-gray-800 dark:text-gray-100 transition-colors duration-300">
+
+<div x-data="tooltipDemo()" class="min-h-screen">
+
+  <!-- 시뮬레이션된 앱 레이아웃 -->
+  <div class="flex h-screen overflow-hidden">
+    <!-- 미니 사이드바 시뮬레이션 -->
+    <div class="hidden lg:flex lg:flex-col w-64 bg-white dark:bg-gray-800 border-r border-gray-200 dark:border-gray-700 relative">
+      <div class="px-6 py-5 border-b border-gray-200 dark:border-gray-700">
+        <div class="flex items-center gap-3">
+          <div class="w-8 h-8 bg-indigo-600 rounded-lg flex items-center justify-center">
+            <svg class="w-5 h-5 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"/></svg>
+          </div>
+          <span class="text-lg font-bold text-gray-800 dark:text-white">Contract Sync</span>
+        </div>
+      </div>
+      <nav class="flex-1 px-3 py-4 space-y-1 relative">
+        <!-- 대시보드 -->
+        <div class="relative" id="menu-dashboard">
+          <a href="#" class="flex items-center gap-3 px-3 py-2.5 rounded-lg bg-indigo-50 dark:bg-indigo-900/30 text-indigo-600 dark:text-indigo-400 font-medium text-sm">
+            <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 12l2-2m0 0l7-7 7 7M5 10v10a1 1 0 001 1h3m10-11l2 2m-2-2v10a1 1 0 01-1 1h-3m-6 0a1 1 0 001-1v-4a1 1 0 011-1h2a1 1 0 011 1v4a1 1 0 001 1m-6 0h6"/></svg>
+            <span>대시보드</span>
+          </a>
+          <!-- 툴팁 1: 대시보드 -->
+          <div x-show="activeTooltip === 'dashboard'" x-cloak class="absolute left-0 top-full mt-2 z-50 tooltip-animate">
+            <div class="bg-gradient-to-r from-indigo-600 to-purple-600 text-white rounded-xl px-4 py-3 shadow-lg max-w-[240px] tooltip-tail-left" style="background: linear-gradient(135deg, #4f46e5, #7c3aed);">
+              <p class="text-sm font-medium">오늘의 브리핑과 전체 현황을 한눈에 확인하세요</p>
+              <button @click="dismissTooltip('dashboard')" class="mt-2 text-xs text-indigo-200 hover:text-white transition-colors">확인 ✓</button>
+            </div>
+          </div>
+        </div>
+
+        <!-- 프로젝트 그룹 -->
+        <div class="mt-4 relative" id="menu-project">
+          <p class="px-3 py-2 text-xs font-semibold text-gray-400 dark:text-gray-500 uppercase">프로젝트</p>
+          <a href="#" class="flex items-center gap-3 px-3 py-2 rounded-lg text-gray-600 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700 text-sm">
+            <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 7v10a2 2 0 002 2h14a2 2 0 002-2V9a2 2 0 00-2-2h-6l-2-2H5a2 2 0 00-2 2z"/></svg>
+            <span>프로젝트</span>
+          </a>
+          <!-- 툴팁 2: 프로젝트 -->
+          <div x-show="activeTooltip === 'project'" x-cloak class="absolute left-0 top-full mt-2 z-50 tooltip-animate">
+            <div class="bg-gradient-to-r from-indigo-600 to-purple-600 text-white rounded-xl px-4 py-3 shadow-lg max-w-[260px] tooltip-tail-left" style="background: linear-gradient(135deg, #4f46e5, #7c3aed);">
+              <p class="text-sm font-medium">발주처 등록 → 프로젝트 생성 → 업무 배정 순서로 시작하세요</p>
+              <button @click="dismissTooltip('project')" class="mt-2 text-xs text-indigo-200 hover:text-white transition-colors">확인 ✓</button>
+            </div>
+          </div>
+        </div>
+
+        <!-- 게시판 -->
+        <div class="mt-4 relative" id="menu-board">
+          <p class="px-3 py-2 text-xs font-semibold text-gray-400 dark:text-gray-500 uppercase">커뮤니케이션</p>
+          <a href="#" class="flex items-center gap-3 px-3 py-2 rounded-lg text-gray-600 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700 text-sm">
+            <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 20H5a2 2 0 01-2-2V6a2 2 0 012-2h10a2 2 0 012 2v1m2 13a2 2 0 01-2-2V7m2 13a2 2 0 002-2V9a2 2 0 00-2-2h-2m-4-3H9M7 16h6M7 8h6v4H7V8z"/></svg>
+            <span>게시판</span>
+          </a>
+          <!-- 툴팁 3: 게시판 -->
+          <div x-show="activeTooltip === 'board'" x-cloak class="absolute left-0 top-full mt-2 z-50 tooltip-animate">
+            <div class="bg-gradient-to-r from-indigo-600 to-purple-600 text-white rounded-xl px-4 py-3 shadow-lg max-w-[240px] tooltip-tail-left" style="background: linear-gradient(135deg, #4f46e5, #7c3aed);">
+              <p class="text-sm font-medium">팀 공지사항과 자유게시판을 활용하세요</p>
+              <button @click="dismissTooltip('board')" class="mt-2 text-xs text-indigo-200 hover:text-white transition-colors">확인 ✓</button>
+            </div>
+          </div>
+        </div>
+
+        <!-- 채팅 -->
+        <a href="#" class="flex items-center gap-3 px-3 py-2 rounded-lg text-gray-600 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700 text-sm relative" id="menu-chat">
+          <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 12h.01M12 12h.01M16 12h.01M21 12c0 4.418-4.03 8-9 8a9.863 9.863 0 01-4.255-.949L3 20l1.395-3.72C3.512 15.042 3 13.574 3 12c0-4.418 4.03-8 9-8s9 3.582 9 8z"/></svg>
+          <span>채팅</span>
+        </a>
+
+        <!-- 출퇴근 -->
+        <div class="mt-4 relative" id="menu-attendance">
+          <p class="px-3 py-2 text-xs font-semibold text-gray-400 dark:text-gray-500 uppercase">기타</p>
+          <a href="#" class="flex items-center gap-3 px-3 py-2 rounded-lg text-gray-600 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700 text-sm">
+            <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z"/></svg>
+            <span>출퇴근</span>
+          </a>
+          <!-- 툴팁 5: 출퇴근 -->
+          <div x-show="activeTooltip === 'attendance'" x-cloak class="absolute left-0 top-full mt-2 z-50 tooltip-animate">
+            <div class="bg-gradient-to-r from-indigo-600 to-purple-600 text-white rounded-xl px-4 py-3 shadow-lg max-w-[240px] tooltip-tail-left" style="background: linear-gradient(135deg, #4f46e5, #7c3aed);">
+              <p class="text-sm font-medium">업무 시작/종료 시 자동으로 기록됩니다</p>
+              <button @click="dismissTooltip('attendance')" class="mt-2 text-xs text-indigo-200 hover:text-white transition-colors">확인 ✓</button>
+            </div>
+          </div>
+        </div>
+      </nav>
+    </div>
+
+    <!-- 메인 콘텐츠 -->
+    <div class="flex-1 relative">
+      <header class="sticky top-0 bg-white dark:bg-gray-800 border-b border-gray-200 dark:border-gray-700 px-6 py-3">
+        <h1 class="text-lg font-bold">대시보드</h1>
+      </header>
+
+      <main class="p-6 relative">
+        <!-- 브리핑 영역 시뮬레이션 -->
+        <div class="bg-gradient-to-r from-indigo-500 to-purple-600 rounded-xl p-5 text-white mb-6 relative" id="area-briefing">
+          <h2 class="text-lg font-bold">👋 좋은 아침, 김매니저님!</h2>
+          <p class="text-sm text-indigo-100 mt-1">오늘 마감 업무 2건 · 미확인 피드백 1건</p>
+          <!-- 툴팁 7: 브리핑 -->
+          <div x-show="activeTooltip === 'briefing'" x-cloak class="absolute left-4 -bottom-16 z-50 tooltip-animate">
+            <div class="bg-gradient-to-r from-indigo-600 to-purple-600 text-white rounded-xl px-4 py-3 shadow-lg max-w-[280px] tooltip-tail-bottom" style="background: linear-gradient(135deg, #4f46e5, #7c3aed);">
+              <p class="text-sm font-medium">매일 로그인하면 AI가 오늘의 할 일을 정리해드려요</p>
+              <button @click="dismissTooltip('briefing')" class="mt-2 text-xs text-indigo-200 hover:text-white transition-colors">확인 ✓</button>
+            </div>
+          </div>
+        </div>
+
+        <!-- 빈 콘텐츠 placeholder -->
+        <div class="grid grid-cols-2 gap-4">
+          <div class="h-32 bg-white dark:bg-gray-800 rounded-xl border border-gray-200 dark:border-gray-700"></div>
+          <div class="h-32 bg-white dark:bg-gray-800 rounded-xl border border-gray-200 dark:border-gray-700"></div>
+        </div>
+      </main>
+
+      <!-- 챗봇 플로팅 버튼 (우하단) -->
+      <div class="fixed bottom-6 right-6 z-40 relative" id="area-chatbot">
+        <button class="w-14 h-14 bg-gradient-to-r from-indigo-600 to-purple-600 rounded-full shadow-lg flex items-center justify-center text-white hover:shadow-xl transition-shadow">
+          <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 12h.01M12 12h.01M16 12h.01M21 12c0 4.418-4.03 8-9 8a9.863 9.863 0 01-4.255-.949L3 20l1.395-3.72C3.512 15.042 3 13.574 3 12c0-4.418 4.03-8 9-8s9 3.582 9 8z"/></svg>
+        </button>
+        <!-- 툴팁 6: 챗봇 버튼 -->
+        <div x-show="activeTooltip === 'chatbot'" x-cloak class="absolute bottom-full right-0 mb-3 z-50 tooltip-animate">
+          <div class="bg-gradient-to-r from-indigo-600 to-purple-600 text-white rounded-xl px-4 py-3 shadow-lg max-w-[220px] tooltip-tail-right" style="background: linear-gradient(135deg, #4f46e5, #7c3aed);">
+            <p class="text-sm font-medium">무엇이든 물어보세요! AI가 도와드립니다</p>
+            <button @click="dismissTooltip('chatbot')" class="mt-2 text-xs text-indigo-200 hover:text-white transition-colors">확인 ✓</button>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- 컨트롤 패널 -->
+  <div class="fixed top-4 right-4 z-[60] bg-white dark:bg-gray-800 rounded-xl border border-gray-200 dark:border-gray-700 shadow-lg p-4 max-w-[200px]">
+    <p class="text-xs font-semibold text-gray-500 dark:text-gray-400 mb-2">툴팁 테스트</p>
+    <div class="space-y-1">
+      <template x-for="t in allTooltips" :key="t.key">
+        <button @click="showTooltip(t.key)" class="w-full text-left px-2 py-1 text-xs rounded hover:bg-gray-100 dark:hover:bg-gray-700 transition-colors" :class="activeTooltip === t.key ? 'bg-indigo-50 dark:bg-indigo-900/20 text-indigo-600 dark:text-indigo-400 font-medium' : 'text-gray-600 dark:text-gray-300'" x-text="t.label"></button>
+      </template>
+      <div class="pt-1 mt-1 border-t border-gray-200 dark:border-gray-700">
+        <button @click="activeTooltip = null" class="w-full text-left px-2 py-1 text-xs text-gray-400 hover:text-gray-600 dark:hover:text-gray-300 rounded">모두 숨기기</button>
+        <button @click="$el.closest('html')?.classList.toggle('dark')" class="w-full text-left px-2 py-1 text-xs text-gray-400 hover:text-gray-600 dark:hover:text-gray-300 rounded">다크모드</button>
+      </div>
+    </div>
+  </div>
+</div>
+
+<script>
+function tooltipDemo() {
+  return {
+    activeTooltip: 'dashboard',
+
+    allTooltips: [
+      { key: 'dashboard', label: '① 대시보드' },
+      { key: 'project', label: '② 프로젝트 그룹' },
+      { key: 'board', label: '③ 게시판' },
+      { key: 'attendance', label: '⑤ 출퇴근' },
+      { key: 'chatbot', label: '⑥ 챗봇 버튼' },
+      { key: 'briefing', label: '⑦ 브리핑' }
+    ],
+
+    showTooltip(key) {
+      this.activeTooltip = key;
+    },
+
+    dismissTooltip(key) {
+      // localStorage에 저장 시뮬레이션
+      this.activeTooltip = null;
+    }
+  }
+}
+</script>
+</body>
+</html>

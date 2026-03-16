@@ -1,0 +1,169 @@
+<!DOCTYPE html>
+<html lang="ko" class="">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Contract Sync v2 - 능동적 알림</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <script defer src="https://cdn.jsdelivr.net/npm/alpinejs@3.x.x/dist/cdn.min.js"></script>
+  <script>tailwind.config = { darkMode: 'class' }</script>
+  <style>
+    [x-cloak] { display: none !important; }
+    @keyframes slideIn { from { opacity: 0; transform: translateX(100%); } to { opacity: 1; transform: translateX(0); } }
+    .slide-in { animation: slideIn 0.4s ease-out; }
+    @keyframes fadeOut { to { opacity: 0; transform: translateY(-8px); } }
+    .fade-out { animation: fadeOut 0.3s ease-in forwards; }
+  </style>
+</head>
+<body class="bg-gray-50 dark:bg-gray-900 text-gray-800 dark:text-gray-100 transition-colors duration-300">
+
+<div x-data="proactiveAlerts()" class="min-h-screen p-4 lg:p-6">
+
+  <div class="max-w-xl mx-auto">
+    <h1 class="text-lg font-bold mb-1">능동적 알림 카드</h1>
+    <p class="text-sm text-gray-500 dark:text-gray-400 mb-6">AI가 상황을 모니터링하고 조치가 필요한 시점에 먼저 알림을 보냅니다</p>
+
+    <!-- 알림 카드 리스트 -->
+    <div class="space-y-3">
+      <template x-for="alert in alerts" :key="alert.id">
+        <div class="bg-white dark:bg-gray-800 rounded-xl border border-gray-200 dark:border-gray-700 overflow-hidden shadow-sm slide-in" :class="{ 'fade-out': alert.dismissed }">
+          <div class="flex items-start gap-3 p-4">
+            <!-- AI 아바타 + 타입 아이콘 -->
+            <div class="relative flex-shrink-0">
+              <div class="w-10 h-10 bg-gradient-to-br from-indigo-500 to-purple-500 rounded-full flex items-center justify-center">
+                <svg class="w-5 h-5 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 10V3L4 14h7v7l9-11h-7z"/></svg>
+              </div>
+              <div class="absolute -bottom-1 -right-1 w-5 h-5 rounded-full flex items-center justify-center text-[10px] border-2 border-white dark:border-gray-800" :class="alert.typeBg" x-text="alert.typeIcon"></div>
+            </div>
+
+            <!-- 내용 -->
+            <div class="flex-1 min-w-0">
+              <div class="flex items-center gap-2 mb-1">
+                <span class="text-xs font-medium text-indigo-600 dark:text-indigo-400">AI 어시스턴트</span>
+                <span class="text-[10px] text-gray-400 dark:text-gray-500" x-text="alert.time"></span>
+              </div>
+              <p class="text-sm text-gray-800 dark:text-gray-100" x-text="alert.message"></p>
+              <p class="text-xs text-gray-500 dark:text-gray-400 mt-0.5" x-text="alert.detail" x-show="alert.detail"></p>
+
+              <!-- 액션 버튼들 -->
+              <div class="flex items-center gap-2 mt-3">
+                <template x-for="action in alert.actions" :key="action.label">
+                  <button @click="handleAction(alert, action)" class="px-3 py-1.5 text-xs font-medium rounded-lg transition-colors" :class="action.primary ? 'bg-indigo-600 text-white hover:bg-indigo-700' : 'bg-gray-100 dark:bg-gray-700 text-gray-700 dark:text-gray-300 hover:bg-gray-200 dark:hover:bg-gray-600'" x-text="action.label"></button>
+                </template>
+              </div>
+            </div>
+
+            <!-- 닫기 -->
+            <button @click="dismissAlert(alert)" class="p-1 hover:bg-gray-100 dark:hover:bg-gray-700 rounded-lg text-gray-400 transition-colors flex-shrink-0">
+              <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"/></svg>
+            </button>
+          </div>
+
+          <!-- 우선순위 바 -->
+          <div class="h-0.5" :class="alert.urgencyBar"></div>
+        </div>
+      </template>
+    </div>
+
+    <!-- 빈 상태 -->
+    <div x-show="alerts.length === 0" class="bg-white dark:bg-gray-800 rounded-xl border border-gray-200 dark:border-gray-700 p-8 text-center mt-4">
+      <span class="text-3xl">✅</span>
+      <p class="text-sm text-gray-500 dark:text-gray-400 mt-3">모든 알림을 처리했습니다!</p>
+    </div>
+
+    <!-- 완료 토스트 -->
+    <div x-show="toast" x-cloak x-transition class="fixed bottom-6 right-6 z-50 bg-green-600 text-white px-4 py-3 rounded-xl shadow-lg flex items-center gap-2">
+      <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7"/></svg>
+      <span class="text-sm font-medium" x-text="toastMessage"></span>
+    </div>
+
+    <!-- 마감 연장 모달 -->
+    <div x-show="showExtendModal" x-cloak class="fixed inset-0 z-50 flex items-center justify-center p-4" x-transition>
+      <div class="absolute inset-0 bg-black/50" @click="showExtendModal = false"></div>
+      <div class="relative bg-white dark:bg-gray-800 rounded-2xl shadow-2xl w-full max-w-xs p-5">
+        <h3 class="text-sm font-bold mb-3">마감 연장</h3>
+        <p class="text-xs text-gray-500 dark:text-gray-400 mb-3" x-text="extendTarget"></p>
+        <input type="date" class="w-full px-3 py-2 text-sm border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 focus:ring-2 focus:ring-indigo-500 outline-none">
+        <div class="flex gap-2 mt-4">
+          <button @click="showExtendModal = false" class="flex-1 px-3 py-2 text-xs text-gray-600 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700 rounded-lg">취소</button>
+          <button @click="showExtendModal = false; showToast('마감일이 변경되었습니다')" class="flex-1 px-3 py-2 text-xs bg-indigo-600 text-white rounded-lg hover:bg-indigo-700">변경</button>
+        </div>
+      </div>
+    </div>
+
+    <!-- 컨트롤 -->
+    <div class="mt-6 bg-white dark:bg-gray-800 rounded-xl border border-gray-200 dark:border-gray-700 p-4">
+      <p class="text-xs text-gray-400 dark:text-gray-500 mb-3">와이어프레임 테스트</p>
+      <div class="flex flex-wrap gap-2">
+        <button @click="resetAlerts()" class="px-3 py-1.5 text-xs bg-gray-100 dark:bg-gray-700 text-gray-600 dark:text-gray-300 rounded-lg">알림 초기화</button>
+        <button @click="$el.closest('html')?.classList.toggle('dark')" class="px-3 py-1.5 text-xs bg-gray-100 dark:bg-gray-700 text-gray-600 dark:text-gray-300 rounded-lg">다크모드</button>
+      </div>
+    </div>
+  </div>
+</div>
+
+<script>
+function proactiveAlerts() {
+  return {
+    toast: false, toastMessage: '', showExtendModal: false, extendTarget: '',
+
+    alerts: [],
+
+    init() { this.resetAlerts(); },
+
+    getDefaultAlerts() {
+      return [
+        { id: 1, message: '디자인 시안 v3 업무가 오늘 마감입니다', detail: '홈페이지 리뉴얼 프로젝트', time: '오늘 09:00', typeIcon: '🔴', typeBg: 'bg-red-100 dark:bg-red-900/50', urgencyBar: 'bg-red-500', dismissed: false,
+          actions: [{ label: '확인하기', primary: false }, { label: '완료 처리', primary: true }] },
+        { id: 2, message: 'API 연동 테스트 업무가 3일 지연되었습니다', detail: 'ERP 구축 프로젝트 · 마감 3월 13일', time: '오늘 09:00', typeIcon: '⚠️', typeBg: 'bg-orange-100 dark:bg-orange-900/50', urgencyBar: 'bg-orange-500', dismissed: false,
+          actions: [{ label: '확인하기', primary: false }, { label: '마감 연장', primary: true }] },
+        { id: 3, message: 'DB 설계 업무가 3일간 변동 없습니다', detail: null, time: '오늘 10:00', typeIcon: '📋', typeBg: 'bg-amber-100 dark:bg-amber-900/50', urgencyBar: 'bg-amber-400', dismissed: false,
+          actions: [{ label: '상태 업데이트', primary: true }] },
+        { id: 4, message: '고객 피드백이 도착했습니다', detail: 'A사 홈페이지 리뉴얼 — 수정 요청', time: '14:23', typeIcon: '📩', typeBg: 'bg-purple-100 dark:bg-purple-900/50', urgencyBar: 'bg-purple-500', dismissed: false,
+          actions: [{ label: '확인하기', primary: true }] },
+        { id: 5, message: '오늘 출근 기록이 없어요', detail: null, time: '09:30', typeIcon: '⏰', typeBg: 'bg-green-100 dark:bg-green-900/50', urgencyBar: 'bg-green-500', dismissed: false,
+          actions: [{ label: '업무 시작하기', primary: true }] },
+        { id: 6, message: '오늘의 업무를 정리할까요?', detail: '근무 시간 8시간 30분 경과', time: '18:00', typeIcon: '🏠', typeBg: 'bg-blue-100 dark:bg-blue-900/50', urgencyBar: 'bg-blue-500', dismissed: false,
+          actions: [{ label: '업무 보고 작성', primary: true }] },
+        { id: 7, message: '이번 주 주간 보고서를 작성할까요?', detail: '이번 주 완료 업무 7건, 진행 중 3건', time: '금 16:00', typeIcon: '📊', typeBg: 'bg-indigo-100 dark:bg-indigo-900/50', urgencyBar: 'bg-indigo-500', dismissed: false,
+          actions: [{ label: '작성하기', primary: true }] },
+        { id: 8, message: '읽지 않은 채팅 3건이 있습니다', detail: '디자인팀 그룹, 김디자이너 1:1', time: '30분 전', typeIcon: '💬', typeBg: 'bg-sky-100 dark:bg-sky-900/50', urgencyBar: 'bg-sky-500', dismissed: false,
+          actions: [{ label: '확인하기', primary: true }] }
+      ];
+    },
+
+    resetAlerts() { this.alerts = this.getDefaultAlerts(); },
+
+    handleAction(alert, action) {
+      if (action.label === '완료 처리') {
+        this.dismissAlert(alert);
+        this.showToast('업무가 완료 처리되었습니다');
+      } else if (action.label === '마감 연장') {
+        this.extendTarget = alert.message;
+        this.showExtendModal = true;
+      } else if (action.label === '업무 시작하기') {
+        this.dismissAlert(alert);
+        this.showToast('출근이 기록되었습니다');
+      } else if (action.label === '상태 업데이트') {
+        this.dismissAlert(alert);
+        this.showToast('상태가 업데이트되었습니다');
+      } else {
+        this.showToast(action.label + ' — 해당 페이지로 이동');
+      }
+    },
+
+    dismissAlert(alert) {
+      alert.dismissed = true;
+      setTimeout(() => { this.alerts = this.alerts.filter(a => a.id !== alert.id); }, 300);
+    },
+
+    showToast(msg) {
+      this.toastMessage = msg;
+      this.toast = true;
+      setTimeout(() => { this.toast = false; }, 2500);
+    }
+  }
+}
+</script>
+</body>
+</html>
