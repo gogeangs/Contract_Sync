@@ -281,6 +281,7 @@ class Task(Base):
     is_client_facing = Column(Boolean, default=False)
     note = Column(Text, nullable=True)
     sort_order = Column(Integer, default=0)
+    source = Column(String(30), nullable=True)  # None=manual, "google_calendar", etc.
     completed_at = Column(DateTime, nullable=True)
     created_at = Column(DateTime, default=utc_now)
     updated_at = Column(DateTime, default=utc_now, onupdate=utc_now)
@@ -500,6 +501,218 @@ class KakaoNotification(Base):
 # 10-3. MCP 추천  [3차 개발 — 선택]
 # ══════════════════════════════════════════════════════════
 
+# ══════════════════════════════════════════════════════════
+#  4차 개발 — Phase 1: 게시판
+# ══════════════════════════════════════════════════════════
+
+class Board(Base):
+    """게시판 — 팀별 또는 개인 게시판 (공지/자유/자료)"""
+    __tablename__ = "boards"
+
+    id = Column(Integer, primary_key=True, index=True)
+    team_id = Column(Integer, ForeignKey("teams.id", ondelete="CASCADE"), nullable=True, index=True)
+    user_id = Column(Integer, ForeignKey("users.id", ondelete="CASCADE"), nullable=True, index=True)
+    name = Column(String(100), nullable=False)
+    type = Column(String(20), nullable=False)  # notice / free / archive
+    created_at = Column(DateTime, default=utc_now)
+
+    team = relationship("Team", backref="boards")
+    owner = relationship("User", backref="owned_boards", foreign_keys=[user_id])
+    posts = relationship("BoardPost", back_populates="board", cascade="all, delete-orphan")
+
+
+class BoardPost(Base):
+    """게시글"""
+    __tablename__ = "board_posts"
+    __table_args__ = (
+        Index("ix_board_post_board", "board_id"),
+        Index("ix_board_post_author", "author_id"),
+    )
+
+    id = Column(Integer, primary_key=True, index=True)
+    board_id = Column(Integer, ForeignKey("boards.id", ondelete="CASCADE"), nullable=False)
+    author_id = Column(Integer, ForeignKey("users.id", ondelete="CASCADE"), nullable=False)
+    title = Column(String(300), nullable=False)
+    content = Column(Text, nullable=False)
+    is_pinned = Column(Boolean, default=False)
+    view_count = Column(Integer, default=0)
+    file_urls = Column(JSON, nullable=True)  # [{name, url, size}]
+    created_at = Column(DateTime, default=utc_now)
+    updated_at = Column(DateTime, default=utc_now, onupdate=utc_now)
+
+    board = relationship("Board", back_populates="posts")
+    author = relationship("User", backref="board_posts")
+    comments = relationship("BoardComment", back_populates="post", cascade="all, delete-orphan")
+
+
+class BoardComment(Base):
+    """게시글 댓글"""
+    __tablename__ = "board_comments"
+    __table_args__ = (
+        Index("ix_board_comment_post", "post_id"),
+    )
+
+    id = Column(Integer, primary_key=True, index=True)
+    post_id = Column(Integer, ForeignKey("board_posts.id", ondelete="CASCADE"), nullable=False)
+    author_id = Column(Integer, ForeignKey("users.id", ondelete="CASCADE"), nullable=False)
+    content = Column(Text, nullable=False)
+    created_at = Column(DateTime, default=utc_now)
+
+    post = relationship("BoardPost", back_populates="comments")
+    author = relationship("User", backref="board_comments")
+
+
+# ══════════════════════════════════════════════════════════
+#  4차 개발 — Phase 1: 이메일 초대
+# ══════════════════════════════════════════════════════════
+
+class PendingInvite(Base):
+    """대기 초대 — 미가입 사용자 이메일 초대"""
+    __tablename__ = "pending_invites"
+    __table_args__ = (
+        Index("ix_pending_invite_token", "token"),
+        Index("ix_pending_invite_email", "email"),
+    )
+
+    id = Column(Integer, primary_key=True, index=True)
+    team_id = Column(Integer, ForeignKey("teams.id", ondelete="CASCADE"), nullable=False)
+    email = Column(String(255), nullable=False)
+    role = Column(String(20), default="member")  # member / admin
+    token = Column(String(64), unique=True, nullable=False)
+    invited_by = Column(Integer, ForeignKey("users.id", ondelete="CASCADE"), nullable=False)
+    status = Column(String(20), default="pending")  # pending / accepted / expired
+    created_at = Column(DateTime, default=utc_now)
+    expires_at = Column(DateTime, nullable=False)
+
+    team = relationship("Team", backref="pending_invites")
+    inviter = relationship("User", backref="sent_invites")
+
+
+# ══════════════════════════════════════════════════════════
+#  4차 개발 — Phase 2: 멀티팀 우선업무
+# ══════════════════════════════════════════════════════════
+
+class UserTaskPriority(Base):
+    """개인 업무 우선순위 — 멀티팀 통합 정렬"""
+    __tablename__ = "user_task_priorities"
+    __table_args__ = (
+        UniqueConstraint("user_id", "task_id", name="uq_user_task_priority"),
+        Index("ix_user_task_priority_user", "user_id"),
+    )
+
+    id = Column(Integer, primary_key=True, index=True)
+    user_id = Column(Integer, ForeignKey("users.id", ondelete="CASCADE"), nullable=False)
+    task_id = Column(Integer, ForeignKey("tasks.id", ondelete="CASCADE"), nullable=False)
+    sort_order = Column(Integer, default=0)
+    created_at = Column(DateTime, default=utc_now)
+    updated_at = Column(DateTime, default=utc_now, onupdate=utc_now)
+
+    user = relationship("User", backref="task_priorities")
+    task = relationship("Task", backref="user_priorities")
+
+
+# ══════════════════════════════════════════════════════════
+#  4차 개발 — Phase 3: 멤버 간 채팅
+# ══════════════════════════════════════════════════════════
+
+class ChatRoom(Base):
+    """채팅방 — 1:1 / 그룹 / 프로젝트"""
+    __tablename__ = "chat_rooms"
+
+    id = Column(Integer, primary_key=True, index=True)
+    team_id = Column(Integer, ForeignKey("teams.id", ondelete="CASCADE"), nullable=False, index=True)
+    name = Column(String(200), nullable=True)  # 그룹 채팅방 이름
+    type = Column(String(20), nullable=False)  # direct / group / project
+    project_id = Column(Integer, ForeignKey("projects.id", ondelete="SET NULL"), nullable=True)
+    created_at = Column(DateTime, default=utc_now)
+
+    team = relationship("Team", backref="chat_rooms")
+    project = relationship("Project", backref="chat_rooms")
+    members = relationship("ChatRoomMember", back_populates="room", cascade="all, delete-orphan")
+    room_messages = relationship("RoomMessage", back_populates="room", cascade="all, delete-orphan")
+
+
+class ChatRoomMember(Base):
+    """채팅방 참여자"""
+    __tablename__ = "chat_room_members"
+    __table_args__ = (
+        UniqueConstraint("room_id", "user_id", name="uq_chatroom_member"),
+        Index("ix_chatroom_member_user", "user_id"),
+    )
+
+    id = Column(Integer, primary_key=True, index=True)
+    room_id = Column(Integer, ForeignKey("chat_rooms.id", ondelete="CASCADE"), nullable=False)
+    user_id = Column(Integer, ForeignKey("users.id", ondelete="CASCADE"), nullable=False)
+    joined_at = Column(DateTime, default=utc_now)
+    last_read_at = Column(DateTime, nullable=True)
+
+    room = relationship("ChatRoom", back_populates="members")
+    user = relationship("User", backref="chat_room_memberships")
+
+
+class RoomMessage(Base):
+    """채팅 메시지"""
+    __tablename__ = "room_messages"
+    __table_args__ = (
+        Index("ix_room_message_room", "room_id"),
+        Index("ix_room_message_created", "created_at"),
+    )
+
+    id = Column(Integer, primary_key=True, index=True)
+    room_id = Column(Integer, ForeignKey("chat_rooms.id", ondelete="CASCADE"), nullable=False)
+    sender_id = Column(Integer, ForeignKey("users.id", ondelete="CASCADE"), nullable=False)
+    content = Column(Text, nullable=False)
+    file_urls = Column(JSON, nullable=True)  # [{name, url, size}]
+    created_at = Column(DateTime, default=utc_now)
+
+    room = relationship("ChatRoom", back_populates="room_messages")
+    sender = relationship("User", backref="sent_room_messages")
+
+
+# ══════════════════════════════════════════════════════════
+#  4차 개발 — Phase 4: 출퇴근 기록
+# ══════════════════════════════════════════════════════════
+
+class Attendance(Base):
+    """출퇴근 기록"""
+    __tablename__ = "attendances"
+    __table_args__ = (
+        UniqueConstraint("team_id", "user_id", "date", name="uq_attendance_daily"),
+        Index("ix_attendance_team_date", "team_id", "date"),
+        Index("ix_attendance_user_date", "user_id", "date"),
+    )
+
+    id = Column(Integer, primary_key=True, index=True)
+    team_id = Column(Integer, ForeignKey("teams.id", ondelete="CASCADE"), nullable=False)
+    user_id = Column(Integer, ForeignKey("users.id", ondelete="CASCADE"), nullable=False)
+    date = Column(String(10), nullable=False)  # YYYY-MM-DD
+    check_in = Column(String(5), nullable=True)   # HH:MM
+    check_out = Column(String(5), nullable=True)   # HH:MM
+    work_hours = Column(String(5), nullable=True)  # H.HH (소수점)
+    status = Column(String(20), default="normal")  # normal / late / early_leave / absent
+    note = Column(Text, nullable=True)
+    created_at = Column(DateTime, default=utc_now)
+    updated_at = Column(DateTime, default=utc_now, onupdate=utc_now)
+
+    team = relationship("Team", backref="attendances")
+    user = relationship("User", backref="attendances")
+
+
+class AttendancePolicy(Base):
+    """근무 정책 — 팀별 설정"""
+    __tablename__ = "attendance_policies"
+
+    id = Column(Integer, primary_key=True, index=True)
+    team_id = Column(Integer, ForeignKey("teams.id", ondelete="CASCADE"), nullable=False, unique=True)
+    default_check_in = Column(String(5), default="09:00")   # HH:MM
+    default_check_out = Column(String(5), default="18:00")   # HH:MM
+    work_hours = Column(Integer, default=8)       # 시간 단위
+    break_hours = Column(Integer, default=1)      # 시간 단위
+    created_at = Column(DateTime, default=utc_now)
+
+    team = relationship("Team", backref="attendance_policy", uselist=False)
+
+
 class McpRecommendation(Base):
     """MCP 추천 — 업무 패턴 기반 MCP 도구 추천"""
     __tablename__ = "mcp_recommendations"
@@ -651,6 +864,7 @@ class CalendarSync(Base):
     access_token = Column(Text, nullable=True)      # crypto_service.encrypt_token() 으로 암호화 저장
     refresh_token = Column(Text, nullable=True)     # crypto_service.encrypt_token() 으로 암호화 저장
     calendar_id = Column(String(200), nullable=False)
+    sync_direction = Column(String(20), default="cs_to_google")  # cs_to_google / google_to_cs / bidirectional
     is_active = Column(Boolean, default=True)
     last_synced_at = Column(DateTime, nullable=True)
 
@@ -777,6 +991,10 @@ TEAM_PERMISSIONS = {
         "payment.create", "payment.update",
         "template.create", "template.delete",
         "comment.create", "comment.delete_any",
+        # 4차 개발
+        "board.create", "board.post", "board.pin", "board.delete_any",
+        "invite.create", "invite.cancel",
+        "attendance.admin", "attendance.policy",
     },
     "admin": {
         "team.update", "team.invite", "team.remove_member",
@@ -788,6 +1006,10 @@ TEAM_PERMISSIONS = {
         "payment.create", "payment.update",
         "template.create", "template.delete",
         "comment.create", "comment.delete_any",
+        # 4차 개발
+        "board.create", "board.post", "board.pin", "board.delete_any",
+        "invite.create", "invite.cancel",
+        "attendance.admin",
     },
     "member": {
         "client.create", "client.update",
@@ -796,6 +1018,8 @@ TEAM_PERMISSIONS = {
         "document.create", "document.update",
         "report.create", "report.send",
         "comment.create",
+        # 4차 개발
+        "board.post",
     },
     "viewer": {
         "comment.create",
@@ -868,6 +1092,10 @@ async def init_db():
             ("users", "user_type", "VARCHAR(20) DEFAULT 'human'"),
             # 3차 개발 — Figma 연동
             ("projects", "figma_urls", "JSON"),
+            # 5차 개발 — 캘린더 동기화 방향
+            ("calendar_syncs", "sync_direction", "VARCHAR(20) DEFAULT 'cs_to_google'"),
+            # 5차 개발 — 업무 출처
+            ("tasks", "source", "VARCHAR(30)"),
         ]
         for tbl, col_name, col_type in new_columns:
             try:
@@ -997,6 +1225,18 @@ async def init_db():
             "CREATE INDEX IF NOT EXISTS ix_feedback_request_project ON feedback_requests (project_id)",
             "CREATE INDEX IF NOT EXISTS ix_feedback_request_token ON feedback_requests (feedback_token)",
             "CREATE INDEX IF NOT EXISTS ix_feedback_request_status ON feedback_requests (status)",
+            # 4차 개발
+            "CREATE INDEX IF NOT EXISTS ix_board_post_board ON board_posts (board_id)",
+            "CREATE INDEX IF NOT EXISTS ix_board_post_author ON board_posts (author_id)",
+            "CREATE INDEX IF NOT EXISTS ix_board_comment_post ON board_comments (post_id)",
+            "CREATE INDEX IF NOT EXISTS ix_pending_invite_token ON pending_invites (token)",
+            "CREATE INDEX IF NOT EXISTS ix_pending_invite_email ON pending_invites (email)",
+            "CREATE INDEX IF NOT EXISTS ix_user_task_priority_user ON user_task_priorities (user_id)",
+            "CREATE INDEX IF NOT EXISTS ix_chatroom_member_user ON chat_room_members (user_id)",
+            "CREATE INDEX IF NOT EXISTS ix_room_message_room ON room_messages (room_id)",
+            "CREATE INDEX IF NOT EXISTS ix_room_message_created ON room_messages (created_at)",
+            "CREATE INDEX IF NOT EXISTS ix_attendance_team_date ON attendances (team_id, date)",
+            "CREATE INDEX IF NOT EXISTS ix_attendance_user_date ON attendances (user_id, date)",
         ]
         for idx_sql in new_indexes:
             try:

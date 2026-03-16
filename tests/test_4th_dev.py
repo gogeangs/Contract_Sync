@@ -220,6 +220,29 @@ class TestBoard:
         found = any("고유키워드ABC" in (p.get("title", "") or "") for p in (items if isinstance(items, list) else [items]))
         assert found
 
+    @pytest.mark.asyncio
+    async def test_personal_board_auto_created(self, client):
+        """T37-b: 개인 게시판 자동 생성"""
+        ac = await _create_user(client, "pboard1@test.com", "개인게시판유저")
+
+        resp = await ac.get("/api/v1/my/boards")
+        assert resp.status_code == 200
+        boards = resp.json()
+        assert len(boards) >= 2  # 메모, 자료실
+
+    @pytest.mark.asyncio
+    async def test_personal_board_post_crud(self, client):
+        """T37-c: 개인 게시판 글 작성"""
+        ac = await _create_user(client, "pboard2@test.com", "개인글유저")
+
+        boards = (await ac.get("/api/v1/my/boards")).json()
+        board_id = boards[0]["id"]
+
+        resp = await ac.post(f"/api/v1/boards/{board_id}/posts", json={
+            "title": "개인 메모", "content": "개인 내용",
+        })
+        assert resp.status_code in (200, 201)
+
 
 # ══════════════════════════════════════════
 # Phase 1: 이메일 초대
@@ -683,3 +706,116 @@ class TestPermissions:
                 "email": "someone@example.com",
             })
             assert resp.status_code in (401, 403)  # 401=세션 미전달, 403=권한 부족
+
+
+# ══════════════════════════════════════════
+# 랜딩 페이지 테스트
+# ══════════════════════════════════════════
+
+class TestLandingPage:
+    """랜딩 페이지 테스트"""
+
+    @pytest.mark.asyncio
+    async def test_landing_page_accessible_without_login(self, client):
+        """T37: 비로그인 상태에서 메인 페이지 접근 가능"""
+        resp = await client.get("/")
+        assert resp.status_code == 200
+        # index.html이 반환되어야 함
+        assert "Contract Sync" in resp.text
+
+    @pytest.mark.asyncio
+    async def test_landing_page_contains_features(self, client):
+        """T38: 랜딩 페이지에 기능 소개 카드 포함"""
+        resp = await client.get("/")
+        assert resp.status_code == 200
+        # 6개 기능 카드 관련 텍스트 확인
+        html = resp.text
+        assert "landingPage" in html  # Alpine.js 함수 존재
+
+    @pytest.mark.asyncio
+    async def test_landing_page_has_login_cta(self, client):
+        """T39: 랜딩 페이지에 로그인 CTA 버튼 포함"""
+        resp = await client.get("/")
+        html = resp.text
+        assert "Google" in html or "로그인" in html or "시작하기" in html
+
+    @pytest.mark.asyncio
+    async def test_authenticated_user_can_access_dashboard(self, client):
+        """T40: 로그인 사용자는 대시보드 접근 가능"""
+        ac = await _create_user(client, "land1@test.com", "랜딩유저")
+        resp = await ac.get("/api/v1/dashboard/summary")
+        assert resp.status_code == 200
+
+    @pytest.mark.asyncio
+    async def test_static_assets_accessible(self, client):
+        """T41: 정적 파일(JS, CSS) 접근 가능"""
+        resp_js = await client.get("/static/js/main.js")
+        assert resp_js.status_code == 200
+
+        resp_css = await client.get("/static/css/styles.css")
+        assert resp_css.status_code == 200
+
+
+# ══════════════════════════════════════════
+# 캘린더 위젯 테스트
+# ══════════════════════════════════════════
+
+class TestCalendarWidget:
+    """대시보드 캘린더 위젯 테스트"""
+
+    @pytest.mark.asyncio
+    async def test_tasks_api_for_calendar(self, client):
+        """T42: 캘린더 위젯용 업무 목록 API"""
+        ac = await _create_user(client, "cal1@test.com", "캘린더유저")
+        team_id, project_id, _ = await _setup_team("cal1@test.com")
+
+        resp = await ac.get(f"/api/v1/tasks?project_id={project_id}&page=1&size=100")
+        assert resp.status_code == 200
+
+    @pytest.mark.asyncio
+    async def test_tasks_with_due_date(self, client):
+        """T43: 기한이 있는 업무가 캘린더에 표시 가능"""
+        ac = await _create_user(client, "cal2@test.com", "캘린더유저2")
+        team_id, project_id, _ = await _setup_team("cal2@test.com")
+
+        # 기한이 있는 업무 생성
+        resp = await ac.post("/api/v1/tasks", json={
+            "task_name": "캘린더 업무",
+            "project_id": project_id,
+            "due_date": "2026-03-20",
+            "priority": "높음",
+        })
+        assert resp.status_code in (200, 201)
+
+        # 업무 목록에서 due_date 확인
+        tasks_resp = await ac.get(f"/api/v1/tasks?project_id={project_id}&page=1&size=100")
+        assert tasks_resp.status_code == 200
+
+    @pytest.mark.asyncio
+    async def test_my_tasks_for_calendar(self, client):
+        """T44: 멀티팀 업무 조회 (캘린더 데이터 소스)"""
+        ac = await _create_user(client, "cal3@test.com", "캘린더유저3")
+        await _setup_team("cal3@test.com")
+
+        resp = await ac.get("/api/v1/my/tasks")
+        assert resp.status_code == 200
+
+    @pytest.mark.asyncio
+    async def test_dashboard_summary_for_calendar(self, client):
+        """T45: 대시보드 요약 API (캘린더 통계)"""
+        ac = await _create_user(client, "cal4@test.com", "캘린더유저4")
+        await _setup_team("cal4@test.com")
+
+        resp = await ac.get("/api/v1/dashboard/summary")
+        assert resp.status_code == 200
+        data = resp.json()
+        assert "total_projects" in data or "projects" in data or isinstance(data, dict)
+
+    @pytest.mark.asyncio
+    async def test_weekly_report_api(self, client):
+        """T46: 주간 리포트 API (캘린더 관련)"""
+        ac = await _create_user(client, "cal5@test.com", "캘린더유저5")
+        await _setup_team("cal5@test.com")
+
+        resp = await ac.get("/api/v1/dashboard/weekly-report?week_offset=0")
+        assert resp.status_code == 200

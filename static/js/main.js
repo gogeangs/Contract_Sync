@@ -3426,16 +3426,15 @@ function boardListPage() {
 
         async init() {
             const teamId = window._selectedTeamId;
-            if (!teamId) { window.toast.warning('팀을 먼저 선택해주세요.'); return; }
             await this.loadBoards(teamId);
             this.$el.addEventListener('route-changed', () => { if (this.$data.currentPage === 'boards') this.loadBoards(window._selectedTeamId); });
         },
 
         async loadBoards(teamId) {
-            if (!teamId) return;
             this.loading = true;
             try {
-                this.boards = await api.get(`/teams/${teamId}/boards`) || [];
+                const url = teamId ? `/teams/${teamId}/boards` : '/my/boards';
+                this.boards = await api.get(url) || [];
                 const target = this.boards.find(b => b.type === this.activeBoardType) || this.boards[0];
                 if (target) { this.activeBoard = target; await this.loadPosts(); }
             } catch (e) { window.toast.error('게시판을 불러올 수 없습니다.'); }
