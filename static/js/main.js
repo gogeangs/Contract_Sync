@@ -294,15 +294,6 @@ function appShell() {
         async init() {
             this.initDarkMode();
             await this.checkAuth();
-            // 비로그인 시 랜딩 페이지로 리다이렉트 (공개 페이지 제외)
-            if (!this.user) {
-                const hash = window.location.hash || '';
-                const publicPages = ['/landing', '/feedback-portal/', '/invite/'];
-                const isPublic = publicPages.some(p => hash.includes(p));
-                if (!isPublic) {
-                    window.location.hash = '#/landing';
-                }
-            }
             this.initRouter();
             this._initGlobalSearch();
         },
@@ -386,6 +377,16 @@ function appShell() {
                 this.currentPage = 'landing'; this.pageParams = {};
             } else {
                 this.currentPage = 'dashboard'; this.pageParams = {};
+            }
+
+            // 비로그인 시 공개 페이지 외에는 랜딩으로 강제 이동
+            if (!this.user) {
+                const publicPages = ['landing', 'feedback', 'feedbackPortal', 'inviteAccept', 'portal'];
+                if (!publicPages.includes(this.currentPage)) {
+                    this.currentPage = 'landing';
+                    this.pageParams = {};
+                    window.location.hash = '#/landing';
+                }
             }
 
             this.sidebarOpen = false;
