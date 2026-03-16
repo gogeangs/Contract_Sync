@@ -295,16 +295,15 @@ function appShell() {
             this.initDarkMode();
             await this.checkAuth();
             // 비로그인 시 랜딩 페이지로 리다이렉트 (공개 페이지 제외)
-            this.initRouter();
             if (!this.user) {
                 const hash = window.location.hash || '';
                 const publicPages = ['/landing', '/feedback-portal/', '/invite/'];
                 const isPublic = publicPages.some(p => hash.includes(p));
                 if (!isPublic) {
                     window.location.hash = '#/landing';
-                    this.handleRoute();
                 }
             }
+            this.initRouter();
             this._initGlobalSearch();
         },
 
