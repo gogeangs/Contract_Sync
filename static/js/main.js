@@ -295,15 +295,16 @@ function appShell() {
             this.initDarkMode();
             await this.checkAuth();
             // 비로그인 시 랜딩 페이지로 리다이렉트 (공개 페이지 제외)
+            this.initRouter();
             if (!this.user) {
                 const hash = window.location.hash || '';
                 const publicPages = ['/landing', '/feedback-portal/', '/invite/'];
                 const isPublic = publicPages.some(p => hash.includes(p));
                 if (!isPublic) {
                     window.location.hash = '#/landing';
+                    this.handleRoute();
                 }
             }
-            this.initRouter();
             this._initGlobalSearch();
         },
 
@@ -2880,6 +2881,7 @@ function settingsPage() {
         notifSettings: JSON.parse(localStorage.getItem('cs_notif_settings') || '{"comment":true,"mention":true,"status_change":true,"deadline":true,"weekly_report":true}'),
         // 캘린더
         calendarSyncs: [], loading: true, connecting: false, syncing: {},
+        connectDirection: 'cs_to_google',
 
         async init() {
             try {
@@ -2954,16 +2956,16 @@ function settingsPage() {
             localStorage.setItem('cs_notif_settings', JSON.stringify(this.notifSettings));
         },
 
-        // 캘린더 (기존 코드 유지)
+        // 캘린더 — 5차 개발: 양방향 동기화 지원
         async loadCalendarSyncs() {
             this.loading = true;
-            try { this.calendarSyncs = await api.get('/calendar-sync') || []; } catch { this.calendarSyncs = []; }
+            try { this.calendarSyncs = await api.get('/calendar/status') || []; } catch { this.calendarSyncs = []; }
             finally { this.loading = false; }
         },
         async connectGoogle() {
             this.connecting = true;
             try {
-                const data = await api.post('/calendar-sync/google', {});
+                const data = await api.post('/calendar/connect', { provider: 'google', auth_code: '', sync_direction: this.connectDirection });
                 if (data?.auth_url) window.location.href = data.auth_url;
                 else { await this.loadCalendarSyncs(); window.toast.success('Google Calendar 연동 완료'); }
             } catch (e) { window.toast.error(e.message); }
@@ -2972,7 +2974,7 @@ function settingsPage() {
         async disconnectCalendar(syncId) {
             if (!await window.confirmDialog('캘린더 연동을 해제하시겠습니까?', { title: '연동 해제', confirmText: '해제', danger: true })) return;
             try {
-                await api.del(`/calendar-sync/${syncId}`);
+                await api.del(`/calendar/${syncId}`);
                 this.calendarSyncs = this.calendarSyncs.filter(s => s.id !== syncId);
                 window.toast.success('연동이 해제되었습니다.');
             } catch (e) { window.toast.error(e.message); }
@@ -2980,13 +2982,22 @@ function settingsPage() {
         async syncCalendar(syncId) {
             this.syncing[syncId] = true;
             try {
-                await api.post(`/calendar-sync/${syncId}/sync`, {});
+                await api.post(`/calendar/${syncId}/sync`, {});
                 window.toast.success('동기화가 완료되었습니다.');
                 await this.loadCalendarSyncs();
             } catch (e) { window.toast.error(e.message); }
             finally { this.syncing[syncId] = false; }
         },
+        async changeSyncDirection(syncId, direction) {
+            try {
+                await api.patch(`/calendar/${syncId}/direction`, { sync_direction: direction });
+                const s = this.calendarSyncs.find(c => c.id === syncId);
+                if (s) s.sync_direction = direction;
+                window.toast.success('동기화 방향이 변경되었습니다.');
+            } catch (e) { window.toast.error(e.message); }
+        },
         getProviderLabel(p) { return { google: 'Google Calendar', outlook: 'Outlook' }[p] || p; },
+        getDirectionLabel(d) { return { cs_to_google: 'CS → Google', google_to_cs: 'Google → CS', bidirectional: '양방향' }[d] || d; },
     };
 }
 
