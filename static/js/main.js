@@ -753,14 +753,25 @@ function dashboardPage() {
             return h < 12 ? '좋은 아침이에요' : h < 18 ? '좋은 오후에요' : '좋은 저녁이에요';
         },
 
+        briefingData: null,
+        async loadBriefing() {
+            try {
+                this.briefingData = await api.get('/dashboard/briefing');
+            } catch { this.briefingData = null; }
+        },
         get briefingItems() {
             const items = [];
+            // API 데이터 우선
+            if (this.briefingData?.items) return this.briefingData.items;
+            // API 미응답 시 stats 기반 폴백
             const due = this.stats?.pendingTasks || 0;
-            if (due > 0) items.push({ icon: '⏰', text: `오늘 마감 업무 ${due}건이 있습니다`, color: 'text-red-600 dark:text-red-400' });
+            if (due > 0) items.push({ icon: '⏰', text: `오늘 마감 업무 ${due}건이 있습니다`, color: 'text-red-600 dark:text-red-400', action: 'my-tasks' });
             const ip = this.stats?.inProgressTasks || 0;
-            if (ip > 0) items.push({ icon: '🔄', text: `진행 중 업무 ${ip}건`, color: 'text-blue-600 dark:text-blue-400' });
+            if (ip > 0) items.push({ icon: '🔄', text: `진행 중 업무 ${ip}건`, color: 'text-blue-600 dark:text-blue-400', action: 'tasks' });
             const proj = this.stats?.projects || 0;
-            if (proj > 0) items.push({ icon: '📁', text: `활성 프로젝트 ${proj}개`, color: 'text-indigo-600 dark:text-indigo-400' });
+            if (proj > 0) items.push({ icon: '📁', text: `활성 프로젝트 ${proj}개`, color: 'text-indigo-600 dark:text-indigo-400', action: 'projects' });
+            // 데이터가 없어도 환영 메시지 표시
+            if (items.length === 0) items.push({ icon: '👋', text: '오늘도 좋은 하루 되세요! 새 프로젝트를 시작해보세요.', color: 'text-white', action: 'projects' });
             return items;
         },
 
@@ -777,9 +788,9 @@ function dashboardPage() {
         dismissAlert(id) { this.alertsDismissed.add(id); this.proactiveAlerts = this.proactiveAlerts.filter(a => a.id !== id); },
 
         async init() {
-            await this.load();
+            await Promise.all([this.load(), this.loadBriefing()]);
             this.buildProactiveAlerts();
-            this.$el.addEventListener('route-changed', () => { if (this.$data.currentPage === 'dashboard') this.load(); });
+            this.$el.addEventListener('route-changed', () => { if (this.$data.currentPage === 'dashboard') { this.load(); this.loadBriefing(); } });
         },
 
         async load() {
