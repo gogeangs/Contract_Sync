@@ -294,6 +294,15 @@ function appShell() {
         async init() {
             this.initDarkMode();
             await this.checkAuth();
+            // 비로그인 시 랜딩 페이지로 리다이렉트 (공개 페이지 제외)
+            if (!this.user) {
+                const hash = window.location.hash || '';
+                const publicPages = ['/landing', '/feedback-portal/', '/invite/'];
+                const isPublic = publicPages.some(p => hash.includes(p));
+                if (!isPublic) {
+                    window.location.hash = '#/landing';
+                }
+            }
             this.initRouter();
             this._initGlobalSearch();
         },
@@ -357,6 +366,24 @@ function appShell() {
                 this.currentPage = 'feedbackPortal'; this.pageParams = { token: m[1] };
             } else if (path === '/mcp') {
                 this.currentPage = 'mcp'; this.pageParams = {};
+            } else if (path === '/boards') {
+                this.currentPage = 'boards'; this.pageParams = {};
+            } else if ((m = path.match(/^\/boards\/post\/(\d+)$/))) {
+                this.currentPage = 'boardPost'; this.pageParams = { postId: parseInt(m[1]) };
+            } else if ((m = path.match(/^\/invite\/([a-zA-Z0-9_-]+)$/))) {
+                this.currentPage = 'inviteAccept'; this.pageParams = { token: m[1] };
+            } else if (path === '/my-tasks') {
+                this.currentPage = 'myTasks'; this.pageParams = {};
+            } else if (path === '/chat') {
+                this.currentPage = 'chat'; this.pageParams = {};
+            } else if ((m = path.match(/^\/chat\/(\d+)$/))) {
+                this.currentPage = 'chat'; this.pageParams = { roomId: parseInt(m[1]) };
+            } else if (path === '/attendance') {
+                this.currentPage = 'attendance'; this.pageParams = {};
+            } else if (path === '/team-attendance') {
+                this.currentPage = 'teamAttendance'; this.pageParams = {};
+            } else if (path === '/landing') {
+                this.currentPage = 'landing'; this.pageParams = {};
             } else {
                 this.currentPage = 'dashboard'; this.pageParams = {};
             }
@@ -453,6 +480,7 @@ function appShell() {
                 const res = await fetch('/api/v1/auth/signup', { method: 'POST', headers: {'Content-Type':'application/json'}, body: JSON.stringify({ email: this.email, password: this.password, password_confirm: this.passwordConfirm }) });
                 if (!res.ok) { let msg = '회원가입 실패'; try { const d = await res.json(); msg = d.detail || msg; } catch { msg = `서버 오류 (${res.status})`; } throw new Error(msg); }
                 this.closeModal(); await this.checkAuth();
+                if (this.user) window.location.hash = '#/dashboard';
             } catch (e) { this.formError = e.message; }
             finally { this.formLoading = false; }
         },
@@ -464,6 +492,7 @@ function appShell() {
                 const res = await fetch('/api/v1/auth/login/email', { method: 'POST', headers: {'Content-Type':'application/json'}, body: JSON.stringify({ email: this.email, password: this.password }) });
                 if (!res.ok) { let msg = '로그인 실패'; try { const d = await res.json(); msg = d.detail || msg; } catch { msg = `서버 오류 (${res.status})`; } throw new Error(msg); }
                 this.closeModal(); await this.checkAuth();
+                if (this.user) window.location.hash = '#/dashboard';
             } catch (e) { this.formError = e.message; }
             finally { this.formLoading = false; }
         },
@@ -2844,6 +2873,7 @@ function settingsPage() {
         activeSettingsTab: 'profile',
         // 프로필
         profileName: '', profileSaving: false,
+        profilePicture: null, picturePreview: null, pictureUploading: false,
         // 보안
         currentPassword: '', newPassword: '', newPasswordConfirm: '', passwordSaving: false, passwordError: '',
         // 알림 설정 (localStorage)
@@ -2855,6 +2885,7 @@ function settingsPage() {
             try {
                 const me = await api.get('/auth/me');
                 this.profileName = me?.user?.name || '';
+                this.profilePicture = me?.user?.picture || null;
             } catch {}
             await this.loadCalendarSyncs();
         },
@@ -2867,6 +2898,39 @@ function settingsPage() {
                 window.toast.success('프로필이 저장되었습니다.');
             } catch (e) { window.toast.error(e.message); }
             finally { this.profileSaving = false; }
+        },
+
+        // 프로필 이미지
+        previewImage(ev) {
+            const file = ev.target.files[0];
+            if (!file) return;
+            if (file.size > 2 * 1024 * 1024) { window.toast.error('이미지 크기는 2MB 이하여야 합니다.'); return; }
+            this.picturePreview = URL.createObjectURL(file);
+        },
+
+        async uploadPicture(ev) {
+            const file = ev.target?.files?.[0] || this.$refs.pictureInput?.files?.[0];
+            if (!file) return;
+            this.pictureUploading = true;
+            try {
+                const fd = new FormData();
+                fd.append('file', file);
+                const res = await api._fetch('/auth/profile/picture', { method: 'POST', body: fd, rawBody: true });
+                this.profilePicture = res?.picture;
+                this.picturePreview = null;
+                window.toast.success('프로필 이미지가 변경되었습니다.');
+            } catch (e) { window.toast.error(e.message); }
+            finally { this.pictureUploading = false; }
+        },
+
+        async deletePicture() {
+            if (!await window.confirmDialog('프로필 이미지를 삭제하시겠습니까?', { title: '이미지 삭제', confirmText: '삭제', danger: true })) return;
+            try {
+                await api.del('/auth/profile/picture');
+                this.profilePicture = null;
+                this.picturePreview = null;
+                window.toast.success('프로필 이미지가 삭제되었습니다.');
+            } catch (e) { window.toast.error(e.message); }
         },
 
         // 비밀번호 변경
@@ -3323,6 +3387,663 @@ function mcpPage() {
         mcpIcon(name) {
             const icons = { figma: 'M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2z', google_calendar: 'M19 4h-1V2h-2v2H8V2H6v2H5c-1.1 0-2 .9-2 2v14c0 1.1.9 2 2 2h14c1.1 0 2-.9 2-2V6c0-1.1-.9-2-2-2z', github: 'M12 2C6.477 2 2 6.477 2 12c0 4.42 2.865 8.167 6.839 9.49.5.09.682-.217.682-.482 0-.237-.009-.866-.014-1.7-2.782.603-3.369-1.34-3.369-1.34-.454-1.156-1.11-1.464-1.11-1.464-.908-.62.069-.607.069-.607 1.004.07 1.532 1.032 1.532 1.032.892 1.53 2.341 1.088 2.91.832.092-.647.35-1.088.636-1.338-2.22-.253-4.555-1.11-4.555-4.943 0-1.091.39-1.984 1.029-2.683-.103-.253-.446-1.27.098-2.647 0 0 .84-.269 2.75 1.025A9.564 9.564 0 0112 6.844c.85.004 1.705.115 2.504.337 1.909-1.294 2.747-1.025 2.747-1.025.546 1.377.202 2.394.1 2.647.64.699 1.028 1.592 1.028 2.683 0 3.842-2.339 4.687-4.566 4.935.359.309.678.919.678 1.852 0 1.336-.012 2.415-.012 2.743 0 .267.18.578.688.48C19.138 20.163 22 16.418 22 12c0-5.523-4.477-10-10-10z' };
             return icons[name] || icons.figma;
+        },
+    };
+}
+
+// ============ 4차 개발: Phase 1 — 게시판 (F-1~F-3) ============
+
+function boardListPage() {
+    return {
+        boards: [], posts: [], loading: true,
+        activeBoard: null, activeBoardType: 'notice',
+        search: '', page: 1, totalPages: 1, size: 15,
+        // 글 작성/수정
+        showWriteModal: false, editingPost: null,
+        writeForm: { title: '', content: '', file_urls: [] },
+        _quill: null, saving: false,
+        // 파일 업로드
+        uploading: false,
+
+        async init() {
+            const teamId = window._selectedTeamId;
+            if (!teamId) { window.toast.warning('팀을 먼저 선택해주세요.'); return; }
+            await this.loadBoards(teamId);
+            this.$el.addEventListener('route-changed', () => { if (this.$data.currentPage === 'boards') this.loadBoards(window._selectedTeamId); });
+        },
+
+        async loadBoards(teamId) {
+            if (!teamId) return;
+            this.loading = true;
+            try {
+                this.boards = await api.get(`/teams/${teamId}/boards`) || [];
+                const target = this.boards.find(b => b.type === this.activeBoardType) || this.boards[0];
+                if (target) { this.activeBoard = target; await this.loadPosts(); }
+            } catch (e) { window.toast.error('게시판을 불러올 수 없습니다.'); }
+            finally { this.loading = false; }
+        },
+
+        async switchBoard(board) {
+            this.activeBoard = board;
+            this.activeBoardType = board.type;
+            this.page = 1; this.search = '';
+            await this.loadPosts();
+        },
+
+        async loadPosts() {
+            if (!this.activeBoard) return;
+            try {
+                const params = `page=${this.page}&size=${this.size}${this.search ? '&search=' + encodeURIComponent(this.search) : ''}`;
+                const data = await api.get(`/boards/${this.activeBoard.id}/posts?${params}`);
+                this.posts = data?.items || [];
+                this.totalPages = Math.ceil((data?.total || 0) / this.size) || 1;
+            } catch { this.posts = []; }
+        },
+
+        doSearch: debounce(function() { this.page = 1; this.loadPosts(); }, 400),
+
+        openWrite(post = null) {
+            this.editingPost = post;
+            this.writeForm = post ? { title: post.title, content: post.content || '', file_urls: post.file_urls || [] } : { title: '', content: '', file_urls: [] };
+            this.showWriteModal = true;
+            this.$nextTick(() => this._initQuill());
+        },
+
+        _initQuill() {
+            const el = this.$refs.boardQuillEditor;
+            if (!el || this._quill) return;
+            this._quill = new Quill(el, {
+                theme: 'snow',
+                placeholder: '내용을 입력하세요...',
+                modules: { toolbar: [['bold', 'italic', 'underline'], [{ list: 'ordered' }, { list: 'bullet' }], ['link', 'image', 'clean']] },
+            });
+            if (this.writeForm.content) this._quill.root.innerHTML = this.writeForm.content;
+            this._quill.on('text-change', () => { this.writeForm.content = this._quill.root.innerHTML; });
+        },
+
+        closeWrite() {
+            this.showWriteModal = false;
+            if (this._quill) { this._quill = null; }
+        },
+
+        async savePost() {
+            if (!this.writeForm.title.trim()) { window.toast.warning('제목을 입력해주세요.'); return; }
+            if (!this.writeForm.content.trim() || this.writeForm.content === '<p><br></p>') { window.toast.warning('내용을 입력해주세요.'); return; }
+            this.saving = true;
+            try {
+                if (this.editingPost) {
+                    await api.put(`/posts/${this.editingPost.id}`, this.writeForm);
+                    window.toast.success('게시글이 수정되었습니다.');
+                } else {
+                    await api.post(`/boards/${this.activeBoard.id}/posts`, this.writeForm);
+                    window.toast.success('게시글이 등록되었습니다.');
+                }
+                this.closeWrite();
+                await this.loadPosts();
+            } catch (e) { window.toast.error(e.message); }
+            finally { this.saving = false; }
+        },
+
+        async deletePost(post) {
+            if (!await window.confirmDialog('게시글을 삭제하시겠습니까?', { title: '게시글 삭제', confirmText: '삭제', danger: true })) return;
+            try {
+                await api.del(`/posts/${post.id}`);
+                window.toast.success('삭제되었습니다.');
+                await this.loadPosts();
+            } catch (e) { window.toast.error(e.message); }
+        },
+
+        async togglePin(post) {
+            try {
+                const res = await api.patch(`/posts/${post.id}/pin`);
+                post.is_pinned = res.is_pinned;
+                window.toast.success(res.is_pinned ? '고정되었습니다.' : '고정 해제되었습니다.');
+            } catch (e) { window.toast.error(e.message); }
+        },
+
+        async uploadFile(ev) {
+            const file = ev.target.files[0];
+            if (!file) return;
+            this.uploading = true;
+            try {
+                const fd = new FormData();
+                fd.append('file', file);
+                const res = await api._fetch('/upload', { method: 'POST', body: fd, rawBody: true });
+                if (res?.url) { this.writeForm.file_urls = [...(this.writeForm.file_urls || []), res.url]; }
+                window.toast.success('파일이 첨부되었습니다.');
+            } catch (e) { window.toast.error(e.message); }
+            finally { this.uploading = false; ev.target.value = ''; }
+        },
+
+        removeFile(idx) { this.writeForm.file_urls.splice(idx, 1); },
+
+        boardTypeLabel(t) { return { notice: '공지사항', free: '자유게시판', archive: '자료실' }[t] || t; },
+        boardTypeIcon(t) { return { notice: '📢', free: '💬', archive: '📁' }[t] || '📋'; },
+    };
+}
+
+function boardPostPage() {
+    return {
+        post: null, loading: true,
+        commentText: '', commenting: false,
+
+        async init() {
+            const postId = this.$el.closest('[x-data]')?.__x?.$data?.pageParams?.postId || window.location.hash.match(/\/boards\/post\/(\d+)/)?.[1];
+            if (!postId) { window.location.hash = '#/boards'; return; }
+            await this.loadPost(postId);
+        },
+
+        async loadPost(postId) {
+            this.loading = true;
+            try { this.post = await api.get(`/posts/${postId}`); }
+            catch { window.toast.error('게시글을 찾을 수 없습니다.'); window.location.hash = '#/boards'; }
+            finally { this.loading = false; }
+        },
+
+        async addComment() {
+            if (!this.commentText.trim()) return;
+            this.commenting = true;
+            try {
+                const c = await api.post(`/posts/${this.post.id}/comments`, { content: this.commentText });
+                this.post.comments = [...(this.post.comments || []), c];
+                this.commentText = '';
+            } catch (e) { window.toast.error(e.message); }
+            finally { this.commenting = false; }
+        },
+
+        async deleteComment(commentId) {
+            if (!await window.confirmDialog('댓글을 삭제하시겠습니까?', { title: '삭제', confirmText: '삭제', danger: true })) return;
+            try {
+                await api.del(`/comments/${commentId}`);
+                this.post.comments = this.post.comments.filter(c => c.id !== commentId);
+            } catch (e) { window.toast.error(e.message); }
+        },
+
+        goBack() { window.location.hash = '#/boards'; },
+    };
+}
+
+// ============ 4차 개발: Phase 1 — 이메일 초대 (F-4) ============
+
+function inviteManagement() {
+    return {
+        invites: [], loading: false,
+        showInviteForm: false, inviteForm: { email: '', role: 'member' }, sending: false,
+
+        async loadInvites(teamId) {
+            if (!teamId) return;
+            this.loading = true;
+            try { this.invites = await api.get(`/teams/${teamId}/invites`) || []; }
+            catch { this.invites = []; }
+            finally { this.loading = false; }
+        },
+
+        async sendInvite(teamId) {
+            if (!this.inviteForm.email.trim()) { window.toast.warning('이메일을 입력해주세요.'); return; }
+            this.sending = true;
+            try {
+                await api.post(`/teams/${teamId}/invites`, this.inviteForm);
+                window.toast.success('초대 이메일이 발송되었습니다.');
+                this.inviteForm = { email: '', role: 'member' };
+                this.showInviteForm = false;
+                await this.loadInvites(teamId);
+            } catch (e) { window.toast.error(e.message); }
+            finally { this.sending = false; }
+        },
+
+        async cancelInvite(inviteId, teamId) {
+            if (!await window.confirmDialog('초대를 취소하시겠습니까?', { title: '초대 취소', confirmText: '취소', danger: true })) return;
+            try {
+                await api.del(`/invites/${inviteId}`);
+                await this.loadInvites(teamId);
+                window.toast.success('초대가 취소되었습니다.');
+            } catch (e) { window.toast.error(e.message); }
+        },
+
+        statusLabel(s) { return { pending: '대기 중', accepted: '수락됨', expired: '만료' }[s] || s; },
+        statusColor(s) { return { pending: 'bg-yellow-100 text-yellow-800 dark:bg-yellow-900/30 dark:text-yellow-400', accepted: 'bg-green-100 text-green-800 dark:bg-green-900/30 dark:text-green-400', expired: 'bg-gray-100 text-gray-600 dark:bg-gray-700 dark:text-gray-400' }[s] || ''; },
+    };
+}
+
+// ============ 4차 개발: Phase 1 — 초대 수락 페이지 (F-5) ============
+
+function inviteAcceptPage() {
+    return {
+        invite: null, loading: true, accepting: false, error: '',
+
+        async init() {
+            const token = window.location.hash.match(/\/invite\/([a-zA-Z0-9_-]+)/)?.[1];
+            if (!token) { this.error = '잘못된 초대 링크입니다.'; this.loading = false; return; }
+            try {
+                this.invite = await api.get(`/invites/accept/${token}`);
+                if (this.invite?.expired) this.error = '만료된 초대입니다.';
+            } catch { this.error = '초대를 찾을 수 없습니다.'; }
+            finally { this.loading = false; }
+        },
+
+        async accept() {
+            const token = window.location.hash.match(/\/invite\/([a-zA-Z0-9_-]+)/)?.[1];
+            this.accepting = true;
+            try {
+                const res = await api.post(`/invites/accept/${token}`);
+                window.toast.success(`'${res.team_name || ''}' 팀에 합류했습니다!`);
+                window.location.hash = '#/dashboard';
+            } catch (e) { window.toast.error(e.message); }
+            finally { this.accepting = false; }
+        },
+    };
+}
+
+// ============ 4차 개발: Phase 2 — 대시보드 캘린더 위젯 (F-7) ============
+
+function calendarWidget() {
+    return {
+        year: new Date().getFullYear(), month: new Date().getMonth(),
+        tasks: [], selectedDate: null, selectedTasks: [],
+
+        async init() {
+            await this.loadTasks();
+        },
+
+        async loadTasks() {
+            try {
+                const m = String(this.month + 1).padStart(2, '0');
+                const data = await api.get(`/tasks?page=1&size=200`);
+                this.tasks = (data?.items || []).filter(t => t.due_date);
+            } catch { this.tasks = []; }
+        },
+
+        get daysInMonth() {
+            return new Date(this.year, this.month + 1, 0).getDate();
+        },
+
+        get firstDayOfWeek() {
+            return new Date(this.year, this.month, 1).getDay();
+        },
+
+        get calendarDays() {
+            const days = [];
+            for (let i = 0; i < this.firstDayOfWeek; i++) days.push(null);
+            for (let d = 1; d <= this.daysInMonth; d++) days.push(d);
+            return days;
+        },
+
+        get monthLabel() {
+            return `${this.year}년 ${this.month + 1}월`;
+        },
+
+        prevMonth() {
+            if (this.month === 0) { this.year--; this.month = 11; } else { this.month--; }
+            this.selectedDate = null; this.loadTasks();
+        },
+
+        nextMonth() {
+            if (this.month === 11) { this.year++; this.month = 0; } else { this.month++; }
+            this.selectedDate = null; this.loadTasks();
+        },
+
+        dateStr(d) {
+            return `${this.year}-${String(this.month + 1).padStart(2, '0')}-${String(d).padStart(2, '0')}`;
+        },
+
+        tasksForDay(d) {
+            if (!d) return [];
+            const ds = this.dateStr(d);
+            return this.tasks.filter(t => t.due_date === ds);
+        },
+
+        selectDay(d) {
+            if (!d) return;
+            this.selectedDate = d;
+            this.selectedTasks = this.tasksForDay(d);
+        },
+
+        isToday(d) {
+            if (!d) return false;
+            const today = new Date();
+            return d === today.getDate() && this.month === today.getMonth() && this.year === today.getFullYear();
+        },
+    };
+}
+
+// ============ 4차 개발: Phase 2 — 내 업무 멀티팀 (F-8) ============
+
+function myTasksPage() {
+    return {
+        tasks: [], teams: [], loading: true,
+        filterTeam: null, filterStatus: '',
+
+        async init() {
+            await this.load();
+            this.$el.addEventListener('route-changed', () => { if (this.$data.currentPage === 'myTasks') this.load(); });
+        },
+
+        async load() {
+            this.loading = true;
+            try {
+                let url = '/my/tasks';
+                const params = [];
+                if (this.filterTeam) params.push(`team_id=${this.filterTeam}`);
+                if (this.filterStatus) params.push(`status=${encodeURIComponent(this.filterStatus)}`);
+                if (params.length) url += '?' + params.join('&');
+                const data = await api.get(url);
+                this.tasks = data?.items || [];
+                this.teams = data?.teams || [];
+            } catch (e) { window.toast.error(e.message); }
+            finally { this.loading = false; }
+        },
+
+        async savePriority() {
+            const taskIds = this.tasks.map(t => t.id);
+            try {
+                await api.put('/my/tasks/priority', { task_ids: taskIds });
+                window.toast.success('우선순위가 저장되었습니다.');
+            } catch (e) { window.toast.error(e.message); }
+        },
+
+        moveUp(idx) {
+            if (idx <= 0) return;
+            [this.tasks[idx - 1], this.tasks[idx]] = [this.tasks[idx], this.tasks[idx - 1]];
+            this.tasks = [...this.tasks];
+            this.savePriority();
+        },
+
+        moveDown(idx) {
+            if (idx >= this.tasks.length - 1) return;
+            [this.tasks[idx], this.tasks[idx + 1]] = [this.tasks[idx + 1], this.tasks[idx]];
+            this.tasks = [...this.tasks];
+            this.savePriority();
+        },
+
+        teamColor(teamId) {
+            const colors = ['bg-blue-100 text-blue-700', 'bg-green-100 text-green-700', 'bg-purple-100 text-purple-700', 'bg-orange-100 text-orange-700', 'bg-pink-100 text-pink-700'];
+            const idx = this.teams.findIndex(t => t.id === teamId);
+            return colors[idx % colors.length] || colors[0];
+        },
+    };
+}
+
+// ============ 4차 개발: Phase 2 — 랜딩 페이지 (F-9) ============
+
+function landingPage() {
+    return {
+        features: [
+            { icon: 'M8 10h.01M12 10h.01M16 10h.01M9 16H5a2 2 0 01-2-2V6a2 2 0 012-2h14a2 2 0 012 2v8a2 2 0 01-2 2h-5l-5 5v-5z', title: 'AI 어시스턴트', desc: '업무 현황, 마감일, 팀 워크로드를 자연어로 질의. 내장 챗봇이 실시간 답변합니다.', color: 'indigo' },
+            { icon: 'M5.5 3.21V20.8c0 .45.54.67.85.35l4.86-4.86a.5.5 0 01.35-.15h6.87a.5.5 0 00.35-.85L6.35 2.85a.5.5 0 00-.85.36z', title: 'Figma 연동', desc: '시안 자동 미리보기, 변경 알림. 고객에게 포털 링크로 시안 공유 + 피드백 수집.', color: 'purple', filled: true },
+            { icon: 'M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z', title: '고객 피드백', desc: '이메일로 피드백 요청 → 비로그인 포털에서 승인/수정요청. 자동 리마인더 발송.', color: 'green' },
+            { icon: 'M12 8c-1.657 0-3 .895-3 2s1.343 2 3 2 3 .895 3 2-1.343 2-3 2m0-8c1.11 0 2.08.402 2.599 1M12 8V7m0 1v8m0 0v1m0-1c-1.11 0-2.08-.402-2.599-1M21 12a9 9 0 11-18 0 9 9 0 0118 0z', title: '수금 관리', desc: '계약금/중도금/잔금 일정 관리. D-7 예정 알림, 연체 자동 알림.', color: 'amber' },
+            { icon: 'M9 17v-2m3 2v-4m3 4v-6m2 10H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z', title: 'AI 보고서', desc: '일간/주간/월간 보고서 자동 생성. Gemini AI가 프로젝트 현황을 분석합니다.', color: 'blue' },
+            { icon: 'M17 20h5v-2a3 3 0 00-5.356-1.857M17 20H7m10 0v-2c0-.656-.126-1.283-.356-1.857M7 20H2v-2a3 3 0 015.356-1.857M7 20v-2c0-.656.126-1.283.356-1.857m0 0a5.002 5.002 0 019.288 0M15 7a3 3 0 11-6 0 3 3 0 016 0z', title: '팀 협업', desc: '실시간 알림, @멘션, 댓글 스레드, 게시판. 멤버 간 채팅으로 외부 메신저 불필요.', color: 'rose' },
+        ],
+        colorMap: {
+            indigo: { bg: 'bg-indigo-100 dark:bg-indigo-900/30', text: 'text-indigo-600 dark:text-indigo-400' },
+            purple: { bg: 'bg-purple-100 dark:bg-purple-900/30', text: 'text-purple-600 dark:text-purple-400' },
+            green:  { bg: 'bg-green-100 dark:bg-green-900/30',  text: 'text-green-600 dark:text-green-400' },
+            amber:  { bg: 'bg-amber-100 dark:bg-amber-900/30',  text: 'text-amber-600 dark:text-amber-400' },
+            blue:   { bg: 'bg-blue-100 dark:bg-blue-900/30',   text: 'text-blue-600 dark:text-blue-400' },
+            rose:   { bg: 'bg-rose-100 dark:bg-rose-900/30',   text: 'text-rose-600 dark:text-rose-400' },
+        },
+        goLogin() { window.dispatchEvent(new CustomEvent('open-login')); },
+    };
+}
+
+// ============ 4차 개발: Phase 3 — 멤버 간 채팅 (F-10) ============
+
+function chatPage() {
+    return {
+        rooms: [], messages: [], loading: true,
+        selectedRoom: null, msgInput: '', sending: false,
+        showCreateModal: false, createForm: { type: 'direct', member_ids: [], name: '' },
+        teamMembers: [], searchMember: '',
+        _sseSource: null, _scrollLock: false,
+
+        async init() {
+            await this.loadRooms();
+            this._connectSSE();
+            const roomId = window.location.hash.match(/\/chat\/(\d+)/)?.[1];
+            if (roomId) {
+                const room = this.rooms.find(r => r.id === parseInt(roomId));
+                if (room) await this.selectRoom(room);
+            }
+            this.$el.addEventListener('route-changed', () => {
+                if (this.$data?.currentPage !== 'chat') { this._disconnectSSE(); }
+            });
+        },
+
+        async loadRooms() {
+            this.loading = true;
+            try { this.rooms = await api.get('/chat/rooms') || []; }
+            catch { this.rooms = []; }
+            finally { this.loading = false; }
+        },
+
+        async selectRoom(room) {
+            this.selectedRoom = room;
+            await this.loadMessages(room.id);
+            await api.patch(`/chat/rooms/${room.id}/read`);
+            room.unread_count = 0;
+            this._scrollToBottom();
+        },
+
+        async loadMessages(roomId) {
+            try {
+                const data = await api.get(`/chat/rooms/${roomId}/messages?page=1&size=50`);
+                this.messages = data?.items || [];
+            } catch { this.messages = []; }
+        },
+
+        async sendMessage() {
+            if (!this.msgInput.trim() || !this.selectedRoom) return;
+            this.sending = true;
+            try {
+                const msg = await api.post(`/chat/rooms/${this.selectedRoom.id}/messages`, { content: this.msgInput });
+                this.messages.push(msg);
+                this.msgInput = '';
+                this._scrollToBottom();
+            } catch (e) { window.toast.error(e.message); }
+            finally { this.sending = false; }
+        },
+
+        _connectSSE() {
+            try {
+                const es = new EventSource('/api/v1/chat/stream');
+                es.onmessage = (ev) => {
+                    try {
+                        const data = JSON.parse(ev.data);
+                        if (data.type === 'new_message') {
+                            if (this.selectedRoom?.id === data.room_id) {
+                                this.messages.push(data.message);
+                                this._scrollToBottom();
+                            }
+                            const room = this.rooms.find(r => r.id === data.room_id);
+                            if (room) {
+                                room.last_message = data.message;
+                                if (this.selectedRoom?.id !== data.room_id) room.unread_count = (room.unread_count || 0) + 1;
+                            }
+                        }
+                    } catch {}
+                };
+                es.onerror = () => { es.close(); setTimeout(() => this._connectSSE(), 5000); };
+                this._sseSource = es;
+            } catch {}
+        },
+
+        _disconnectSSE() {
+            if (this._sseSource) { this._sseSource.close(); this._sseSource = null; }
+        },
+
+        _scrollToBottom() {
+            this.$nextTick(() => {
+                const el = this.$refs.chatMessages;
+                if (el) el.scrollTop = el.scrollHeight;
+            });
+        },
+
+        async openCreate() {
+            this.showCreateModal = true;
+            this.createForm = { type: 'direct', member_ids: [], name: '' };
+            await this.loadTeamMembers();
+        },
+
+        async loadTeamMembers() {
+            const teamId = window._selectedTeamId;
+            if (!teamId) return;
+            try {
+                const data = await api.get(`/teams/${teamId}`);
+                this.teamMembers = data?.members || [];
+            } catch { this.teamMembers = []; }
+        },
+
+        toggleMember(userId) {
+            const idx = this.createForm.member_ids.indexOf(userId);
+            if (idx >= 0) this.createForm.member_ids.splice(idx, 1);
+            else this.createForm.member_ids.push(userId);
+        },
+
+        async createRoom() {
+            if (this.createForm.member_ids.length === 0) { window.toast.warning('멤버를 선택해주세요.'); return; }
+            try {
+                const res = await api.post('/chat/rooms', this.createForm);
+                this.showCreateModal = false;
+                await this.loadRooms();
+                const room = this.rooms.find(r => r.id === res.id);
+                if (room) await this.selectRoom(room);
+            } catch (e) { window.toast.error(e.message); }
+        },
+
+        get filteredMembers() {
+            if (!this.searchMember) return this.teamMembers;
+            const q = this.searchMember.toLowerCase();
+            return this.teamMembers.filter(m => (m.name || m.email || '').toLowerCase().includes(q));
+        },
+
+        isMine(msg) { return msg.sender_name === null; },
+
+        formatTime(iso) {
+            if (!iso) return '';
+            const d = new Date(iso);
+            return d.toLocaleTimeString('ko-KR', { hour: '2-digit', minute: '2-digit' });
+        },
+    };
+}
+
+// ============ 4차 개발: Phase 4 — 출퇴근 기록 + 위젯 (F-11) ============
+
+function attendancePage() {
+    return {
+        today: null, loading: true,
+        month: new Date().toISOString().slice(0, 7),
+        records: [], stats: null,
+
+        async init() {
+            await Promise.all([this.loadToday(), this.loadMonth()]);
+            this.loading = false;
+            this.$el.addEventListener('route-changed', () => {
+                if (this.$data.currentPage === 'attendance') { this.loadToday(); this.loadMonth(); }
+            });
+        },
+
+        async loadToday() {
+            try { this.today = await api.get('/attendance/today'); } catch { this.today = null; }
+        },
+
+        async loadMonth() {
+            try {
+                const data = await api.get(`/attendance/my?month=${this.month}`);
+                this.records = data?.records || [];
+                this.stats = data?.stats || null;
+            } catch { this.records = []; this.stats = null; }
+        },
+
+        async checkIn() {
+            try {
+                this.today = await api.post('/attendance/check-in');
+                window.toast.success('출근이 기록되었습니다.');
+            } catch (e) { window.toast.error(e.message); }
+        },
+
+        async checkOut() {
+            try {
+                this.today = await api.post('/attendance/check-out');
+                window.toast.success('퇴근이 기록되었습니다.');
+                await this.loadMonth();
+            } catch (e) { window.toast.error(e.message); }
+        },
+
+        changeMonth(dir) {
+            const [y, m] = this.month.split('-').map(Number);
+            const d = new Date(y, m - 1 + dir, 1);
+            this.month = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}`;
+            this.loadMonth();
+        },
+
+        statusLabel(s) { return { normal: '정상', late: '지각', early_leave: '조퇴', absent: '결근' }[s] || s || '미출근'; },
+        statusColor(s) { return { normal: 'text-green-600', late: 'text-orange-600', early_leave: 'text-yellow-600', absent: 'text-red-600' }[s] || 'text-gray-400'; },
+        statusBadge(s) { return { normal: 'bg-green-100 text-green-700 dark:bg-green-900/30 dark:text-green-400', late: 'bg-orange-100 text-orange-700 dark:bg-orange-900/30 dark:text-orange-400', early_leave: 'bg-yellow-100 text-yellow-700 dark:bg-yellow-900/30 dark:text-yellow-400', absent: 'bg-red-100 text-red-700 dark:bg-red-900/30 dark:text-red-400' }[s] || 'bg-gray-100 text-gray-500'; },
+    };
+}
+
+// ============ 4차 개발: Phase 4 — 팀 근태 관리 (F-12) ============
+
+function teamAttendancePage() {
+    return {
+        teamData: null, loading: true,
+        month: new Date().toISOString().slice(0, 7),
+
+        async init() {
+            await this.load();
+        },
+
+        async load() {
+            const teamId = window._selectedTeamId;
+            if (!teamId) { window.toast.warning('팀을 먼저 선택해주세요.'); this.loading = false; return; }
+            this.loading = true;
+            try { this.teamData = await api.get(`/teams/${teamId}/attendance?month=${this.month}`); }
+            catch (e) { window.toast.error(e.message); this.teamData = null; }
+            finally { this.loading = false; }
+        },
+
+        changeMonth(dir) {
+            const [y, m] = this.month.split('-').map(Number);
+            const d = new Date(y, m - 1 + dir, 1);
+            this.month = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}`;
+            this.load();
+        },
+
+        statusLabel(s) { return { normal: '정상', late: '지각', early_leave: '조퇴', absent: '결근' }[s] || s; },
+        statusBadge(s) { return { normal: 'bg-green-100 text-green-700', late: 'bg-orange-100 text-orange-700', early_leave: 'bg-yellow-100 text-yellow-700', absent: 'bg-red-100 text-red-700' }[s] || 'bg-gray-100 text-gray-500'; },
+    };
+}
+
+// ============ 4차 개발: Phase 4 — 근무 정책 (F-13, teamSettings 내 탭) ============
+
+function attendancePolicyWidget() {
+    return {
+        policy: null, loading: false, saving: false,
+        form: { default_check_in: '09:00', default_check_out: '18:00', work_hours: 8, break_hours: 1 },
+
+        async loadPolicy(teamId) {
+            if (!teamId) return;
+            this.loading = true;
+            try {
+                this.policy = await api.get(`/teams/${teamId}/attendance/policy`);
+                this.form = {
+                    default_check_in: this.policy.default_check_in || '09:00',
+                    default_check_out: this.policy.default_check_out || '18:00',
+                    work_hours: this.policy.work_hours || 8,
+                    break_hours: this.policy.break_hours || 1,
+                };
+            } catch { this.policy = null; }
+            finally { this.loading = false; }
+        },
+
+        async savePolicy(teamId) {
+            this.saving = true;
+            try {
+                await api.put(`/teams/${teamId}/attendance/policy`, this.form);
+                window.toast.success('근무 정책이 저장되었습니다.');
+            } catch (e) { window.toast.error(e.message); }
+            finally { this.saving = false; }
         },
     };
 }
