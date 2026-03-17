@@ -4,27 +4,37 @@
 
 // ============ 유틸리티 함수 ============
 
-window.confirmDialog = function(message, { title = '확인', confirmText = '확인', cancelText = '취소', danger = false } = {}) {
+window.confirmDialog = function(message, { title = '확인', confirmText = '확인', cancelText = '취소', danger = false, requireInput = '' } = {}) {
     return new Promise((resolve) => {
         const backdrop = document.createElement('div');
         backdrop.className = 'fixed inset-0 z-[110] flex items-center justify-center bg-black bg-opacity-50 confirm-backdrop';
+        const btnColor = danger === 'medium' ? 'bg-yellow-600 hover:bg-yellow-700' : danger ? 'bg-red-600 hover:bg-red-700' : 'bg-indigo-600 hover:bg-indigo-700';
         backdrop.innerHTML = `
             <div class="bg-white dark:bg-gray-800 rounded-xl shadow-2xl w-full max-w-sm mx-4 p-6 transform transition-all">
                 <h3 class="confirm-title text-lg font-semibold text-gray-800 dark:text-gray-100 mb-2"></h3>
-                <p class="confirm-message text-sm text-gray-600 dark:text-gray-300 mb-6"></p>
+                <p class="confirm-message text-sm text-gray-600 dark:text-gray-300 mb-4"></p>
+                ${requireInput ? `<input type="text" class="confirm-input w-full px-3 py-2 text-sm border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-gray-900 dark:text-white mb-4 focus:ring-2 focus:ring-red-500" placeholder="">` : ''}
                 <div class="flex justify-end gap-3">
                     <button class="confirm-cancel px-4 py-2 text-sm text-gray-700 dark:text-gray-300 border border-gray-300 dark:border-gray-600 rounded-lg hover:bg-gray-50 dark:hover:bg-gray-700 transition-colors"></button>
-                    <button class="confirm-ok px-4 py-2 text-sm text-white rounded-lg transition-colors ${danger ? 'bg-red-600 hover:bg-red-700' : 'bg-indigo-600 hover:bg-indigo-700'}"></button>
+                    <button class="confirm-ok px-4 py-2 text-sm text-white rounded-lg transition-colors ${btnColor}"></button>
                 </div>
             </div>
         `;
         backdrop.querySelector('.confirm-title').textContent = title;
         backdrop.querySelector('.confirm-message').textContent = message;
         backdrop.querySelector('.confirm-cancel').textContent = cancelText;
-        backdrop.querySelector('.confirm-ok').textContent = confirmText;
+        const okBtn = backdrop.querySelector('.confirm-ok');
+        okBtn.textContent = confirmText;
+        if (requireInput) {
+            const input = backdrop.querySelector('.confirm-input');
+            input.placeholder = `"${requireInput}" 입력`;
+            okBtn.disabled = true;
+            okBtn.classList.add('disabled:opacity-50');
+            input.addEventListener('input', () => { okBtn.disabled = input.value !== requireInput; });
+        }
         document.body.appendChild(backdrop);
         backdrop.querySelector('.confirm-cancel').addEventListener('click', () => { backdrop.remove(); resolve(false); });
-        backdrop.querySelector('.confirm-ok').addEventListener('click', () => { backdrop.remove(); resolve(true); });
+        okBtn.addEventListener('click', () => { backdrop.remove(); resolve(true); });
         backdrop.addEventListener('click', (e) => { if (e.target === backdrop) { backdrop.remove(); resolve(false); } });
         const escHandler = (e) => { if (e.key === 'Escape') { document.removeEventListener('keydown', escHandler); backdrop.remove(); resolve(false); } };
         document.addEventListener('keydown', escHandler);
@@ -878,8 +888,8 @@ function clientListPage() {
         clients: [], total: 0, loading: true,
         search: '', categoryFilter: '',
         page: 1, size: 20,
-        showCreateModal: false, showDeleteModal: false,
-        deleteTarget: null, saving: false,
+        showCreateModal: false,
+        saving: false,
         form: { name: '', contact_name: '', contact_email: '', contact_phone: '', address: '', category: '', memo: '' },
         editMode: false, editId: null,
 
@@ -929,14 +939,11 @@ function clientListPage() {
             finally { this.saving = false; }
         },
 
-        confirmDelete(client) { this.deleteTarget = client; this.showDeleteModal = true; },
-
-        async deleteClient() {
-            if (!this.deleteTarget) return;
+        async confirmDelete(client) {
+            if (!await window.confirmDialog(`"${client.name}"을(를) 삭제하시겠습니까? 관련 데이터도 함께 삭제됩니다.`, { title: '발주처 삭제', confirmText: '삭제', danger: true })) return;
             try {
-                await api.del(`/clients/${this.deleteTarget.id}`);
+                await api.del(`/clients/${client.id}`);
                 window.toast.success('발주처가 삭제되었습니다.');
-                this.showDeleteModal = false; this.deleteTarget = null;
                 await this.loadClients();
             } catch (e) { window.toast.error(e.message); }
         },
@@ -1361,7 +1368,7 @@ function projectDetailPage() {
 
         async revokePortalToken() {
             if (!this.portalToken) return;
-            if (!await window.confirmDialog('포털 링크를 비활성화하시겠습니까?', { title: '포털 링크 비활성화', confirmText: '비활성화', danger: true })) return;
+            if (!await window.confirmDialog('포털 링크를 비활성화하시겠습니까? 발주처가 더 이상 접근할 수 없습니다.', { title: '포털 링크 비활성화', confirmText: '비활성화', danger: 'medium' })) return;
             try {
                 await api.del(`/portal-tokens/${this.portalToken.id}`);
                 this.portalToken = null;
@@ -2856,7 +2863,6 @@ function teamSettingsPage() {
         team: null, members: [], loading: true,
         editName: '', editDesc: '', saving: false,
         showInviteModal: false, inviteEmail: '', inviting: false,
-        showDeleteModal: false, deleteConfirmName: '',
 
         async init() {
             const teamId = window._selectedTeamId;
@@ -2927,11 +2933,10 @@ function teamSettingsPage() {
         },
 
         async deleteTeam() {
-            if (this.deleteConfirmName !== this.team.name) { window.toast.warning('팀 이름이 일치하지 않습니다.'); return; }
+            if (!await window.confirmDialog('이 작업은 되돌릴 수 없습니다. 모든 팀 데이터가 영구 삭제됩니다. 확인하려면 팀 이름을 입력하세요.', { title: '팀 삭제', confirmText: '영구 삭제', danger: true, requireInput: this.team.name })) return;
             try {
                 await api.del(`/teams/${this.team.id}`);
                 window.toast.success('팀이 삭제되었습니다.');
-                this.showDeleteModal = false;
                 window.location.hash = '#/dashboard';
             } catch (e) { window.toast.error(e.message); }
         },
@@ -3048,7 +3053,7 @@ function settingsPage() {
             finally { this.connecting = false; }
         },
         async disconnectCalendar(syncId) {
-            if (!await window.confirmDialog('캘린더 연동을 해제하시겠습니까?', { title: '연동 해제', confirmText: '해제', danger: true })) return;
+            if (!await window.confirmDialog('캘린더 연동을 해제하시겠습니까? 언제든 다시 연동할 수 있습니다.', { title: '연동 해제', confirmText: '해제', danger: 'medium' })) return;
             try {
                 await api.del(`/calendar/${syncId}`);
                 this.calendarSyncs = this.calendarSyncs.filter(s => s.id !== syncId);
@@ -3324,7 +3329,7 @@ function figmaTabComponent() {
         },
 
         async removeUrl(url) {
-            if (!confirm('이 Figma 파일 연결을 해제하시겠습니까?')) return;
+            if (!await window.confirmDialog('이 Figma 파일 연결을 해제하시겠습니까? 언제든 다시 연결할 수 있습니다.', { title: 'Figma 연결 해제', confirmText: '해제', danger: 'medium' })) return;
             try {
                 const pid = this.projectId || window._projectDetailId;
                 await api.del(`/projects/${pid}/figma`, { url });
@@ -3397,7 +3402,7 @@ function feedbackRequestsPage() {
         },
 
         async cancelRequest(id) {
-            if (!confirm('이 피드백 요청을 취소하시겠습니까?')) return;
+            if (!await window.confirmDialog('이 피드백 요청을 취소하시겠습니까?', { title: '피드백 요청 취소', confirmText: '취소', danger: true })) return;
             try {
                 await api.patch(`/feedback/requests/${id}/cancel`);
                 await this.load();
