@@ -378,7 +378,7 @@ function appShell() {
             } else if (path === '/notifications') {
                 this.currentPage = 'notifications'; this.pageParams = {};
             } else if (path === '/team-settings') {
-                this.currentPage = 'teamSettings'; this.pageParams = {};
+                this.currentPage = 'teamSettings'; this.pageParams = { _ts: Date.now() };
             } else if (path === '/settings') {
                 this.currentPage = 'settings'; this.pageParams = {};
             } else if (path === '/feedback-requests') {
@@ -2877,6 +2877,15 @@ function teamSettingsPage() {
             const teamId = window._selectedTeamId;
             if (!teamId) { window.toast.warning('팀을 먼저 선택해주세요.'); window.location.hash = '#/dashboard'; return; }
             await this.load(teamId);
+
+            // 팀 전환 시 재로드 (같은 해시에서 다른 팀 선택 대응)
+            this._routeHandler = () => {
+                const newTeamId = window._selectedTeamId;
+                if (newTeamId && this.team && newTeamId !== this.team.id) {
+                    this.load(newTeamId);
+                }
+            };
+            window.addEventListener('route-changed', this._routeHandler);
         },
 
         async load(teamId) {
