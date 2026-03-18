@@ -299,6 +299,14 @@ function appShell() {
         // SSE (#4)
         _sseSource: null,
 
+        // F-5: 플로팅 채팅 패널
+        floatingPanels: [], // [{id, user:{id,name,email}, minimized, unread, messages:[]}]
+        memberPopover: null, memberPopoverPos: {top:0,left:0},
+
+        // F-9: 툴팁 시스템
+        tooltips: (() => { try { return JSON.parse(localStorage.getItem('cs_tooltips_seen') || '{}'); } catch { return {}; } })(),
+        activeTooltip: null,
+
         // 글로벌 검색 (#11)
         showSearchPalette: false,
         searchQuery: '', searchResults: { projects: [], tasks: [], clients: [] },
@@ -317,6 +325,7 @@ function appShell() {
             try { await this.checkAuth(); } catch {}
             this.initRouter();
             this._initGlobalSearch();
+            this._initTooltips();
             // checkAuth 후 비로그인 상태면 랜딩으로 강제 이동 (Alpine 반응성 보장)
             this.$nextTick(() => {
                 if (!this.user && this.currentPage !== 'landing' && this.currentPage !== 'feedback' && this.currentPage !== 'feedbackPortal' && this.currentPage !== 'inviteAccept' && this.currentPage !== 'portal') {
@@ -338,6 +347,8 @@ function appShell() {
             const hash = window.location.hash || '#/dashboard';
             const path = hash.substring(1).split('?')[0];
             let m;
+            // F-7: 현재 페이지를 window에 노출 (챗봇 context용)
+            this.$nextTick(() => { window._currentPage = this.currentPage; });
 
             if (path === '/' || path === '/dashboard') {
                 this.currentPage = 'dashboard'; this.pageParams = {};
@@ -540,6 +551,78 @@ function appShell() {
             finally { this.formLoading = false; }
         },
 
+        // F-5: 플로팅 채팅 패널
+        openMemberPopover(member, ev) {
+            if (this.memberPopover?.id === member.id) { this.memberPopover = null; return; }
+            const rect = ev.currentTarget.getBoundingClientRect();
+            this.memberPopoverPos = { top: rect.bottom + 8, left: Math.min(rect.left, window.innerWidth - 200) };
+            this.memberPopover = member;
+        },
+        closeMemberPopover() { this.memberPopover = null; },
+        async openFloatingChat(member) {
+            this.memberPopover = null;
+            const existing = this.floatingPanels.find(p => p.user.id === member.id);
+            if (existing) { existing.minimized = false; return; }
+            if (this.floatingPanels.length >= 3) this.floatingPanels.shift();
+            const panel = { id: Date.now(), user: { id: member.id, name: member.name || member.email, email: member.email }, minimized: false, unread: 0, messages: [], input: '', sending: false, roomId: null };
+            // find-or-create 1:1 채팅방
+            try {
+                const room = await api.post(`/chat/rooms/direct/${member.id}`);
+                if (!room?.id) { window.toast.warning('채팅방 생성에 실패했습니다.'); return; }
+                panel.roomId = room.id;
+                const data = await api.get(`/chat/rooms/${room.id}/messages?page=1&size=20`);
+                panel.messages = (data?.items || []).reverse();
+            } catch (e) { console.warn('플로팅 채팅 초기화 실패:', e); }
+            this.floatingPanels.push(panel);
+        },
+        minimizePanel(idx) { this.floatingPanels[idx].minimized = !this.floatingPanels[idx].minimized; },
+        closePanel(idx) { this.floatingPanels.splice(idx, 1); },
+        async sendFloatingMsg(panel) {
+            if (!panel.input.trim() || !panel.roomId || panel.sending) return;
+            const msg = panel.input.trim(); panel.input = '';
+            panel.sending = true;
+            try {
+                const res = await api.post(`/chat/rooms/${panel.roomId}/messages`, { content: msg });
+                panel.messages.push(res);
+            } catch (e) { window.toast.error(e.message); }
+            finally { panel.sending = false; }
+        },
+        expandToChat(panel) {
+            window.location.hash = '#/chat';
+            this.closePanel(this.floatingPanels.indexOf(panel));
+        },
+
+        // F-9: 툴팁 시스템
+        _initTooltips() {
+            // 첫 로그인 시 대시보드 툴팁 표시
+            this.$nextTick(() => {
+                if (this.user && !this.tooltips.dashboard) {
+                    setTimeout(() => { this.showTooltip('dashboard'); }, 1500);
+                }
+            });
+        },
+        showTooltip(key) {
+            if (this.tooltips[key]) return;
+            this.activeTooltip = key;
+        },
+        dismissTooltip(key) {
+            this.tooltips[key] = true;
+            localStorage.setItem('cs_tooltips_seen', JSON.stringify(this.tooltips));
+            this.activeTooltip = null;
+        },
+        tooltipText(key) {
+            const texts = {
+                dashboard: '오늘의 브리핑과 전체 현황을 한눈에 확인하세요',
+                projects: '고객 등록 → 프로젝트 생성 → 업무 배정 순서로 시작하세요',
+                boards: '팀 공지사항과 자유게시판을 활용하세요',
+                chat: '팀원과 1:1 또는 그룹 채팅을 시작하세요',
+                attendance: '업무 시작/종료 시 자동으로 기록됩니다',
+                chatbot: '무엇이든 물어보세요! AI가 도와드립니다',
+                briefing: '매일 로그인하면 AI가 오늘의 할 일을 정리해드려요',
+            };
+            return texts[key] || '';
+        },
+
         async logout() {
             try {
                 await fetch('/api/v1/auth/logout', { method: 'POST' });
@@ -646,6 +729,24 @@ function appShell() {
                     this.navigate(`/projects/${link.project_id}`);
                 }
             } catch {}
+        },
+
+        // F-10/F-11: 원클릭 액션
+        async quickAction(n, action) {
+            try {
+                if (action === 'complete' && n.target_id) {
+                    await api.patch(`/tasks/${n.target_id}/status`, { status: 'completed' });
+                    window.toast.success('업무가 완료 처리되었습니다.');
+                } else if (action === 'checkin') {
+                    await api.post('/attendance/check-in');
+                    window.toast.success('출근이 기록되었습니다.');
+                } else if (action === 'extend' && n.target_id) {
+                    const newDate = new Date(); newDate.setDate(newDate.getDate() + 3);
+                    await api.patch(`/tasks/${n.target_id}`, { due_date: newDate.toISOString().slice(0,10) });
+                    window.toast.success('마감일이 3일 연장되었습니다.');
+                }
+                this.markNotifRead(n.id);
+            } catch (e) { window.toast.error(e.message); }
         },
 
         // ---- 글로벌 검색 / Ctrl+K (#11) ----
@@ -782,13 +883,12 @@ function dashboardPage() {
             if (this.briefingData?.items) return this.briefingData.items;
             // API 미응답 시 stats 기반 폴백
             const due = this.stats?.pendingTasks || 0;
-            if (due > 0) items.push({ icon: '⏰', text: `오늘 마감 업무 ${due}건이 있습니다`, color: 'text-red-600 dark:text-red-400', action: 'my-tasks' });
+            if (due > 0) items.push({ icon: '🔴', text: `오늘 마감 업무 ${due}건`, route: '/my-tasks', action: '확인하기' });
             const ip = this.stats?.inProgressTasks || 0;
-            if (ip > 0) items.push({ icon: '🔄', text: `진행 중 업무 ${ip}건`, color: 'text-blue-600 dark:text-blue-400', action: 'tasks' });
+            if (ip > 0) items.push({ icon: '🔄', text: `진행 중 업무 ${ip}건`, route: '/tasks', action: '확인하기' });
             const proj = this.stats?.projects || 0;
-            if (proj > 0) items.push({ icon: '📁', text: `활성 프로젝트 ${proj}개`, color: 'text-indigo-600 dark:text-indigo-400', action: 'projects' });
-            // 데이터가 없어도 환영 메시지 표시
-            if (items.length === 0) items.push({ icon: '👋', text: '오늘도 좋은 하루 되세요! 새 프로젝트를 시작해보세요.', color: 'text-white', action: 'projects' });
+            if (proj > 0) items.push({ icon: '📁', text: `활성 프로젝트 ${proj}개`, route: '/projects', action: '보기' });
+            if (items.length === 0) items.push({ icon: '✨', text: '오늘은 특별한 알림이 없어요! 좋은 하루 되세요' });
             return items;
         },
 
@@ -803,6 +903,15 @@ function dashboardPage() {
             this.proactiveAlerts = alerts.filter(a => !this.alertsDismissed.has(a.id));
         },
         dismissAlert(id) { this.alertsDismissed.add(id); this.proactiveAlerts = this.proactiveAlerts.filter(a => a.id !== id); },
+
+        // F-15: 브리핑 내 출근 버튼
+        async startWork() {
+            try {
+                await api.post('/attendance/check-in');
+                window.toast.success('출근이 기록되었습니다! 좋은 하루 되세요.');
+                if (this.briefingData) this.briefingData.no_attendance = false;
+            } catch (e) { window.toast.error(e.message); }
+        },
 
         async init() {
             await Promise.all([this.load(), this.loadBriefing()]);
@@ -889,7 +998,7 @@ function dashboardPage() {
 }
 
 // ============================================================
-// 발주처 목록 페이지
+// 고객 목록 페이지
 // ============================================================
 
 function clientListPage() {
@@ -899,8 +1008,13 @@ function clientListPage() {
         page: 1, size: 20,
         showCreateModal: false,
         saving: false,
-        form: { name: '', contact_name: '', contact_email: '', contact_phone: '', address: '', category: '', memo: '' },
+        form: { name: '', contact_name: '', contact_email: '', contact_phone: '', address: '', category: '', memo: '',
+                business_number: '', representative: '', business_type: '', business_category: '', corp_number: '' },
         editMode: false, editId: null,
+        // OCR
+        ocrState: 'idle', // idle | analyzing | success | error
+        ocrDragOver: false,
+        ocrFilled: {},
 
         async init() {
             await this.loadClients();
@@ -915,32 +1029,74 @@ function clientListPage() {
                 const data = await api.get(url);
                 this.clients = data?.clients || [];
                 this.total = data?.total || 0;
-            } catch (e) { window.toast.error('발주처 목록 로드 실패'); }
+            } catch (e) { window.toast.error('고객 목록 로드 실패'); }
             finally { this.loading = false; }
         },
 
         openCreate() {
-            this.form = { name: '', contact_name: '', contact_email: '', contact_phone: '', address: '', category: '', memo: '' };
-            this.editMode = false; this.editId = null; this.showCreateModal = true;
+            this.form = { name: '', contact_name: '', contact_email: '', contact_phone: '', address: '', category: '', memo: '',
+                          business_number: '', representative: '', business_type: '', business_category: '', corp_number: '' };
+            this.editMode = false; this.editId = null;
+            this.ocrState = 'idle'; this.ocrFilled = {};
+            this.showCreateModal = true;
         },
 
         openEdit(client) {
-            this.form = { name: client.name, contact_name: client.contact_name || '', contact_email: client.contact_email || '', contact_phone: client.contact_phone || '', address: client.address || '', category: client.category || '', memo: client.memo || '' };
-            this.editMode = true; this.editId = client.id; this.showCreateModal = true;
+            this.form = { name: client.name, contact_name: client.contact_name || '', contact_email: client.contact_email || '', contact_phone: client.contact_phone || '', address: client.address || '', category: client.category || '', memo: client.memo || '',
+                          business_number: client.business_number || '', representative: client.representative || '', business_type: client.business_type || '', business_category: client.business_category || '', corp_number: client.corp_number || '' };
+            this.editMode = true; this.editId = client.id;
+            this.ocrState = 'idle'; this.ocrFilled = {};
+            this.showCreateModal = true;
+        },
+
+        async handleOcrFile(file) {
+            if (!file) return;
+            const allowed = ['application/pdf','image/jpeg','image/png','image/webp'];
+            if (!allowed.includes(file.type)) { window.toast.warning('PDF, JPG, PNG, WebP 파일만 지원합니다.'); return; }
+            if (file.size > 10 * 1024 * 1024) { window.toast.warning('파일 크기는 10MB 이하여야 합니다.'); return; }
+            this.ocrState = 'analyzing';
+            try {
+                const fd = new FormData(); fd.append('file', file);
+                const res = await api.post('/clients/ocr', fd);
+                const d = res?.data || res || {};
+                const mapping = { business_number:'business_number', name:'name', representative:'representative', business_type:'business_type', business_category:'business_category', address:'address', phone:'contact_phone', corp_number:'corp_number' };
+                const filled = {};
+                for (const [k, f] of Object.entries(mapping)) {
+                    if (d[k]) { this.form[f] = d[k]; filled[f] = true; }
+                }
+                this.ocrFilled = filled;
+                this.ocrState = 'success';
+                window.toast.success('사업자등록증 인식 완료');
+            } catch (e) {
+                this.ocrState = 'error';
+                window.toast.error(e.message || '파일을 인식할 수 없습니다. 직접 입력해주세요.');
+            }
+        },
+
+        onOcrDrop(e) {
+            this.ocrDragOver = false;
+            const file = e.dataTransfer?.files?.[0];
+            if (file) this.handleOcrFile(file);
+        },
+
+        onOcrFileSelect(e) {
+            const file = e.target?.files?.[0];
+            if (file) this.handleOcrFile(file);
+            e.target.value = '';
         },
 
         async save() {
-            if (!this.form.name.trim()) { window.toast.warning('발주처명을 입력해주세요.'); return; }
+            if (!this.form.name.trim()) { window.toast.warning('고객명을 입력해주세요.'); return; }
             this.saving = true;
             try {
                 const body = { ...this.form };
                 if (!body.contact_email) body.contact_email = null;
                 if (this.editMode) {
                     await api.put(`/clients/${this.editId}`, body);
-                    window.toast.success('발주처가 수정되었습니다.');
+                    window.toast.success('고객이 수정되었습니다.');
                 } else {
                     await api.post('/clients', body);
-                    window.toast.success('발주처가 등록되었습니다.');
+                    window.toast.success('고객이 등록되었습니다.');
                 }
                 this.showCreateModal = false;
                 await this.loadClients();
@@ -949,10 +1105,10 @@ function clientListPage() {
         },
 
         async confirmDelete(client) {
-            if (!await window.confirmDialog(`"${client.name}"을(를) 삭제하시겠습니까? 관련 데이터도 함께 삭제됩니다.`, { title: '발주처 삭제', confirmText: '삭제', danger: true })) return;
+            if (!await window.confirmDialog(`"${client.name}"을(를) 삭제하시겠습니까? 관련 데이터도 함께 삭제됩니다.`, { title: '고객 삭제', confirmText: '삭제', danger: true })) return;
             try {
                 await api.del(`/clients/${client.id}`);
-                window.toast.success('발주처가 삭제되었습니다.');
+                window.toast.success('고객이 삭제되었습니다.');
                 await this.loadClients();
             } catch (e) { window.toast.error(e.message); }
         },
@@ -964,7 +1120,7 @@ function clientListPage() {
         goPage(p) { if (p >= 1 && p <= this.totalPages) { this.page = p; this.loadClients(); } },
 
         exportCsv() {
-            const header = ['발주처명','담당자','연락처','이메일'];
+            const header = ['고객명','담당자','연락처','이메일'];
             const rows = this.clients.map(c => [c.name, c.contact_name || '', c.contact_phone || '', c.contact_email || '']);
             window.CS.downloadCsv('clients', header, rows);
         },
@@ -972,7 +1128,7 @@ function clientListPage() {
 }
 
 // ============================================================
-// 발주처 상세 페이지
+// 고객 상세 페이지
 // ============================================================
 
 function clientDetailPage() {
@@ -1002,7 +1158,7 @@ function clientDetailPage() {
                 ]);
                 this.client = client;
                 this.projects = pData?.projects || pData || [];
-            } catch (e) { window.toast.error('발주처 정보를 불러올 수 없습니다.'); }
+            } catch (e) { window.toast.error('고객 정보를 불러올 수 없습니다.'); }
             finally { this.loading = false; }
         },
 
@@ -1013,23 +1169,23 @@ function clientDetailPage() {
         },
 
         async saveEdit() {
-            if (!this.form.name?.trim()) { window.toast.warning('발주처명을 입력해주세요.'); return; }
+            if (!this.form.name?.trim()) { window.toast.warning('고객명을 입력해주세요.'); return; }
             this.saving = true;
             try {
                 const body = { ...this.form };
                 if (!body.contact_email) body.contact_email = null;
                 this.client = await api.put(`/clients/${this.client.id}`, body);
-                window.toast.success('발주처 정보가 수정되었습니다.');
+                window.toast.success('고객 정보가 수정되었습니다.');
                 this.showEditModal = false;
             } catch (e) { window.toast.error(e.message); }
             finally { this.saving = false; }
         },
 
         async deleteClient() {
-            if (!await window.confirmDialog('이 발주처를 삭제하시겠습니까?', { title: '발주처 삭제', confirmText: '삭제', danger: true })) return;
+            if (!await window.confirmDialog('이 고객을 삭제하시겠습니까?', { title: '고객 삭제', confirmText: '삭제', danger: true })) return;
             try {
                 await api.del(`/clients/${this.client.id}`);
-                window.toast.success('발주처가 삭제되었습니다.');
+                window.toast.success('고객이 삭제되었습니다.');
                 window.location.hash = '#/clients';
             } catch (e) { window.toast.error(e.message); }
         },
@@ -1047,6 +1203,9 @@ function projectListPage() {
         page: 1, size: 20,
         showCreateModal: false, saving: false,
         form: { project_name: '', project_type: 'outsourcing', client_id: '', description: '', start_date: '', end_date: '', contract_amount: '' },
+        // F-2: 간편 고객 등록
+        showQuickClientModal: false, quickClientSaving: false,
+        quickClientForm: { name: '', contact_name: '', contact_email: '', contact_phone: '' },
 
         async init() {
             await this.loadProjects();
@@ -1073,7 +1232,6 @@ function projectListPage() {
 
         async save() {
             if (!this.form.project_name.trim()) { window.toast.warning('프로젝트명을 입력해주세요.'); return; }
-            if (this.form.project_type === 'outsourcing' && !this.form.client_id) { window.toast.warning('외주 프로젝트는 발주처를 선택해주세요.'); return; }
             this.saving = true;
             try {
                 const body = { ...this.form };
@@ -1087,13 +1245,28 @@ function projectListPage() {
             finally { this.saving = false; }
         },
 
+        openQuickClient() { this.quickClientForm = { name: '', contact_name: '', contact_email: '', contact_phone: '' }; this.showQuickClientModal = true; },
+        async saveQuickClient() {
+            if (!this.quickClientForm.name.trim()) { window.toast.warning('고객명을 입력해주세요.'); return; }
+            this.quickClientSaving = true;
+            try {
+                const body = { ...this.quickClientForm };
+                if (!body.contact_email) body.contact_email = null;
+                const created = await api.post('/clients', body);
+                this.form.client_id = created.id;
+                this.showQuickClientModal = false;
+                window.toast.success(`'${created.name}' 고객이 등록되었습니다.`);
+            } catch (e) { window.toast.error(e.message); }
+            finally { this.quickClientSaving = false; }
+        },
+
         doSearch: debounce(function() { this.page = 1; this.loadProjects(); }, 300),
 
         get totalPages() { return Math.ceil(this.total / this.size) || 1; },
         goPage(p) { if (p >= 1 && p <= this.totalPages) { this.page = p; this.loadProjects(); } },
 
         exportCsv() {
-            const header = ['프로젝트명','발주처','상태','시작일','마감일','계약금액'];
+            const header = ['프로젝트명','고객','상태','시작일','마감일','계약금액'];
             const rows = this.projects.map(p => [p.project_name, p.client_name || '', CS.statusLabel[p.status] || p.status, p.start_date || '', p.end_date || '', p.contract_amount || '']);
             window.CS.downloadCsv('projects', header, rows);
         },
@@ -1114,6 +1287,8 @@ function projectDetailPage() {
         portalToken: null, portalLoading: false, showPortalModal: false,
         showFeedbackRequestModal: false, fbReqSending: false,
         fbReqForm: { recipient_email: '', subject: '', message: '', feedback_deadline: '', channel: 'email' },
+        // F-2: 고객 연결
+        showLinkClientModal: false, linkClientSaving: false,
         form: {},
         taskForm: { task_name: '', phase: '', priority: '보통', due_date: '', start_date: '', assignee_id: '', is_client_facing: false, description: '' },
 
@@ -1214,7 +1389,6 @@ function projectDetailPage() {
 
         async saveProject() {
             if (!this.form.project_name?.trim()) { window.toast.warning('프로젝트명을 입력해주세요.'); return; }
-            if (this.form.project_type === 'outsourcing' && !this.form.client_id) { window.toast.warning('외주 프로젝트는 발주처를 선택해주세요.'); return; }
             this.saving = true;
             try {
                 const body = { ...this.form };
@@ -1233,6 +1407,19 @@ function projectDetailPage() {
                 window.toast.success('프로젝트가 삭제되었습니다.');
                 window.location.hash = '#/projects';
             } catch (e) { window.toast.error(e.message); }
+        },
+
+        // F-2: 고객 연결
+        async linkClient(clientId) {
+            if (!clientId) return;
+            this.linkClientSaving = true;
+            try {
+                await api.patch(`/projects/${this.project.id}`, { client_id: parseInt(clientId) });
+                await this.load(this.project.id);
+                this.showLinkClientModal = false;
+                window.toast.success('고객이 연결되었습니다.');
+            } catch (e) { window.toast.error(e.message); }
+            finally { this.linkClientSaving = false; }
         },
 
         // 업무 삭제
@@ -1377,7 +1564,7 @@ function projectDetailPage() {
 
         async revokePortalToken() {
             if (!this.portalToken) return;
-            if (!await window.confirmDialog('포털 링크를 비활성화하시겠습니까? 발주처가 더 이상 접근할 수 없습니다.', { title: '포털 링크 비활성화', confirmText: '비활성화', danger: 'medium' })) return;
+            if (!await window.confirmDialog('포털 링크를 비활성화하시겠습니까? 고객이 더 이상 접근할 수 없습니다.', { title: '포털 링크 비활성화', confirmText: '비활성화', danger: 'medium' })) return;
             try {
                 await api.del(`/portal-tokens/${this.portalToken.id}`);
                 this.portalToken = null;
@@ -2762,8 +2949,8 @@ function activityPage() {
                 'assign:task': `'${item.target_name}' 업무를 할당했습니다`,
                 'delete:task': `'${item.target_name}' 업무를 삭제했습니다`,
                 'delete:project': `'${item.target_name}' 프로젝트를 삭제했습니다`,
-                'create:client': `'${item.target_name}' 발주처를 등록했습니다`,
-                'update:client': `'${item.target_name}' 발주처를 수정했습니다`,
+                'create:client': `'${item.target_name}' 고객을 등록했습니다`,
+                'update:client': `'${item.target_name}' 고객을 수정했습니다`,
                 'invite:member': `'${item.target_name}'님을 팀에 초대했습니다`,
                 'remove:member': `'${item.target_name}'님을 팀에서 제거했습니다`,
             };
@@ -3210,10 +3397,12 @@ function chatbotWidget() {
             const aiIdx = this.messages.length - 1;
 
             try {
+                // F-7: 상황 인식 context 전달
+                const ctx = this._buildContext();
                 const res = await fetch('/api/v1/chatbot/message', {
                     method: 'POST',
                     headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({ message: msg, chat_session_id: this.currentSessionId }),
+                    body: JSON.stringify({ message: msg, chat_session_id: this.currentSessionId, context: ctx }),
                 });
 
                 if (!res.ok) {
@@ -3298,6 +3487,16 @@ function chatbotWidget() {
         formatSessionDate(t) {
             if (!t) return '';
             return new Date(t).toLocaleDateString('ko-KR', { month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit' });
+        },
+
+        // F-7: 상황 인식 context 빌더
+        _buildContext() {
+            const hash = window.location.hash || '';
+            const page = window._currentPage || 'dashboard';
+            const ctx = { page };
+            const m = hash.match(/\/(\d+)/);
+            if (m) ctx.params = { id: parseInt(m[1]) };
+            return ctx;
         },
     };
 }
@@ -3666,6 +3865,47 @@ function boardListPage() {
 
         boardTypeLabel(t) { return { notice: '공지사항', free: '자유게시판', archive: '자료실' }[t] || t; },
         boardTypeIcon(t) { return { notice: '📢', free: '💬', archive: '📁' }[t] || '📋'; },
+
+        // F-3: 게시판 관리 (다중 생성/수정/삭제)
+        showBoardManageModal: false, editingBoard: null,
+        boardForm: { name: '', description: '', write_permission: 'all', comment_enabled: true, visibility: 'all' },
+
+        openBoardCreate() {
+            this.editingBoard = null;
+            this.boardForm = { name: '', description: '', write_permission: 'all', comment_enabled: true, visibility: 'all' };
+            this.showBoardManageModal = true;
+        },
+        openBoardEdit(board) {
+            this.editingBoard = board;
+            this.boardForm = { name: board.name || '', description: board.description || '', write_permission: board.write_permission || 'all', comment_enabled: board.comment_enabled !== false, visibility: board.visibility || 'all' };
+            this.showBoardManageModal = true;
+        },
+        async saveBoard() {
+            if (!this.boardForm.name.trim()) { window.toast.warning('게시판 이름을 입력해주세요.'); return; }
+            this.saving = true;
+            try {
+                const teamId = window._selectedTeamId;
+                if (this.editingBoard) {
+                    await api.patch(`/boards/${this.editingBoard.id}`, this.boardForm);
+                    window.toast.success('게시판이 수정되었습니다.');
+                } else {
+                    await api.post(`/teams/${teamId}/boards`, this.boardForm);
+                    window.toast.success('게시판이 생성되었습니다.');
+                }
+                this.showBoardManageModal = false;
+                await this.loadBoards(teamId);
+            } catch (e) { window.toast.error(e.message); }
+            finally { this.saving = false; }
+        },
+        async deleteBoard(board) {
+            if (board.is_default) { window.toast.warning('기본 게시판은 삭제할 수 없습니다.'); return; }
+            if (!await window.confirmDialog(`"${board.name}" 게시판을 삭제하시겠습니까? 모든 게시글이 함께 삭제됩니다.`, { title: '게시판 삭제', confirmText: '삭제', danger: true })) return;
+            try {
+                await api.del(`/boards/${board.id}`);
+                window.toast.success('게시판이 삭제되었습니다.');
+                await this.loadBoards(window._selectedTeamId);
+            } catch (e) { window.toast.error(e.message); }
+        },
     };
 }
 
@@ -4084,15 +4324,45 @@ function attendancePage() {
         today: null, loading: true,
         month: new Date().toISOString().slice(0, 7),
         records: [], stats: null,
-        // F-7: 퇴근 업무 보고
-        showWorkReport: false, workReportText: '', workReportSubmitting: false,
+        // F-4: 출퇴근 모드
+        attendanceMode: 'free', // free | fixed
+        showModeSettings: false,
+        modePolicy: { default_check_in: '09:00', default_check_out: '18:00', grace_minutes: 10 },
+        // F-7: 퇴근 업무 보고 (AI 요약)
+        showWorkReport: false, workReportText: '', workReportSubmitting: false, workReportLoading: false,
+        // 출근 팝업
+        showCheckInPopup: false,
 
         async init() {
-            await Promise.all([this.loadToday(), this.loadMonth()]);
+            await Promise.all([this.loadToday(), this.loadMonth(), this.loadPolicy()]);
             this.loading = false;
+            // 자유 모드 + 미출근 → 출근 팝업
+            if (this.attendanceMode === 'free' && !this.today?.check_in) { this.showCheckInPopup = true; }
             this.$el.addEventListener('route-changed', () => {
                 if (this.$data.currentPage === 'attendance') { this.loadToday(); this.loadMonth(); }
             });
+        },
+
+        async loadPolicy() {
+            try {
+                const teamId = window._selectedTeamId;
+                if (!teamId) return;
+                const data = await api.get(`/teams/${teamId}/attendance/policy`);
+                if (data?.mode) this.attendanceMode = data.mode;
+                if (data?.default_check_in) this.modePolicy.default_check_in = data.default_check_in;
+                if (data?.default_check_out) this.modePolicy.default_check_out = data.default_check_out;
+                if (data?.grace_minutes != null) this.modePolicy.grace_minutes = data.grace_minutes;
+            } catch { /* 정책 로드 실패 무시 */ }
+        },
+
+        async saveModePolicy() {
+            try {
+                const teamId = window._selectedTeamId;
+                if (!teamId) { window.toast.warning('팀을 먼저 선택해주세요.'); return; }
+                await api.patch(`/teams/${teamId}/attendance/policy`, { mode: this.attendanceMode, ...this.modePolicy });
+                window.toast.success('출퇴근 모드가 저장되었습니다.');
+                this.showModeSettings = false;
+            } catch (e) { window.toast.error(e.message); }
         },
 
         async loadToday() {
@@ -4115,24 +4385,43 @@ function attendancePage() {
         },
 
         async checkOut() {
+            // AI 업무 요약 로드 → 모달 표시 → 제출 시 퇴근
+            this.workReportLoading = true;
+            this.showWorkReport = true;
             try {
-                this.today = await api.post('/attendance/check-out');
-                window.toast.success('퇴근이 기록되었습니다.');
-                await this.loadMonth();
-                // F-7: 퇴근 후 업무 보고 모달 표시
-                this.showWorkReport = true;
-            } catch (e) { window.toast.error(e.message); }
+                const data = await api.get('/work-report/today');
+                this.workReportText = data?.summary || '';
+            } catch { this.workReportText = ''; }
+            finally { this.workReportLoading = false; }
         },
 
         async submitWorkReport() {
-            if (!this.workReportText.trim()) { this.showWorkReport = false; return; }
             this.workReportSubmitting = true;
             try {
-                // 업무 보고를 활동 로그로 기록
-                await api.post('/activity', { type: 'work_report', content: this.workReportText.trim() });
-                window.toast.success('업무 보고가 저장되었습니다.');
-            } catch { /* 실패해도 퇴근은 완료됨 */ }
+                await api.post('/work-report/submit', { summary: this.workReportText.trim() });
+                this.today = await api.get('/attendance/today');
+                await this.loadMonth();
+                window.toast.success('업무 보고 제출 및 퇴근이 기록되었습니다.');
+            } catch (e) {
+                // fallback: 직접 퇴근 + 활동 로그
+                try {
+                    this.today = await api.post('/attendance/check-out');
+                    if (this.workReportText.trim()) await api.post('/activity', { type: 'work_report', content: this.workReportText.trim() });
+                    window.toast.success('퇴근이 기록되었습니다.');
+                    await this.loadMonth();
+                } catch (e2) { window.toast.error(e2.message); }
+            }
             finally { this.showWorkReport = false; this.workReportText = ''; this.workReportSubmitting = false; }
+        },
+
+        skipWorkReport() {
+            // 보고 없이 퇴근만
+            this.showWorkReport = false;
+            api.post('/attendance/check-out').then(data => {
+                this.today = data;
+                this.loadMonth();
+                window.toast.success('퇴근이 기록되었습니다.');
+            }).catch(e => window.toast.error(e.message));
         },
 
         changeMonth(dir) {
