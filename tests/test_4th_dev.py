@@ -10,9 +10,7 @@ from tests.conftest import TestSessionLocal
 from sqlalchemy import select
 from app.database import (
     User, Team, TeamMember, Project, Client, Task,
-    Board, BoardPost, BoardComment, PendingInvite,
-    UserTaskPriority, ChatRoom, ChatRoomMember, RoomMessage,
-    Attendance, AttendancePolicy, VerificationCode,
+    VerificationCode,
 )
 
 

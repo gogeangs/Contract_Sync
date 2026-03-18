@@ -6,7 +6,6 @@
 실행: python3 -m pytest tests/test_e2e.py -v
 """
 import pytest
-import asyncio
 import httpx
 import uvicorn
 import threading
@@ -145,7 +144,6 @@ class TestAuthFlowE2E:
         from tests.conftest import TestSessionLocal
         from sqlalchemy import select
         from app.database import VerificationCode
-        import asyncio
 
         async def get_code():
             async with TestSessionLocal() as db:

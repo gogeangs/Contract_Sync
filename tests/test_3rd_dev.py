@@ -10,8 +10,7 @@ from tests.conftest import TestSessionLocal
 from sqlalchemy import select
 from app.database import (
     User, Team, TeamMember, Project, Client, Task, PaymentSchedule,
-    ChatSession, ChatMessage, FeedbackRequest, FeedbackResponse,
-    Notification, VerificationCode,
+    ChatSession, FeedbackRequest, Notification, VerificationCode,
 )
 
 

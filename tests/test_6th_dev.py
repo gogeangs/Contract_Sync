@@ -10,9 +10,7 @@ from tests.conftest import TestSessionLocal
 from sqlalchemy import select
 from app.database import (
     User, Team, TeamMember, Project, Client, Task,
-    Attendance, AttendancePolicy, VerificationCode,
-    ChatRoom, ChatRoomMember, RoomMessage,
-    Board, BoardPost, Notification,
+    VerificationCode,
 )
 from datetime import datetime, timedelta, timezone
 
