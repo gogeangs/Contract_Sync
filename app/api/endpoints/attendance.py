@@ -48,6 +48,7 @@ class PolicyUpdate(BaseModel):
     default_check_out: str = Field("18:00", pattern=r'^\d{2}:\d{2}$')
     work_hours: int = Field(8, ge=1, le=24)
     break_hours: int = Field(1, ge=0, le=4)
+    mode: str = Field("fixed", pattern=r'^(free|fixed)$')
 
 
 # ── 헬퍼 ──────────────────────────────────────
@@ -67,9 +68,11 @@ def _calc_work_hours(check_in: str, check_out: str, break_hours: int = 1) -> str
 
 
 def _determine_status(check_in: str, check_out: str, policy_in: str, policy_out: str) -> str:
-    """출근 상태 판별"""
+    """출근 상태 판별 (고정 모드 전용)"""
     if not check_in:
         return "absent"
+    if check_out and check_out < check_in:
+        return "error"  # 퇴근 시간이 출근 시간보다 이른 비정상 상태
     if check_in > policy_in:
         return "late"
     if check_out and check_out < policy_out:
@@ -145,11 +148,13 @@ async def check_in(
 
     policy = await _get_policy(db, team_id)
 
+    is_free = getattr(policy, 'mode', 'fixed') == "free"
+
     if record:
         record.check_in = now_time
-        record.status = _determine_status(now_time, record.check_out, policy.default_check_in, policy.default_check_out)
+        record.status = "normal" if is_free else _determine_status(now_time, record.check_out, policy.default_check_in, policy.default_check_out)
     else:
-        status = _determine_status(now_time, None, policy.default_check_in, policy.default_check_out)
+        status = "normal" if is_free else _determine_status(now_time, None, policy.default_check_in, policy.default_check_out)
         record = Attendance(
             team_id=team_id,
             user_id=current_user.id,
@@ -197,7 +202,7 @@ async def check_out(
 
     record.check_out = now_time
     record.work_hours = _calc_work_hours(record.check_in, now_time, policy.break_hours)
-    record.status = _determine_status(record.check_in, now_time, policy.default_check_in, policy.default_check_out)
+    record.status = "normal" if getattr(policy, 'mode', 'fixed') == "free" else _determine_status(record.check_in, now_time, policy.default_check_in, policy.default_check_out)
 
     await db.commit()
     await db.refresh(record)
@@ -342,7 +347,7 @@ async def update_attendance(
     # 근무시간 재계산
     if record.check_in and record.check_out:
         record.work_hours = _calc_work_hours(record.check_in, record.check_out, policy.break_hours)
-        record.status = _determine_status(record.check_in, record.check_out, policy.default_check_in, policy.default_check_out)
+        record.status = "normal" if getattr(policy, 'mode', 'fixed') == "free" else _determine_status(record.check_in, record.check_out, policy.default_check_in, policy.default_check_out)
 
     record.updated_at = utc_now()
     await db.commit()
@@ -372,6 +377,7 @@ async def get_attendance_policy(
         "default_check_out": policy.default_check_out,
         "work_hours": policy.work_hours,
         "break_hours": policy.break_hours,
+        "mode": getattr(policy, 'mode', 'fixed'),
     }
 
 
@@ -392,6 +398,7 @@ async def update_attendance_policy(
     policy.default_check_out = body.default_check_out
     policy.work_hours = body.work_hours
     policy.break_hours = body.break_hours
+    policy.mode = body.mode
 
     await db.commit()
     return {
@@ -401,4 +408,5 @@ async def update_attendance_policy(
         "default_check_out": policy.default_check_out,
         "work_hours": policy.work_hours,
         "break_hours": policy.break_hours,
+        "mode": policy.mode,
     }

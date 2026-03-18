@@ -1,5 +1,5 @@
 """발주처 API — Phase 0 (6개 엔드포인트)"""
-from fastapi import APIRouter, Depends, HTTPException, Request, Query
+from fastapi import APIRouter, Depends, HTTPException, Request, Query, UploadFile, File
 from sqlalchemy.ext.asyncio import AsyncSession
 from typing import Optional
 import logging
@@ -53,6 +53,72 @@ async def list_clients(
     )
     enriched = await client_service.enrich_list(db, rows)
     return {"clients": enriched, "total": total}
+
+
+# ── OCR 사업자등록증 자동 인식 ──
+
+ALLOWED_OCR_TYPES = {
+    "image/jpeg", "image/png", "image/webp", "application/pdf",
+}
+MAX_OCR_SIZE = 10 * 1024 * 1024  # 10MB
+
+
+@router.post("/ocr")
+@limiter.limit("10/minute")
+async def ocr_business_registration(
+    request: Request,
+    file: UploadFile = File(..., description="사업자등록증 파일 (PDF/JPG/PNG/WebP)"),
+    db: AsyncSession = Depends(get_db),
+):
+    """사업자등록증 OCR — Gemini Vision API로 사업자 정보 추출"""
+    user = await require_current_user(request, db)  # noqa: F841
+
+    content_type = file.content_type or ""
+    if content_type not in ALLOWED_OCR_TYPES:
+        raise HTTPException(
+            status_code=400,
+            detail="지원하지 않는 파일 형식입니다. PDF, JPG, PNG, WebP만 가능합니다.",
+        )
+
+    file_bytes = await file.read()
+    if len(file_bytes) == 0:
+        raise HTTPException(status_code=400, detail="빈 파일입니다.")
+    if len(file_bytes) > MAX_OCR_SIZE:
+        raise HTTPException(status_code=400, detail="파일 크기가 10MB를 초과합니다.")
+
+    # magic bytes 검증
+    MAGIC = {
+        b'\xff\xd8\xff': "image/jpeg",
+        b'\x89PNG': "image/png",
+        b'RIFF': "image/webp",
+        b'%PDF': "application/pdf",
+    }
+    detected = None
+    for magic, mime in MAGIC.items():
+        if file_bytes[:len(magic)] == magic:
+            detected = mime
+            break
+    if detected and detected != content_type:
+        logger.warning(f"MIME 불일치: content_type={content_type}, detected={detected}")
+
+    try:
+        from app.services.ocr_service import get_ocr_service
+        ocr_service = get_ocr_service()
+        result = await ocr_service.extract_business_info(file_bytes, detected or content_type)
+    except RuntimeError as e:
+        logger.error(f"OCR 서비스 초기화 실패: {e}")
+        raise HTTPException(status_code=500, detail="OCR 서비스를 사용할 수 없습니다.")
+    except Exception as e:
+        logger.error(f"OCR 처리 중 오류: {e}")
+        raise HTTPException(status_code=500, detail="OCR 처리 중 오류가 발생했습니다.")
+
+    if result is None:
+        raise HTTPException(
+            status_code=422,
+            detail="사업자등록증에서 정보를 추출할 수 없습니다. 이미지를 확인해 주세요.",
+        )
+
+    return {"data": result}
 
 
 @router.get("/{client_id}", response_model=ClientResponse)

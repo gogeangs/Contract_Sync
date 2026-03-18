@@ -232,6 +232,68 @@ async def create_room(
     return {"id": room.id, "type": room.type, "name": room.name}
 
 
+@router.post("/chat/rooms/direct/{target_user_id}")
+async def find_or_create_direct_room(
+    target_user_id: int,
+    db: AsyncSession = Depends(get_db),
+    current_user: User = Depends(require_current_user),
+):
+    """1:1 채팅방 찾기 또는 생성 (플로팅 채팅용)"""
+    if target_user_id == current_user.id:
+        raise HTTPException(status_code=400, detail="본인과 채팅할 수 없습니다.")
+
+    target = await db.get(User, target_user_id)
+    if not target:
+        raise HTTPException(status_code=404, detail="사용자를 찾을 수 없습니다.")
+
+    all_member_ids = [current_user.id, target_user_id]
+
+    # 기존 1:1 채팅방 검색
+    existing = await db.execute(
+        select(ChatRoom)
+        .join(ChatRoomMember, ChatRoom.id == ChatRoomMember.room_id)
+        .where(
+            ChatRoom.type == "direct",
+            ChatRoomMember.user_id == current_user.id,
+        )
+    )
+    for room in existing.scalars().all():
+        mem_q = await db.execute(
+            select(ChatRoomMember.user_id).where(ChatRoomMember.room_id == room.id)
+        )
+        member_ids_in_room = {r[0] for r in mem_q.all()}
+        if member_ids_in_room == set(all_member_ids):
+            return {"id": room.id, "existing": True, "name": target.name}
+
+    # 공통 팀 확인 — 두 사용자가 같은 팀에 소속되어야 함
+    my_teams = await db.execute(
+        select(TeamMember.team_id).where(TeamMember.user_id == current_user.id)
+    )
+    my_team_ids = {r[0] for r in my_teams.all()}
+
+    target_teams = await db.execute(
+        select(TeamMember.team_id).where(TeamMember.user_id == target_user_id)
+    )
+    target_team_ids = {r[0] for r in target_teams.all()}
+
+    common_teams = my_team_ids & target_team_ids
+    if not common_teams:
+        raise HTTPException(status_code=400, detail="같은 팀에 소속된 멤버와만 채팅할 수 있습니다.")
+
+    team_id = next(iter(common_teams))  # 공통 팀 중 첫 번째 사용
+
+    room = ChatRoom(team_id=team_id, type="direct")
+    db.add(room)
+    await db.flush()
+
+    for uid in all_member_ids:
+        db.add(ChatRoomMember(room_id=room.id, user_id=uid))
+
+    await db.commit()
+    await db.refresh(room)
+    return {"id": room.id, "existing": False, "name": target.name}
+
+
 # ── 메시지 API ─────────────────────────────────
 
 @router.get("/chat/rooms/{room_id}/messages")

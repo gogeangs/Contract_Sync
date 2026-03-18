@@ -1,0 +1,300 @@
+<!DOCTYPE html>
+<html lang="ko" class="">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Contract Sync v2 - 고객 등록 (OCR)</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <script defer src="https://cdn.jsdelivr.net/npm/alpinejs@3.x.x/dist/cdn.min.js"></script>
+  <script>tailwind.config = { darkMode: 'class' }</script>
+  <style>[x-cloak]{display:none!important}
+  @keyframes pulse-border{0%,100%{border-color:rgba(99,102,241,.4)}50%{border-color:rgba(99,102,241,1)}}
+  .animate-pulse-border{animation:pulse-border 1.5s ease-in-out infinite}
+  </style>
+</head>
+<body class="bg-gray-50 dark:bg-gray-900 text-gray-800 dark:text-gray-100 transition-colors duration-300">
+<div x-data="clientOcrPage()" class="flex h-screen overflow-hidden">
+  <!-- 사이드바 -->
+  <aside class="hidden lg:flex lg:flex-col w-64 bg-white dark:bg-gray-800 border-r border-gray-200 dark:border-gray-700 fixed inset-y-0 left-0 z-30">
+    <div class="flex items-center gap-3 px-6 py-5 border-b border-gray-200 dark:border-gray-700">
+      <div class="w-8 h-8 bg-indigo-600 rounded-lg flex items-center justify-center"><svg class="w-5 h-5 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"/></svg></div>
+      <span class="text-lg font-bold dark:text-white">Contract Sync</span>
+    </div>
+    <nav class="flex-1 px-3 py-4 space-y-1 overflow-y-auto">
+      <a href="dashboard.html" class="flex items-center gap-3 px-3 py-2.5 rounded-lg text-gray-600 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700 text-sm"><svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 12l2-2m0 0l7-7 7 7M5 10v10a1 1 0 001 1h3m10-11l2 2m-2-2v10a1 1 0 01-1 1h-3m-6 0a1 1 0 001-1v-4a1 1 0 011-1h2a1 1 0 011 1v4a1 1 0 001 1m-6 0h6"/></svg><span>대시보드</span></a>
+      <a href="clients.html" class="flex items-center gap-3 px-3 py-2.5 rounded-lg bg-indigo-50 dark:bg-indigo-900/30 text-indigo-600 dark:text-indigo-400 font-medium text-sm"><svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 21V5a2 2 0 00-2-2H7a2 2 0 00-2 2v16m14 0h2m-2 0h-5m-9 0H3m2 0h5M9 7h1m-1 4h1m4-4h1m-1 4h1m-5 10v-5a1 1 0 011-1h2a1 1 0 011 1v5m-4 0h4"/></svg><span>고객</span></a>
+      <a href="projects.html" class="flex items-center gap-3 px-3 py-2.5 rounded-lg text-gray-600 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700 text-sm"><svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 7v10a2 2 0 002 2h14a2 2 0 002-2V9a2 2 0 00-2-2h-6l-2-2H5a2 2 0 00-2 2z"/></svg><span>프로젝트</span></a>
+      <a href="tasks.html" class="flex items-center gap-3 px-3 py-2.5 rounded-lg text-gray-600 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700 text-sm"><svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2m-6 9l2 2 4-4"/></svg><span>업무</span></a>
+      <a href="board-list.html" class="flex items-center gap-3 px-3 py-2.5 rounded-lg text-gray-600 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700 text-sm"><svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 20H5a2 2 0 01-2-2V6a2 2 0 012-2h10a2 2 0 012 2v1m2 13a2 2 0 01-2-2V7m2 13a2 2 0 002-2V9a2 2 0 00-2-2h-2m-4-3H9M7 16h6M7 8h6v4H7V8z"/></svg><span>게시판</span></a>
+      <a href="chat-list.html" class="flex items-center gap-3 px-3 py-2.5 rounded-lg text-gray-600 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700 text-sm"><svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 12h.01M12 12h.01M16 12h.01M21 12c0 4.418-4.03 8-9 8a9.863 9.863 0 01-4.255-.949L3 20l1.395-3.72C3.512 15.042 3 13.574 3 12c0-4.418 4.03-8 9-8s9 3.582 9 8z"/></svg><span>채팅</span></a>
+      <a href="settings.html" class="flex items-center gap-3 px-3 py-2.5 rounded-lg text-gray-600 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700 text-sm"><svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10.325 4.317c.426-1.756 2.924-1.756 3.35 0a1.724 1.724 0 002.573 1.066c1.543-.94 3.31.826 2.37 2.37a1.724 1.724 0 001.066 2.573c1.756.426 1.756 2.924 0 3.35a1.724 1.724 0 00-1.066 2.573c.94 1.543-.826 3.31-2.37 2.37a1.724 1.724 0 00-2.573 1.066c-.426 1.756-2.924 1.756-3.35 0a1.724 1.724 0 00-2.573-1.066c-1.543.94-3.31-.826-2.37-2.37a1.724 1.724 0 00-1.066-2.573c-1.756-.426-1.756-2.924 0-3.35a1.724 1.724 0 001.066-2.573c-.94-1.543.826-3.31 2.37-2.37.996.608 2.296.07 2.572-1.065z"/><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z"/></svg><span>설정</span></a>
+    </nav>
+    <div class="px-4 py-3 border-t border-gray-200 dark:border-gray-700">
+      <div class="flex items-center gap-3">
+        <div class="w-8 h-8 bg-indigo-100 dark:bg-indigo-900 rounded-full flex items-center justify-center"><span class="text-sm font-medium text-indigo-600 dark:text-indigo-400">김</span></div>
+        <div class="flex-1"><p class="text-sm font-medium truncate">김매니저</p><p class="text-xs text-gray-500 dark:text-gray-400 truncate">pm@company.com</p></div>
+        <button @click="darkMode=!darkMode;document.documentElement.classList.toggle('dark')" class="p-1.5 rounded-lg hover:bg-gray-100 dark:hover:bg-gray-700"><svg x-show="!darkMode" class="w-4 h-4 text-gray-500" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M20.354 15.354A9 9 0 018.646 3.646 9.003 9.003 0 0012 21a9.003 9.003 0 008.354-5.646z"/></svg><svg x-show="darkMode" x-cloak class="w-4 h-4 text-yellow-400" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 3v1m0 16v1m9-9h-1M4 12H3m15.364 6.364l-.707-.707M6.343 6.343l-.707-.707m12.728 0l-.707.707M6.343 17.657l-.707.707M16 12a4 4 0 11-8 0 4 4 0 018 0z"/></svg></button>
+      </div>
+    </div>
+  </aside>
+  <div x-show="mobileMenuOpen" x-cloak @click="mobileMenuOpen=false" class="fixed inset-0 bg-black/50 z-40 lg:hidden"></div>
+
+  <!-- 메인 -->
+  <div class="flex-1 flex flex-col lg:ml-64 min-h-screen">
+    <header class="sticky top-0 z-20 bg-white dark:bg-gray-800 border-b border-gray-200 dark:border-gray-700">
+      <div class="flex items-center justify-between px-4 lg:px-6 py-3">
+        <div class="flex items-center gap-3">
+          <button @click="mobileMenuOpen=true" class="lg:hidden p-2 rounded-lg hover:bg-gray-100 dark:hover:bg-gray-700"><svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 6h16M4 12h16M4 18h16"/></svg></button>
+          <div>
+            <div class="text-sm text-gray-500 dark:text-gray-400 flex items-center gap-1">
+              <a href="clients.html" class="hover:text-indigo-600">고객</a>
+              <svg class="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7"/></svg>
+              <span class="text-gray-800 dark:text-gray-200">새 고객 등록</span>
+            </div>
+            <h1 class="text-lg font-bold">새 고객 등록</h1>
+          </div>
+        </div>
+      </div>
+    </header>
+
+    <main class="flex-1 p-4 lg:p-6 pb-20 lg:pb-6 overflow-y-auto">
+      <div class="max-w-3xl mx-auto space-y-6">
+
+        <!-- 와이어프레임 상태 전환 (테스트용) -->
+        <div class="bg-amber-50 dark:bg-amber-900/20 border border-amber-200 dark:border-amber-700 rounded-xl p-4">
+          <p class="text-xs font-bold text-amber-700 dark:text-amber-300 mb-2">와이어프레임 상태 테스트</p>
+          <div class="flex flex-wrap gap-2">
+            <button @click="ocrState='idle'" class="px-3 py-1 text-xs rounded-full" :class="ocrState==='idle'?'bg-amber-600 text-white':'bg-amber-100 dark:bg-amber-800 text-amber-700 dark:text-amber-300'">기본</button>
+            <button @click="ocrState='analyzing'" class="px-3 py-1 text-xs rounded-full" :class="ocrState==='analyzing'?'bg-amber-600 text-white':'bg-amber-100 dark:bg-amber-800 text-amber-700 dark:text-amber-300'">분석 중</button>
+            <button @click="ocrState='success'; fillOcrData()" class="px-3 py-1 text-xs rounded-full" :class="ocrState==='success'?'bg-amber-600 text-white':'bg-amber-100 dark:bg-amber-800 text-amber-700 dark:text-amber-300'">인식 완료</button>
+            <button @click="ocrState='error'" class="px-3 py-1 text-xs rounded-full" :class="ocrState==='error'?'bg-amber-600 text-white':'bg-amber-100 dark:bg-amber-800 text-amber-700 dark:text-amber-300'">인식 실패</button>
+          </div>
+        </div>
+
+        <!-- OCR 업로드 영역 -->
+        <div class="bg-white dark:bg-gray-800 rounded-xl border border-gray-200 dark:border-gray-700 p-6">
+          <h3 class="text-base font-bold mb-4 flex items-center gap-2">
+            <svg class="w-5 h-5 text-indigo-500" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"/></svg>
+            사업자등록증으로 자동 입력
+          </h3>
+
+          <!-- idle 상태: 드래그앤드롭 -->
+          <div x-show="ocrState==='idle'" class="border-2 border-dashed border-gray-300 dark:border-gray-600 rounded-xl p-8 text-center hover:border-indigo-400 dark:hover:border-indigo-500 transition-colors cursor-pointer" @dragover.prevent="dragOver=true" @dragleave="dragOver=false" @drop.prevent="ocrState='analyzing'" :class="dragOver?'border-indigo-500 bg-indigo-50 dark:bg-indigo-900/20':''">
+            <svg class="w-12 h-12 mx-auto text-gray-400 dark:text-gray-500 mb-3" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M7 16a4 4 0 01-.88-7.903A5 5 0 1115.9 6L16 6a5 5 0 011 9.9M15 13l-3-3m0 0l-3 3m3-3v12"/></svg>
+            <p class="text-sm font-medium text-gray-700 dark:text-gray-300">사업자등록증/증명원 파일을 드래그하거나</p>
+            <button class="mt-2 px-4 py-2 bg-indigo-600 hover:bg-indigo-700 text-white text-sm rounded-lg inline-flex items-center gap-1.5">
+              <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15.172 7l-6.586 6.586a2 2 0 102.828 2.828l6.414-6.586a4 4 0 00-5.656-5.656l-6.415 6.585a6 6 0 108.486 8.486L20.5 13"/></svg>
+              파일 선택
+            </button>
+            <p class="text-xs text-gray-400 dark:text-gray-500 mt-3">PDF, JPG, PNG, WebP / 최대 10MB</p>
+          </div>
+
+          <!-- analyzing 상태: 분석 중 -->
+          <div x-show="ocrState==='analyzing'" x-cloak class="border-2 border-indigo-400 dark:border-indigo-500 rounded-xl p-8 text-center animate-pulse-border">
+            <div class="inline-flex items-center justify-center w-16 h-16 bg-indigo-100 dark:bg-indigo-900/30 rounded-full mb-4">
+              <svg class="w-8 h-8 text-indigo-600 dark:text-indigo-400 animate-spin" fill="none" viewBox="0 0 24 24"><circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle><path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path></svg>
+            </div>
+            <p class="text-sm font-medium text-indigo-700 dark:text-indigo-300">AI가 사업자등록증을 분석하고 있습니다...</p>
+            <p class="text-xs text-gray-500 dark:text-gray-400 mt-1">사업자등록증_넥스트이노베이션.pdf</p>
+            <div class="mt-4 w-48 mx-auto bg-gray-200 dark:bg-gray-700 rounded-full h-1.5"><div class="bg-indigo-600 h-1.5 rounded-full animate-pulse" style="width:60%"></div></div>
+          </div>
+
+          <!-- success 상태: 인식 완료 -->
+          <div x-show="ocrState==='success'" x-cloak class="border-2 border-green-400 dark:border-green-500 bg-green-50 dark:bg-green-900/10 rounded-xl p-5">
+            <div class="flex items-center justify-between">
+              <div class="flex items-center gap-3">
+                <div class="w-10 h-10 bg-green-100 dark:bg-green-900/30 rounded-full flex items-center justify-center">
+                  <svg class="w-5 h-5 text-green-600 dark:text-green-400" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7"/></svg>
+                </div>
+                <div>
+                  <p class="text-sm font-bold text-green-700 dark:text-green-300">인식 완료</p>
+                  <p class="text-xs text-green-600 dark:text-green-400">8개 항목 추출 완료 — 아래 폼을 확인해주세요</p>
+                </div>
+              </div>
+              <div class="flex items-center gap-2">
+                <span class="text-xs text-gray-500 dark:text-gray-400">사업자등록증_넥스트이노베이션.pdf</span>
+                <button @click="ocrState='idle'; resetForm()" class="text-xs text-gray-400 hover:text-red-500 p-1"><svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"/></svg></button>
+              </div>
+            </div>
+          </div>
+
+          <!-- error 상태: 인식 실패 -->
+          <div x-show="ocrState==='error'" x-cloak class="border-2 border-red-300 dark:border-red-600 bg-red-50 dark:bg-red-900/10 rounded-xl p-5">
+            <div class="flex items-center justify-between">
+              <div class="flex items-center gap-3">
+                <div class="w-10 h-10 bg-red-100 dark:bg-red-900/30 rounded-full flex items-center justify-center">
+                  <svg class="w-5 h-5 text-red-600 dark:text-red-400" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-2.5L13.732 4c-.77-.833-1.964-.833-2.732 0L4.082 16.5c-.77.833.192 2.5 1.732 2.5z"/></svg>
+                </div>
+                <div>
+                  <p class="text-sm font-bold text-red-700 dark:text-red-300">파일을 인식할 수 없습니다</p>
+                  <p class="text-xs text-red-600 dark:text-red-400">직접 입력해주세요. 다른 파일로 다시 시도할 수도 있습니다.</p>
+                </div>
+              </div>
+              <button @click="ocrState='idle'" class="px-3 py-1.5 text-xs bg-red-100 dark:bg-red-900/30 text-red-700 dark:text-red-300 rounded-lg hover:bg-red-200 dark:hover:bg-red-900/50">다시 시도</button>
+            </div>
+          </div>
+        </div>
+
+        <!-- 사업자 정보 폼 -->
+        <div class="bg-white dark:bg-gray-800 rounded-xl border border-gray-200 dark:border-gray-700 p-6">
+          <h3 class="text-base font-bold mb-5 flex items-center gap-2">
+            <svg class="w-5 h-5 text-indigo-500" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 21V5a2 2 0 00-2-2H7a2 2 0 00-2 2v16m14 0h2m-2 0h-5m-9 0H3m2 0h5M9 7h1m-1 4h1m4-4h1m-1 4h1m-5 10v-5a1 1 0 011-1h2a1 1 0 011 1v5m-4 0h4"/></svg>
+            사업자 정보
+            <span x-show="ocrState==='success'" x-cloak class="text-xs px-2 py-0.5 bg-green-100 dark:bg-green-900/30 text-green-700 dark:text-green-300 rounded-full font-normal">OCR 자동 입력됨</span>
+          </h3>
+
+          <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+            <!-- 사업자등록번호 -->
+            <div>
+              <label class="block text-sm font-medium mb-1.5">사업자등록번호 <span class="text-red-500">*</span></label>
+              <div class="relative">
+                <input type="text" x-model="form.business_number" class="w-full px-3 py-2.5 border rounded-lg bg-white dark:bg-gray-700 text-sm outline-none focus:ring-2 focus:ring-indigo-500" :class="ocrFilled.business_number?'border-green-400 dark:border-green-500':'border-gray-300 dark:border-gray-600'" placeholder="000-00-00000">
+                <svg x-show="ocrFilled.business_number" x-cloak class="absolute right-3 top-1/2 -translate-y-1/2 w-4 h-4 text-green-500" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7"/></svg>
+              </div>
+            </div>
+            <!-- 법인등록번호 -->
+            <div>
+              <label class="block text-sm font-medium mb-1.5">법인등록번호</label>
+              <div class="relative">
+                <input type="text" x-model="form.corp_number" class="w-full px-3 py-2.5 border rounded-lg bg-white dark:bg-gray-700 text-sm outline-none focus:ring-2 focus:ring-indigo-500" :class="ocrFilled.corp_number?'border-green-400 dark:border-green-500':'border-gray-300 dark:border-gray-600'" placeholder="000000-0000000">
+                <svg x-show="ocrFilled.corp_number" x-cloak class="absolute right-3 top-1/2 -translate-y-1/2 w-4 h-4 text-green-500" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7"/></svg>
+              </div>
+            </div>
+            <!-- 상호(법인명) -->
+            <div>
+              <label class="block text-sm font-medium mb-1.5">상호(법인명) <span class="text-red-500">*</span></label>
+              <div class="relative">
+                <input type="text" x-model="form.name" class="w-full px-3 py-2.5 border rounded-lg bg-white dark:bg-gray-700 text-sm outline-none focus:ring-2 focus:ring-indigo-500" :class="ocrFilled.name?'border-green-400 dark:border-green-500':'border-gray-300 dark:border-gray-600'" placeholder="상호명을 입력하세요">
+                <svg x-show="ocrFilled.name" x-cloak class="absolute right-3 top-1/2 -translate-y-1/2 w-4 h-4 text-green-500" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7"/></svg>
+              </div>
+            </div>
+            <!-- 대표자명 -->
+            <div>
+              <label class="block text-sm font-medium mb-1.5">대표자명 <span class="text-red-500">*</span></label>
+              <div class="relative">
+                <input type="text" x-model="form.representative" class="w-full px-3 py-2.5 border rounded-lg bg-white dark:bg-gray-700 text-sm outline-none focus:ring-2 focus:ring-indigo-500" :class="ocrFilled.representative?'border-green-400 dark:border-green-500':'border-gray-300 dark:border-gray-600'" placeholder="대표자명을 입력하세요">
+                <svg x-show="ocrFilled.representative" x-cloak class="absolute right-3 top-1/2 -translate-y-1/2 w-4 h-4 text-green-500" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7"/></svg>
+              </div>
+            </div>
+            <!-- 업태 -->
+            <div>
+              <label class="block text-sm font-medium mb-1.5">업태</label>
+              <div class="relative">
+                <input type="text" x-model="form.business_type" class="w-full px-3 py-2.5 border rounded-lg bg-white dark:bg-gray-700 text-sm outline-none focus:ring-2 focus:ring-indigo-500" :class="ocrFilled.business_type?'border-green-400 dark:border-green-500':'border-gray-300 dark:border-gray-600'" placeholder="업태">
+                <svg x-show="ocrFilled.business_type" x-cloak class="absolute right-3 top-1/2 -translate-y-1/2 w-4 h-4 text-green-500" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7"/></svg>
+              </div>
+            </div>
+            <!-- 종목 -->
+            <div>
+              <label class="block text-sm font-medium mb-1.5">종목</label>
+              <div class="relative">
+                <input type="text" x-model="form.business_category" class="w-full px-3 py-2.5 border rounded-lg bg-white dark:bg-gray-700 text-sm outline-none focus:ring-2 focus:ring-indigo-500" :class="ocrFilled.business_category?'border-green-400 dark:border-green-500':'border-gray-300 dark:border-gray-600'" placeholder="종목">
+                <svg x-show="ocrFilled.business_category" x-cloak class="absolute right-3 top-1/2 -translate-y-1/2 w-4 h-4 text-green-500" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7"/></svg>
+              </div>
+            </div>
+            <!-- 사업장 소재지 -->
+            <div class="md:col-span-2">
+              <label class="block text-sm font-medium mb-1.5">사업장 소재지</label>
+              <div class="relative">
+                <input type="text" x-model="form.address" class="w-full px-3 py-2.5 border rounded-lg bg-white dark:bg-gray-700 text-sm outline-none focus:ring-2 focus:ring-indigo-500" :class="ocrFilled.address?'border-green-400 dark:border-green-500':'border-gray-300 dark:border-gray-600'" placeholder="사업장 주소">
+                <svg x-show="ocrFilled.address" x-cloak class="absolute right-3 top-1/2 -translate-y-1/2 w-4 h-4 text-green-500" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7"/></svg>
+              </div>
+            </div>
+            <!-- 전화번호 -->
+            <div>
+              <label class="block text-sm font-medium mb-1.5">전화번호</label>
+              <div class="relative">
+                <input type="tel" x-model="form.phone" class="w-full px-3 py-2.5 border rounded-lg bg-white dark:bg-gray-700 text-sm outline-none focus:ring-2 focus:ring-indigo-500" :class="ocrFilled.phone?'border-green-400 dark:border-green-500':'border-gray-300 dark:border-gray-600'" placeholder="02-0000-0000">
+                <svg x-show="ocrFilled.phone" x-cloak class="absolute right-3 top-1/2 -translate-y-1/2 w-4 h-4 text-green-500" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7"/></svg>
+              </div>
+            </div>
+            <!-- 팩스번호 -->
+            <div>
+              <label class="block text-sm font-medium mb-1.5">팩스번호</label>
+              <input type="tel" x-model="form.fax" class="w-full px-3 py-2.5 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-sm outline-none focus:ring-2 focus:ring-indigo-500" placeholder="02-0000-0001">
+            </div>
+          </div>
+        </div>
+
+        <!-- 담당자 정보 -->
+        <div class="bg-white dark:bg-gray-800 rounded-xl border border-gray-200 dark:border-gray-700 p-6">
+          <h3 class="text-base font-bold mb-5 flex items-center gap-2">
+            <svg class="w-5 h-5 text-indigo-500" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z"/></svg>
+            담당자 정보
+            <span class="text-xs text-gray-400 dark:text-gray-500 font-normal">(직접 입력)</span>
+          </h3>
+          <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+            <div>
+              <label class="block text-sm font-medium mb-1.5">담당자명</label>
+              <input type="text" x-model="form.contact_name" class="w-full px-3 py-2.5 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-sm outline-none focus:ring-2 focus:ring-indigo-500" placeholder="담당자 이름">
+            </div>
+            <div>
+              <label class="block text-sm font-medium mb-1.5">직책</label>
+              <input type="text" x-model="form.contact_position" class="w-full px-3 py-2.5 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-sm outline-none focus:ring-2 focus:ring-indigo-500" placeholder="직책">
+            </div>
+            <div>
+              <label class="block text-sm font-medium mb-1.5">이메일</label>
+              <input type="email" x-model="form.contact_email" class="w-full px-3 py-2.5 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-sm outline-none focus:ring-2 focus:ring-indigo-500" placeholder="email@company.com">
+            </div>
+            <div>
+              <label class="block text-sm font-medium mb-1.5">휴대폰</label>
+              <input type="tel" x-model="form.contact_phone" class="w-full px-3 py-2.5 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-sm outline-none focus:ring-2 focus:ring-indigo-500" placeholder="010-0000-0000">
+            </div>
+          </div>
+        </div>
+
+        <!-- 메모 -->
+        <div class="bg-white dark:bg-gray-800 rounded-xl border border-gray-200 dark:border-gray-700 p-6">
+          <h3 class="text-base font-bold mb-4">메모</h3>
+          <textarea x-model="form.memo" rows="3" class="w-full px-3 py-2.5 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-sm outline-none focus:ring-2 focus:ring-indigo-500 resize-none" placeholder="고객에 대한 메모를 입력하세요..."></textarea>
+        </div>
+
+        <!-- 액션 버튼 -->
+        <div class="flex items-center justify-between">
+          <button @click="ocrState='idle'; resetForm()" class="px-4 py-2.5 text-sm text-gray-600 dark:text-gray-400 hover:text-gray-800 dark:hover:text-gray-200">취소</button>
+          <div class="flex items-center gap-3">
+            <button x-show="ocrState==='success'" x-cloak @click="resetForm()" class="px-4 py-2.5 text-sm border border-gray-300 dark:border-gray-600 rounded-lg hover:bg-gray-50 dark:hover:bg-gray-700">OCR 초기화</button>
+            <button @click="showToast=true; setTimeout(()=>showToast=false, 3000)" class="px-6 py-2.5 bg-indigo-600 hover:bg-indigo-700 text-white text-sm rounded-lg font-medium flex items-center gap-2">
+              <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7"/></svg>
+              고객 등록
+            </button>
+          </div>
+        </div>
+
+        <!-- API 참고 -->
+        <div class="text-xs text-gray-400 dark:text-gray-500 border-t border-gray-200 dark:border-gray-700 pt-4">
+          <p class="font-mono">POST /api/v1/clients/ocr — 파일 업로드 + OCR 결과 반환</p>
+          <p class="font-mono">POST /api/v1/clients — 고객 등록</p>
+        </div>
+      </div>
+    </main>
+  </div>
+
+  <!-- 토스트 -->
+  <div x-show="showToast" x-cloak x-transition class="fixed bottom-6 right-6 z-50 bg-green-600 text-white px-5 py-3 rounded-xl shadow-lg flex items-center gap-2">
+    <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7"/></svg>
+    <span class="text-sm font-medium">고객이 등록되었습니다</span>
+  </div>
+</div>
+
+<script>
+function appLayout(){return{mobileMenuOpen:false,darkMode:false}}
+function clientOcrPage(){return{
+  ocrState:'idle', dragOver:false, showToast:false,
+  form:{business_number:'',corp_number:'',name:'',representative:'',business_type:'',business_category:'',address:'',phone:'',fax:'',contact_name:'',contact_position:'',contact_email:'',contact_phone:'',memo:''},
+  ocrFilled:{business_number:false,corp_number:false,name:false,representative:false,business_type:false,business_category:false,address:false,phone:false},
+  fillOcrData(){
+    this.form.business_number='214-87-45123';this.form.corp_number='110111-8234567';
+    this.form.name='(주)넥스트이노베이션';this.form.representative='김정훈';
+    this.form.business_type='서비스업';this.form.business_category='소프트웨어 개발';
+    this.form.address='서울특별시 강남구 테헤란로 152, 8층';this.form.phone='02-555-1234';
+    Object.keys(this.ocrFilled).forEach(k=>this.ocrFilled[k]=true);
+  },
+  resetForm(){
+    Object.keys(this.form).forEach(k=>this.form[k]='');
+    Object.keys(this.ocrFilled).forEach(k=>this.ocrFilled[k]=false);
+  }
+}}
+</script>
+</body>
+</html>

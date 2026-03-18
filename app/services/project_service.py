@@ -110,9 +110,7 @@ async def create(db: AsyncSession, user: User, data, team_id: int | None):
             raise HTTPException(status_code=403, detail="해당 팀의 멤버가 아닙니다.")
         await check_team_permission(db, team_id, user.id, "project.create")
 
-    # outsourcing → client_id 필수
-    if data.project_type == "outsourcing" and not data.client_id:
-        raise HTTPException(status_code=400, detail="외주 프로젝트는 발주처 지정이 필수입니다")
+    # outsourcing → client_id 선택 (나중에 연결 가능)
 
     # client_id 유효성
     if data.client_id:
@@ -187,11 +185,7 @@ async def update(db: AsyncSession, user: User, project_id: int, data):
 
     fields = data.model_dump(exclude_unset=True)
 
-    # outsourcing 유형 변경 시 client_id 검증
-    new_type = fields.get("project_type", project.project_type)
-    new_client = fields.get("client_id", project.client_id)
-    if new_type == "outsourcing" and not new_client:
-        raise HTTPException(status_code=400, detail="외주 프로젝트는 발주처 지정이 필수입니다")
+    # outsourcing 유형도 client_id 선택 (나중에 연결 가능)
 
     if "client_id" in fields and fields["client_id"]:
         c = await db.execute(select(Client).where(Client.id == fields["client_id"]))

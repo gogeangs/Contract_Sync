@@ -21,7 +21,19 @@ router = APIRouter()
 
 class BoardCreate(BaseModel):
     name: str = Field(..., min_length=1, max_length=100)
-    type: str = Field(..., pattern=r'^(notice|free|archive)$')
+    type: str = Field("free", pattern=r'^(notice|free|archive)$')
+    description: Optional[str] = Field(None, max_length=500)
+    write_permission: str = Field("all", pattern=r'^(all|admin_only)$')
+    comment_enabled: bool = Field(True)
+    visibility: str = Field("team_all", pattern=r'^(team_all|roles_only)$')
+
+
+class BoardUpdate(BaseModel):
+    name: Optional[str] = Field(None, min_length=1, max_length=100)
+    description: Optional[str] = Field(None, max_length=500)
+    write_permission: Optional[str] = Field(None, pattern=r'^(all|admin_only)$')
+    comment_enabled: Optional[bool] = None
+    visibility: Optional[str] = Field(None, pattern=r'^(team_all|roles_only)$')
 
 
 class PostCreate(BaseModel):
@@ -148,21 +160,107 @@ async def list_boards(
             await db.refresh(b)
         boards = defaults
 
+    # 게시글 수 일괄 조회 (N+1 방지)
+    post_counts = {}
+    if boards:
+        board_ids = [b.id for b in boards]
+        cnt_result = await db.execute(
+            select(BoardPost.board_id, func.count(BoardPost.id))
+            .where(BoardPost.board_id.in_(board_ids))
+            .group_by(BoardPost.board_id)
+        )
+        post_counts = dict(cnt_result.all())
+
     items = []
     for b in boards:
-        # 게시글 수 조회
-        cnt = await db.execute(
-            select(func.count(BoardPost.id)).where(BoardPost.board_id == b.id)
-        )
         items.append({
             "id": b.id,
             "team_id": b.team_id,
             "name": b.name,
             "type": b.type,
-            "post_count": cnt.scalar() or 0,
+            "description": getattr(b, 'description', None),
+            "write_permission": getattr(b, 'write_permission', 'all'),
+            "comment_enabled": getattr(b, 'comment_enabled', True),
+            "visibility": getattr(b, 'visibility', 'team_all'),
+            "post_count": post_counts.get(b.id, 0),
             "created_at": b.created_at.isoformat() if b.created_at else None,
         })
     return items
+
+
+@router.patch("/boards/{board_id}")
+async def update_board(
+    board_id: int,
+    body: BoardUpdate,
+    db: AsyncSession = Depends(get_db),
+    current_user: User = Depends(require_current_user),
+):
+    """게시판 설정 변경 (owner/admin)"""
+    board = await db.get(Board, board_id)
+    if not board:
+        raise HTTPException(status_code=404, detail="게시판을 찾을 수 없습니다.")
+    if not board.team_id:
+        raise HTTPException(status_code=400, detail="개인 게시판은 설정을 변경할 수 없습니다.")
+
+    member = await _require_team_member(db, board.team_id, current_user.id)
+    if member.role not in ("owner", "admin"):
+        raise HTTPException(status_code=403, detail="게시판 설정 변경 권한이 없습니다.")
+
+    if body.name is not None:
+        board.name = body.name
+    if body.description is not None:
+        board.description = body.description
+    if body.write_permission is not None:
+        board.write_permission = body.write_permission
+    if body.comment_enabled is not None:
+        board.comment_enabled = body.comment_enabled
+    if body.visibility is not None:
+        board.visibility = body.visibility
+    board.updated_at = utc_now()
+
+    await db.commit()
+    await db.refresh(board)
+    return {
+        "id": board.id, "name": board.name, "type": board.type,
+        "description": board.description,
+        "write_permission": board.write_permission,
+        "comment_enabled": board.comment_enabled,
+        "visibility": board.visibility,
+    }
+
+
+@router.delete("/boards/{board_id}")
+async def delete_board(
+    board_id: int,
+    db: AsyncSession = Depends(get_db),
+    current_user: User = Depends(require_current_user),
+):
+    """게시판 삭제 (owner/admin, 기본 게시판 제외)"""
+    board = await db.get(Board, board_id)
+    if not board:
+        raise HTTPException(status_code=404, detail="게시판을 찾을 수 없습니다.")
+    if not board.team_id:
+        raise HTTPException(status_code=400, detail="개인 게시판은 이 경로에서 삭제할 수 없습니다.")
+
+    member = await _require_team_member(db, board.team_id, current_user.id)
+    if member.role not in ("owner", "admin"):
+        raise HTTPException(status_code=403, detail="게시판 삭제 권한이 없습니다.")
+
+    # 기본 게시판 보호 — 해당 타입의 첫 번째 게시판이면 삭제 불가
+    if board.type in ("notice", "free", "archive"):
+        earliest = await db.execute(
+            select(Board).where(
+                Board.team_id == board.team_id,
+                Board.type == board.type,
+            ).order_by(Board.created_at.asc()).limit(1)
+        )
+        first_board = earliest.scalar_one_or_none()
+        if first_board and first_board.id == board.id:
+            raise HTTPException(status_code=400, detail="기본 게시판은 삭제할 수 없습니다.")
+
+    await db.delete(board)
+    await db.commit()
+    return {"ok": True}
 
 
 @router.post("/teams/{team_id}/boards")
@@ -177,11 +275,23 @@ async def create_board(
     if member.role not in ("owner", "admin"):
         raise HTTPException(status_code=403, detail="게시판 생성 권한이 없습니다.")
 
-    board = Board(team_id=team_id, name=body.name, type=body.type)
+    board = Board(
+        team_id=team_id, name=body.name, type=body.type,
+        description=body.description,
+        write_permission=body.write_permission,
+        comment_enabled=body.comment_enabled,
+        visibility=body.visibility,
+    )
     db.add(board)
     await db.commit()
     await db.refresh(board)
-    return {"id": board.id, "name": board.name, "type": board.type}
+    return {
+        "id": board.id, "name": board.name, "type": board.type,
+        "description": board.description,
+        "write_permission": board.write_permission,
+        "comment_enabled": board.comment_enabled,
+        "visibility": board.visibility,
+    }
 
 
 # ── 게시글 CRUD ────────────────────────────────
@@ -271,6 +381,11 @@ async def create_post(
     if board.type == "notice" and member and member.role not in ("owner", "admin"):
         raise HTTPException(status_code=403, detail="공지사항은 관리자만 작성할 수 있습니다.")
 
+    # 글쓰기 권한 확인
+    if board.team_id and getattr(board, 'write_permission', 'all') == "admin_only":
+        if member and member.role not in ("owner", "admin"):
+            raise HTTPException(status_code=403, detail="이 게시판은 관리자만 글을 작성할 수 있습니다.")
+
     post = BoardPost(
         board_id=board_id,
         author_id=current_user.id,
@@ -359,10 +474,16 @@ async def update_post(
         raise HTTPException(status_code=404, detail="게시글을 찾을 수 없습니다.")
 
     board = await db.get(Board, post.board_id)
-    member = await _require_team_member(db, board.team_id, current_user.id)
+    if not board:
+        raise HTTPException(status_code=404, detail="게시판을 찾을 수 없습니다.")
 
-    if post.author_id != current_user.id and member.role not in ("owner", "admin"):
-        raise HTTPException(status_code=403, detail="수정 권한이 없습니다.")
+    if board.team_id:
+        member = await _require_team_member(db, board.team_id, current_user.id)
+        if post.author_id != current_user.id and member.role not in ("owner", "admin"):
+            raise HTTPException(status_code=403, detail="수정 권한이 없습니다.")
+    else:
+        if post.author_id != current_user.id:
+            raise HTTPException(status_code=403, detail="본인의 글만 수정할 수 있습니다.")
 
     if body.title is not None:
         post.title = body.title
@@ -438,6 +559,10 @@ async def create_comment(
 
     board = await db.get(Board, post.board_id)
     await _require_board_access(db, board, current_user.id)
+
+    # 댓글 허용 확인
+    if getattr(board, 'comment_enabled', True) is False:
+        raise HTTPException(status_code=403, detail="이 게시판은 댓글이 비활성화되어 있습니다.")
 
     comment = BoardComment(
         post_id=post_id,

@@ -514,7 +514,12 @@ class Board(Base):
     user_id = Column(Integer, ForeignKey("users.id", ondelete="CASCADE"), nullable=True, index=True)
     name = Column(String(100), nullable=False)
     type = Column(String(20), nullable=False)  # notice / free / archive
+    description = Column(String(500), nullable=True)  # 게시판 설명
+    write_permission = Column(String(20), default="all")  # all / admin_only
+    comment_enabled = Column(Boolean, default=True)  # 댓글 허용 여부
+    visibility = Column(String(20), default="team_all")  # team_all / roles_only
     created_at = Column(DateTime, default=utc_now)
+    updated_at = Column(DateTime, default=utc_now, onupdate=utc_now)
 
     team = relationship("Team", backref="boards")
     owner = relationship("User", backref="owned_boards", foreign_keys=[user_id])
@@ -708,6 +713,7 @@ class AttendancePolicy(Base):
     default_check_out = Column(String(5), default="18:00")   # HH:MM
     work_hours = Column(Integer, default=8)       # 시간 단위
     break_hours = Column(Integer, default=1)      # 시간 단위
+    mode = Column(String(10), default="fixed")  # free / fixed
     created_at = Column(DateTime, default=utc_now)
 
     team = relationship("Team", backref="attendance_policy", uselist=False)
