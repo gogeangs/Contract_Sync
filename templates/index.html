@@ -4405,7 +4405,7 @@
                 <template x-for="(msg, idx) in messages" :key="idx">
                     <div class="flex" :class="msg.role==='user'?'justify-end':'justify-start'">
                         <div class="max-w-[80%] px-3.5 py-2.5 rounded-2xl text-sm" :class="msg.role==='user'?'bg-indigo-600 text-white rounded-br-md':'bg-gray-100 dark:bg-gray-700 text-gray-800 dark:text-gray-200 rounded-bl-md'">
-                            <div x-html="msg.role==='assistant'?CS.sanitize(msg.content.replace(/\n/g,'<br>')):msg.content"></div>
+                            <div x-html="CS.sanitize((msg.content||'').replace(/\n/g,'<br>'))"></div>
                             <p class="text-[10px] mt-1" :class="msg.role==='user'?'text-indigo-200':'text-gray-400'" x-text="formatTime(msg.time)"></p>
                         </div>
                     </div>

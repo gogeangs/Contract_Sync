@@ -602,21 +602,27 @@ function appShell() {
             if (this._sseSource) return;
             try {
                 this._sseSource = new EventSource('/sse/notifications');
-                this._sseSource.addEventListener('notification', (e) => {
+                this._sseNotifHandler = (e) => {
                     try {
                         const data = JSON.parse(e.data);
                         this.unreadCount++;
                         this.notifications.unshift(data);
                         window.toast.info(data.title || '새 알림이 있습니다');
-                    } catch {}
-                });
+                    } catch (err) { console.warn('SSE 알림 파싱 실패:', err); }
+                };
+                this._sseSource.addEventListener('notification', this._sseNotifHandler);
                 this._sseSource.addEventListener('connected', () => {});
                 this._sseSource.addEventListener('heartbeat', () => {});
                 this._sseSource.onerror = () => {};
-            } catch {}
+            } catch (err) { console.warn('SSE 연결 실패:', err); }
         },
         _disconnectSSE() {
-            if (this._sseSource) { this._sseSource.close(); this._sseSource = null; }
+            if (this._sseSource) {
+                if (this._sseNotifHandler) this._sseSource.removeEventListener('notification', this._sseNotifHandler);
+                this._sseSource.close();
+                this._sseSource = null;
+                this._sseNotifHandler = null;
+            }
         },
 
         // ---- 알림 삭제 (#3) ----
@@ -3998,7 +4004,10 @@ function chatPage() {
         },
 
         _disconnectSSE() {
-            if (this._sseSource) { this._sseSource.close(); this._sseSource = null; }
+            if (this._sseSource) {
+                this._sseSource.close();
+                this._sseSource = null;
+            }
         },
 
         _scrollToBottom() {

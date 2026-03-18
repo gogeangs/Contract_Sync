@@ -1,4 +1,5 @@
 import asyncio
+import html as html_mod
 import os
 import random
 import string
@@ -99,7 +100,7 @@ async def _send_via_gmail_api(
         return False, "google-auth 패키지 미설치"
     except Exception as e:
         logger.error(f"이메일 발송 실패 (Gmail API): {type(e).__name__}: {e}")
-        return False, err_msg
+        return False, str(e)
 
 
 # ══════════════════════════════════════════
@@ -145,7 +146,7 @@ async def _send_via_resend(
 
     except Exception as e:
         logger.error(f"이메일 발송 실패 (Resend): {type(e).__name__}: {e}")
-        return False, err_msg
+        return False, str(e)
 
 
 # ══════════════════════════════════════════
@@ -248,7 +249,7 @@ async def send_verification_email(to_email: str, code: str) -> tuple[bool, str]:
             <h2 style="color: #333; text-align: center;">Contract Sync 이메일 인증</h2>
             <p style="color: #666; text-align: center;">아래 인증코드를 입력하여 이메일 인증을 완료하세요.</p>
             <div style="background: #4F46E5; color: white; font-size: 32px; font-weight: bold; text-align: center; padding: 20px; border-radius: 8px; letter-spacing: 8px; margin: 20px 0;">
-                {code}
+                {html_mod.escape(str(code))}
             </div>
             <p style="color: #999; text-align: center; font-size: 14px;">이 인증코드는 10분간 유효합니다.</p>
         </div>

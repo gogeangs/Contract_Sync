@@ -244,8 +244,8 @@ async def move_task(
 @limiter.limit("20/minute")
 async def upload_attachment(
     task_id: int,
+    request: Request,
     file: UploadFile = File(...),
-    request: Request = None,
     db: AsyncSession = Depends(get_db),
 ):
     """산출물 업로드"""
