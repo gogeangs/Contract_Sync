@@ -116,13 +116,16 @@ async def upload_document(
         )
 
         # 업로드 후 자동 AI 분석 시작
+        analysis_status = "completed"
         try:
             doc = await doc_service.analyze_document(db, doc.id)
         except Exception as e:
             logger.warning(f"자동 AI 분석 실패 (document_id={doc.id}): {e}")
-            # 분석 실패해도 업로드는 성공 처리
+            analysis_status = "failed"
 
-        return _to_response(doc, uploader_name=user.name or user.email)
+        resp = _to_response(doc, uploader_name=user.name or user.email)
+        resp["analysis_status"] = analysis_status
+        return resp
 
     except ValueError as e:
         raise HTTPException(status_code=400, detail=str(e))
@@ -141,19 +144,28 @@ async def list_documents(
 
     docs = await doc_service.list_documents(db, project_id, document_type)
 
-    # 업로더 이름 조회
-    user_ids = {d.user_id for d in docs}
+    # 업로더 이름 일괄 조회 (N+1 방지)
+    user_ids = list({d.user_id for d in docs})
     users_map = {}
-    for uid in user_ids:
-        u = await db.get(User, uid)
-        if u:
-            users_map[uid] = u.name or u.email
+    if user_ids:
+        from sqlalchemy import select as sa_select
+        result = await db.execute(sa_select(User).where(User.id.in_(user_ids)))
+        for u in result.scalars().all():
+            users_map[u.id] = u.name or u.email
 
-    # 검토 수 조회
+    # 검토 수 일괄 조회 (N+1 방지)
     review_counts = {}
-    for d in docs:
-        reviews = await doc_service.list_reviews(db, d.id)
-        review_counts[d.id] = len(reviews)
+    if docs:
+        from app.database import DocumentReview
+        doc_ids = [d.id for d in docs]
+        from sqlalchemy import func as sa_func
+        result = await db.execute(
+            sa_select(DocumentReview.document_id, sa_func.count(DocumentReview.id))
+            .where(DocumentReview.document_id.in_(doc_ids))
+            .group_by(DocumentReview.document_id)
+        )
+        for doc_id, count in result.all():
+            review_counts[doc_id] = count
 
     responses = [
         _to_response(d, uploader_name=users_map.get(d.user_id), review_count=review_counts.get(d.id, 0))

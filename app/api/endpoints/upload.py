@@ -91,5 +91,6 @@ async def health_check(db: AsyncSession = Depends(get_db)):
         from sqlalchemy import text
         await db.execute(text("SELECT 1"))
         return {"status": "ok", "message": "서버가 정상 작동 중입니다.", "database": "connected"}
-    except Exception:
+    except Exception as e:
+        logger.warning(f"DB 헬스체크 실패: {type(e).__name__}: {e}")
         return {"status": "degraded", "message": "서버는 동작 중이나 DB 연결에 문제가 있습니다.", "database": "disconnected"}

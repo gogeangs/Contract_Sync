@@ -51,7 +51,7 @@ async def list_tasks(
     priority: Optional[str] = Query(None, description="우선순위 필터"),
     search: Optional[str] = Query(None, description="검색어"),
     team_id: Optional[int] = Query(None, description="팀 ID 필터"),
-    page: int = Query(1, ge=1),
+    page: int = Query(1, ge=1, le=1000),
     size: int = Query(20, ge=1, le=100),
     db: AsyncSession = Depends(get_db),
 ):

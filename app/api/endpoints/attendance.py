@@ -1,6 +1,7 @@
 """4차 개발 Phase 4 — 출퇴근 기록 / 근태 관리 API"""
 from fastapi import APIRouter, Depends, HTTPException, Query
 from sqlalchemy.ext.asyncio import AsyncSession
+from sqlalchemy.exc import IntegrityError
 from sqlalchemy import select
 from pydantic import BaseModel, Field
 from typing import Optional
@@ -158,7 +159,11 @@ async def check_in(
         )
         db.add(record)
 
-    await db.commit()
+    try:
+        await db.commit()
+    except IntegrityError:
+        await db.rollback()
+        raise HTTPException(status_code=409, detail="이미 출근 처리되었습니다. (동시 요청)")
     await db.refresh(record)
     return _attendance_to_dict(record, current_user.name)
 

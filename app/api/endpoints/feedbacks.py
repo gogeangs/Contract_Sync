@@ -62,7 +62,7 @@ async def get_feedback_info(
         "report_id": report.id,
         "task_name": task.task_name if task else None,
         "subject": report.subject,
-        "body_html": report.body_html,
+        "body_html": (report.body_html or "")[:10240],  # 10KB 제한
         "sender_name": (sender.name or sender.email) if sender else None,
         "sent_at": report.sent_at,
         "existing_feedbacks": [

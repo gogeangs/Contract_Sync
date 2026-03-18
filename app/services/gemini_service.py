@@ -72,9 +72,14 @@ class GeminiService:
                 logger.warning(f"Gemini 응답 파싱 실패 (시도 {attempt + 1}/{MAX_RETRIES + 1}): {e}")
                 if attempt < MAX_RETRIES:
                     continue
+            except TimeoutError as e:
+                last_error = e
+                logger.warning(f"Gemini API 타임아웃 (시도 {attempt + 1}): {e}")
+                if attempt < MAX_RETRIES:
+                    continue
             except Exception as e:
                 last_error = e
-                logger.error(f"Gemini API 호출 실패: {e}")
+                logger.error(f"Gemini API 호출 실패: {type(e).__name__}: {e}")
                 break
 
         raise RuntimeError(f"계약서 분석에 실패했습니다: {last_error}")

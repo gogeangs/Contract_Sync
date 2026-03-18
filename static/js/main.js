@@ -334,6 +334,7 @@ function appShell() {
         },
 
         handleRoute() {
+            clearTimeout(this._searchTimer);
             const hash = window.location.hash || '#/dashboard';
             const path = hash.substring(1).split('?')[0];
             let m;
@@ -828,13 +829,15 @@ function dashboardPage() {
                 this.stats.pendingTasks = pending?.total || 0;
                 this.stats.inProgressTasks = inProg?.total || 0;
                 this.stats.completedTasks = done?.total || 0;
-            } catch {}
+            } catch (err) { console.warn('대시보드 데이터 로드 실패:', err); }
             finally { this.loading = false; }
 
             // 매출 + 워크로드 병렬 로드
+            this.revenueLoading = true;
+            this.workloadLoading = true;
             Promise.all([
-                api.get('/dashboard/revenue').then(d => { this.revenue = d || { months: [], amounts: [] }; }).catch(() => {}),
-                api.get('/dashboard/workload').then(d => { this.workload = d || []; }).catch(() => {}),
+                api.get('/dashboard/revenue').then(d => { this.revenue = d || { months: [], amounts: [] }; }).catch(e => { console.warn('매출 로드 실패:', e); }),
+                api.get('/dashboard/workload').then(d => { this.workload = d || []; }).catch(e => { console.warn('워크로드 로드 실패:', e); }),
             ]).finally(() => { this.revenueLoading = false; this.workloadLoading = false; });
         },
 
@@ -2319,7 +2322,7 @@ function paymentPage() {
         async init() { await Promise.all([this.loadSummary(), this.loadPayments()]); this.loading = false; },
 
         async loadSummary() {
-            try { this.summary = await api.get('/payments/summary'); } catch (e) { console.error(e); }
+            try { this.summary = await api.get('/payments/summary'); } catch (e) { console.warn('수금 요약 로드 실패:', e); }
         },
 
         async loadPayments() {
